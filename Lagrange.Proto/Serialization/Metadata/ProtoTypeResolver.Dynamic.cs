@@ -69,7 +69,9 @@ public static partial class ProtoTypeResolver
         var fields = CreateTypeFieldInfo(typeof(T));
         
         var polymorphicAttributes = typeof(T).GetCustomAttributes<ProtoDerivedTypeAttribute>().ToArray();
-        var polymorphicFieldNumber = typeof(T).GetCustomAttribute<ProtoPolymorphicAttribute>()?.FieldNumber ?? 0;
+        var polymorphicConfigAttribute = typeof(T).GetCustomAttribute<ProtoPolymorphicAttribute>();
+        var polymorphicFieldNumber =    polymorphicConfigAttribute?.FieldNumber ?? 0;
+        var fallbackToBaseType = polymorphicConfigAttribute?.FallbackToBaseType ?? true;
         
         if (polymorphicAttributes.Length > 0)
         {
@@ -90,6 +92,7 @@ public static partial class ProtoTypeResolver
                 ObjectCreator = MemberAccessor.CreateParameterlessConstructor<T>(ctor),
                 IgnoreDefaultFields = ignoreDefaultFields,
                 PolymorphicIndicateIndex = polymorphicFieldNumber,
+                PolymorphicFallbackToBaseType = fallbackToBaseType,
                 PolymorphicFields = polymorphicFields,
                 Fields = fields.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value)
             };

@@ -19,12 +19,12 @@ public static partial class ProtoSerializer
         var reader = new ProtoReader(data);
         return DeserializeProtoPackableCore<T>(ref reader);
     }
-    
+
     private static T DeserializeProtoPackableCore<T>(ref ProtoReader reader) where T : IProtoSerializable<T>
     {
         var objectInfo = T.TypeInfo;
         Debug.Assert(objectInfo.ObjectCreator != null);
-        
+
         T target = objectInfo.ObjectCreator();
 
         while (!reader.IsCompleted)
@@ -39,10 +39,10 @@ public static partial class ProtoSerializer
                 reader.SkipField((WireType)(tag & 0x07));
             }
         }
-        
+
         return target;
     }
-    
+
     /// <summary>
     /// Deserialize the ProtoPackable Object from the source buffer, based on reflection
     /// </summary>
@@ -51,15 +51,17 @@ public static partial class ProtoSerializer
     /// <returns>The deserialized object</returns>
     [RequiresUnreferencedCode(SerializationUnreferencedCodeMessage)]
     [RequiresDynamicCode(SerializationRequiresDynamicCodeMessage)]
-    public static T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(ReadOnlySpan<byte> data)
+    public static T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
+        ReadOnlySpan<byte> data)
     {
         var reader = new ProtoReader(data);
         return DeserializeCore<T>(ref reader);
     }
-    
+
     [RequiresUnreferencedCode(SerializationUnreferencedCodeMessage)]
     [RequiresDynamicCode(SerializationRequiresDynamicCodeMessage)]
-    private static T DeserializeCore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(ref ProtoReader reader)
+    private static T DeserializeCore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
+        ref ProtoReader reader)
     {
         ProtoObjectConverter<T> converter;
         if (ProtoTypeResolver.IsRegistered<T>())
@@ -78,6 +80,7 @@ public static partial class ProtoSerializer
         {
             ProtoTypeResolver.Register(converter = new ProtoObjectConverter<T>());
         }
+
         Debug.Assert(converter.ObjectInfo.ObjectCreator != null);
 
         T target = converter.ObjectInfo.ObjectCreator();
@@ -85,17 +88,19 @@ public static partial class ProtoSerializer
         if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(typeof(T));
 
         var fieldInfos = converter.ObjectInfo.Fields;
-        
+
         // polymorphic type
         if (converter.ObjectInfo.PolymorphicIndicateIndex != 0)
         {
             // has polymorphic type, read the first field to determine the actual type
             uint firstTag = reader.DecodeVarIntUnsafe<uint>();
-            
+
             if (firstTag >>> 3 != converter.ObjectInfo.PolymorphicIndicateIndex)
             {
-                ThrowHelper.ThrowInvalidOperationException_PolymorphicFieldNotFirst(typeof(T), converter.ObjectInfo.PolymorphicIndicateIndex, firstTag >>> 3);
+                ThrowHelper.ThrowInvalidOperationException_PolymorphicFieldNotFirst(typeof(T),
+                    converter.ObjectInfo.PolymorphicIndicateIndex, firstTag >>> 3);
             }
+
             var firstField = converter.ObjectInfo.Fields[firstTag];
             firstField.Read(ref reader, boxed);
             var polyTypeKey = firstField.Get?.Invoke(boxed);
@@ -103,20 +108,22 @@ public static partial class ProtoSerializer
             {
                 ThrowHelper.ThrowInvalidOperationException_FailedParsePolymorphicType(typeof(T), firstTag);
             }
-            if (converter.ObjectInfo.PolymorphicFields?.TryGetValue(polyTypeKey, out var polyTypeInfo) is not true)
+
+            if (converter.ObjectInfo.PolymorphicFields?.TryGetValue(polyTypeKey, out var polyTypeInfo) is true)
+            {
+                fieldInfos = polyTypeInfo.fields;
+                Debug.Assert(polyTypeInfo.objectCreator != null);
+                target = polyTypeInfo.objectCreator();
+                boxed = (object?)target; // boxing
+                if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(typeof(T));
+            }
+            else if (!converter.ObjectInfo.PolymorphicFallbackToBaseType)
             {
                 ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(typeof(T), polyTypeKey);
-                return default; // never reach this, make compiler happy
             }
-            
-            fieldInfos = polyTypeInfo.fields;
-            Debug.Assert(polyTypeInfo.objectCreator != null);
-            target = polyTypeInfo.objectCreator();
-            boxed = (object?)target; // boxing
-            if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(typeof(T));
         }
-        
-        
+
+
         while (!reader.IsCompleted)
         {
             uint tag = reader.DecodeVarIntUnsafe<uint>();
@@ -129,7 +136,7 @@ public static partial class ProtoSerializer
                 reader.SkipField((WireType)(tag & 0x07));
             }
         }
-        
+
         return target;
     }
 }
