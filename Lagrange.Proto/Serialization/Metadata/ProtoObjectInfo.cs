@@ -10,4 +10,6 @@ public class ProtoObjectInfo<T>
     public Func<T>? ObjectCreator { get; init; }
     
     public bool IgnoreDefaultFields { get; init; }
+    public uint PolymorphicIndicateIndex { get; init; } = 0;
+    public Dictionary<object, (Func<T>? objectCreator,Dictionary<uint, ProtoFieldInfo> fields)>? PolymorphicFields { get; init; }
 }

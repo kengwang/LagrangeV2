@@ -84,10 +84,43 @@ public static partial class ProtoSerializer
         var boxed = (object?)target; // avoid multiple times of boxing
         if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(typeof(T));
 
+        var fieldInfos = converter.ObjectInfo.Fields;
+        
+        // polymorphic type
+        if (converter.ObjectInfo.PolymorphicIndicateIndex != 0)
+        {
+            // has polymorphic type, read the first field to determine the actual type
+            uint firstTag = reader.DecodeVarIntUnsafe<uint>();
+            
+            if (firstTag >>> 3 != converter.ObjectInfo.PolymorphicIndicateIndex)
+            {
+                ThrowHelper.ThrowInvalidOperationException_PolymorphicFieldNotFirst(typeof(T), converter.ObjectInfo.PolymorphicIndicateIndex, firstTag >>> 3);
+            }
+            var firstField = converter.ObjectInfo.Fields[firstTag];
+            firstField.Read(ref reader, boxed);
+            var polyTypeKey = firstField.Get?.Invoke(boxed);
+            if (polyTypeKey is null)
+            {
+                ThrowHelper.ThrowInvalidOperationException_FailedParsePolymorphicType(typeof(T), firstTag);
+            }
+            if (converter.ObjectInfo.PolymorphicFields?.TryGetValue(polyTypeKey, out var polyTypeInfo) is not true)
+            {
+                ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(typeof(T), polyTypeKey);
+                return default; // never reach this, make compiler happy
+            }
+            
+            fieldInfos = polyTypeInfo.fields;
+            Debug.Assert(polyTypeInfo.objectCreator != null);
+            target = polyTypeInfo.objectCreator();
+            boxed = (object?)target; // boxing
+            if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(typeof(T));
+        }
+        
+        
         while (!reader.IsCompleted)
         {
             uint tag = reader.DecodeVarIntUnsafe<uint>();
-            if (converter.ObjectInfo.Fields.TryGetValue(tag, out var fieldInfo))
+            if (fieldInfos.TryGetValue(tag, out var fieldInfo))
             {
                 fieldInfo.Read(ref reader, boxed);
             }

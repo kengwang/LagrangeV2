@@ -124,10 +124,32 @@ public static partial class ProtoSerializer
         var objectInfo = converter.ObjectInfo;
         object? boxed = obj; // avoid multiple times of boxing
         if (boxed is null) return;
+        var fields = objectInfo.Fields;
+        uint skipTag = 0;
         
-        foreach (var (tag, info) in objectInfo.Fields)
+        // check polymorphic type
+        if (converter.ObjectInfo.PolymorphicIndicateIndex != 0)
         {
-            if (info.ShouldSerialize(boxed, objectInfo.IgnoreDefaultFields))
+            // has polymorphic type
+            var index = converter.ObjectInfo.PolymorphicIndicateIndex;
+            var fieldInfo = objectInfo.Fields.FirstOrDefault(t=>t.Value.Field == index);
+            if (fieldInfo.Value is null) ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(typeof(T));
+            var discriminator = fieldInfo.Value.Get?.Invoke(boxed);
+            if (discriminator is null) ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(typeof(T));
+            if (objectInfo.PolymorphicFields?.TryGetValue(discriminator, out var derivedTypeInfo) is not true)
+            {
+                ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(typeof(T));
+                return; // make compiler happy
+            }
+            skipTag = fieldInfo.Key;
+            writer.EncodeVarInt(fieldInfo.Key);
+            fieldInfo.Value.Write(writer, boxed);
+            fields = derivedTypeInfo.fields;
+        }
+        
+        foreach (var (tag, info) in fields)
+        {
+            if (skipTag != tag && info.ShouldSerialize(boxed, objectInfo.IgnoreDefaultFields))
             {
                 writer.EncodeVarInt(tag);
                 info.Write(writer, boxed);

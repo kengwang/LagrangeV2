@@ -66,35 +66,71 @@ public static partial class ProtoTypeResolver
     {
         var ctor = typeof(T).IsValueType ? null : typeof(T).GetConstructor(Type.EmptyTypes);
         bool ignoreDefaultFields = typeof(T).GetCustomAttribute<ProtoPackableAttribute>()?.IgnoreDefaultFields == true;
-        var fields = new Dictionary<uint, ProtoFieldInfo>();
+        var fields = CreateTypeFieldInfo(typeof(T));
         
-        foreach (var field in typeof(T).GetFields(BindingFlags.Public | BindingFlags.Instance))
-        {
-            if (field.IsStatic) continue;
-            var fieldInfo = CreateFieldInfo(typeof(T), field);
-            if (fieldInfo == null) continue;
-
-            uint tag = ((uint)fieldInfo.Field << 3) | (byte)fieldInfo.WireType;
-            if (fields.ContainsKey(tag)) ThrowHelper.ThrowInvalidOperationException_DuplicateField(typeof(T), fieldInfo.Field);
-            fields[tag] = fieldInfo;
-        }
+        var polymorphicAttributes = typeof(T).GetCustomAttributes<ProtoDerivedTypeAttribute>().ToArray();
+        var polymorphicFieldNumber = typeof(T).GetCustomAttribute<ProtoPolymorphicAttribute>()?.FieldNumber ?? 0;
         
-        foreach (var field in typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        if (polymorphicAttributes.Length > 0)
         {
-            var fieldInfo = CreateFieldInfo(typeof(T), field);
-            if (fieldInfo == null) continue;
+            if (polymorphicFieldNumber == 0) polymorphicFieldNumber = 1; // use first for default
+            var polymorphicFields = new Dictionary<object, (Func<T>? objectCreator,Dictionary<uint, ProtoFieldInfo> fields)>();
+            foreach (var attr in polymorphicAttributes)
+            {
+                var key = attr.TypeDiscriminator;
+                if (key == null) ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(attr.DerivedType);
+                var derivedFields = CreateTypeFieldInfo(attr.DerivedType);
+                if (polymorphicFields.ContainsKey(key)) ThrowHelper.ThrowInvalidOperationException_DuplicatePolymorphicDiscriminator(typeof(T), (int)polymorphicFieldNumber);
+                var derivedCtor = attr.DerivedType.IsValueType ? null : attr.DerivedType.GetConstructor(Type.EmptyTypes);
+                polymorphicFields[key] = (MemberAccessor.CreateParameterlessConstructor<T>(derivedCtor), derivedFields);
+            }
             
-            uint tag = ((uint)fieldInfo.Field << 3) | (byte)fieldInfo.WireType;
-            if (fields.ContainsKey(tag)) ThrowHelper.ThrowInvalidOperationException_DuplicateField(typeof(T), fieldInfo.Field);
-            fields[tag] = fieldInfo;
+            return new ProtoObjectInfo<T>
+            {
+                ObjectCreator = MemberAccessor.CreateParameterlessConstructor<T>(ctor),
+                IgnoreDefaultFields = ignoreDefaultFields,
+                PolymorphicIndicateIndex = polymorphicFieldNumber,
+                PolymorphicFields = polymorphicFields,
+                Fields = fields.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value)
+            };
         }
         
+        
+
         return new ProtoObjectInfo<T>
         {
             ObjectCreator = MemberAccessor.CreateParameterlessConstructor<T>(ctor),
             IgnoreDefaultFields = ignoreDefaultFields,
             Fields = fields.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value)
         };
+    }
+
+    internal static Dictionary<uint, ProtoFieldInfo> CreateTypeFieldInfo(Type type)
+    {
+        var fields = new Dictionary<uint, ProtoFieldInfo>();
+        
+        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (field.IsStatic) continue;
+            var fieldInfo = CreateFieldInfo(type, field);
+            if (fieldInfo == null) continue;
+
+            uint tag = ((uint)fieldInfo.Field << 3) | (byte)fieldInfo.WireType;
+            if (fields.ContainsKey(tag)) ThrowHelper.ThrowInvalidOperationException_DuplicateField(type, fieldInfo.Field);
+            fields[tag] = fieldInfo;
+        }
+        
+        foreach (var field in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            var fieldInfo = CreateFieldInfo(type, field);
+            if (fieldInfo == null) continue;
+            
+            uint tag = ((uint)fieldInfo.Field << 3) | (byte)fieldInfo.WireType;
+            if (fields.ContainsKey(tag)) ThrowHelper.ThrowInvalidOperationException_DuplicateField(type, fieldInfo.Field);
+            fields[tag] = fieldInfo;
+        }
+
+        return fields;
     }
 
 
