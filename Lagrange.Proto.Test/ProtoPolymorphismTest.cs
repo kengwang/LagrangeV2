@@ -11,17 +11,27 @@ public class ProtoPolymorphismTest
     public void BasicPolymorphism_SerializeAndDeserialize_ReturnsCorrectDerivedType()
     {
         // Arrange
-        BaseClass original = new DerivedClassA { NameProperty = "TestName" };
+        BaseClass originalA = new DerivedClassA { NameProperty = "TestName" };
+        BaseClass originalB = new DerivedClassB { ValueProperty = 114514f };
 
-        byte[] bytes = ProtoSerializer.Serialize(original);
-        BaseClass deserialized = ProtoSerializer.Deserialize<BaseClass>(bytes);
+        byte[] bytesA = ProtoSerializer.Serialize(originalA);
+        BaseClass deserializedA = ProtoSerializer.Deserialize<BaseClass>(bytesA);
+        
+        byte[] bytesB = ProtoSerializer.Serialize(originalB);
+        BaseClass deserializedB = ProtoSerializer.Deserialize<BaseClass>(bytesB);
 
         Assert.Multiple(() =>
         {
-            Assert.That(deserialized, Is.AssignableTo<DerivedClassA>());
-            Assert.That(deserialized, Is.AssignableTo<BaseClass>());
-            Assert.That(deserialized.IdentifierProperty, Is.EqualTo(2));
-            Assert.That(((DerivedClassA)deserialized).NameProperty, Is.EqualTo("TestName"));
+            Assert.That(deserializedA, Is.AssignableTo<DerivedClassA>());
+            Assert.That(deserializedA, Is.AssignableTo<BaseClass>());
+            Assert.That(deserializedA.IdentifierProperty, Is.EqualTo(2));
+            Assert.That(((DerivedClassA)deserializedA).NameProperty, Is.EqualTo("TestName"));
+            
+            Assert.That(deserializedB, Is.AssignableTo<DerivedClassB>());
+            Assert.That(deserializedB, Is.AssignableTo<BaseClass>());
+            Assert.That(deserializedB.IdentifierProperty, Is.EqualTo(3));
+            Assert.That(((DerivedClassB)deserializedB).ValueProperty, Is.EqualTo(114514f));
+            
         });
     }
 
@@ -31,8 +41,8 @@ public class ProtoPolymorphismTest
 #region Test Classes
 
 [ProtoPolymorphic(FieldNumber = 1)]
-[ProtoDerivedType(typeof(DerivedClassA), 2)]
-[ProtoDerivedType(typeof(DerivedClassB), 3)]
+[ProtoDerivedType<int>(typeof(DerivedClassA), 2)]
+[ProtoDerivedType<int>(typeof(DerivedClassB), 3)]
 public class BaseClass
 {
     public BaseClass() : this(-1) { }
@@ -52,7 +62,7 @@ public class DerivedClassA() : BaseClass(2)
 
 public class DerivedClassB() : BaseClass(3)
 {
-    [ProtoMember(2)] public float ValueProperty { get; set; }
+    [ProtoMember(2)] public float ValueProperty { get; set; } = 0f;
 }
 
 #endregion

@@ -64,48 +64,65 @@ public static partial class ProtoTypeResolver
     [RequiresDynamicCode(ProtoSerializer.SerializationRequiresDynamicCodeMessage)]
     internal static ProtoObjectInfo<T> CreateObjectInfo<T>()
     {
-        var ctor = typeof(T).IsValueType ? null : typeof(T).GetConstructor(Type.EmptyTypes);
-        bool ignoreDefaultFields = typeof(T).GetCustomAttribute<ProtoPackableAttribute>()?.IgnoreDefaultFields == true;
-        var fields = CreateTypeFieldInfo(typeof(T));
+        var objType = typeof(T);
+        var ctor = objType.IsValueType ? null : objType.GetConstructor(Type.EmptyTypes);
+        bool ignoreDefaultFields = objType.GetCustomAttribute<ProtoPackableAttribute>()?.IgnoreDefaultFields == true;
+        var fields = CreateTypeFieldInfo(objType);
         
-        var polymorphicAttributes = typeof(T).GetCustomAttributes<ProtoDerivedTypeAttribute>().ToArray();
-        var polymorphicConfigAttribute = typeof(T).GetCustomAttribute<ProtoPolymorphicAttribute>();
-        var polymorphicFieldNumber =    polymorphicConfigAttribute?.FieldNumber ?? 0;
-        var fallbackToBaseType = polymorphicConfigAttribute?.FallbackToBaseType ?? true;
-        
-        if (polymorphicAttributes.Length > 0)
-        {
-            if (polymorphicFieldNumber == 0) polymorphicFieldNumber = 1; // use first for default
-            var polymorphicFields = new Dictionary<object, (Func<T>? objectCreator,Dictionary<uint, ProtoFieldInfo> fields)>();
-            foreach (var attr in polymorphicAttributes)
-            {
-                var key = attr.TypeDiscriminator;
-                if (key == null) ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(attr.DerivedType);
-                var derivedFields = CreateTypeFieldInfo(attr.DerivedType);
-                if (polymorphicFields.ContainsKey(key)) ThrowHelper.ThrowInvalidOperationException_DuplicatePolymorphicDiscriminator(typeof(T), (int)polymorphicFieldNumber);
-                var derivedCtor = attr.DerivedType.IsValueType ? null : attr.DerivedType.GetConstructor(Type.EmptyTypes);
-                polymorphicFields[key] = (MemberAccessor.CreateParameterlessConstructor<T>(derivedCtor), derivedFields);
-            }
-            
-            return new ProtoObjectInfo<T>
-            {
-                ObjectCreator = MemberAccessor.CreateParameterlessConstructor<T>(ctor),
-                IgnoreDefaultFields = ignoreDefaultFields,
-                PolymorphicIndicateIndex = polymorphicFieldNumber,
-                PolymorphicFallbackToBaseType = fallbackToBaseType,
-                PolymorphicFields = polymorphicFields,
-                Fields = fields.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value)
-            };
-        }
-        
-        
-
         return new ProtoObjectInfo<T>
         {
             ObjectCreator = MemberAccessor.CreateParameterlessConstructor<T>(ctor),
             IgnoreDefaultFields = ignoreDefaultFields,
-            Fields = fields.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value)
+            Fields = fields.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value),
+            PolymorphicInfo = PopulatePolymorphicInfo<T>()
         };
+    }
+
+    internal static ProtoPolymorphicInfoBase<T>? PopulatePolymorphicInfo<T>()
+    {
+        var type = typeof(T);
+        var polymorphicAttributes = type.GetCustomAttributes(typeof(ProtoDerivedTypeAttribute<>))
+            .OfType<ProtoDerivedTypeAttribute>().ToArray();
+        if (polymorphicAttributes.Length > 0)
+        {
+            var polymorphicConfigAttribute = type.GetCustomAttribute<ProtoPolymorphicAttribute>();
+            var polymorphicFieldNumber = polymorphicConfigAttribute?.FieldNumber ?? 0;
+            var fallbackToBaseType = polymorphicConfigAttribute?.FallbackToBaseType ?? true;
+            if (polymorphicFieldNumber == 0) polymorphicFieldNumber = 1; // use first for default
+
+            // get the TKey from first
+            var firstAttr = polymorphicAttributes[0];
+            var keyType = firstAttr.GetType().GetGenericArguments()[0];
+            var objectInfo = MemberAccessor.CreateParameterlessConstructor<ProtoPolymorphicInfoBase<T>>(
+                typeof(ProtoPolymorphicObjectInfo<,>).MakeGenericType(typeof(T), keyType)
+                    .GetConstructor(Type.EmptyTypes))?.Invoke();
+
+            Debug.Assert(objectInfo != null);
+            objectInfo.PolymorphicIndicateIndex = polymorphicFieldNumber;
+            objectInfo.PolymorphicFallbackToBaseType = fallbackToBaseType;
+
+            foreach (var attr in polymorphicAttributes)
+            {
+                var derivedFields = CreateTypeFieldInfo(attr.DerivedType);
+                var derivedCtor = attr.DerivedType.IsValueType
+                    ? null
+                    : attr.DerivedType.GetConstructor(Type.EmptyTypes);
+                var key = attr.GetType().GetProperty(nameof(ProtoDerivedTypeAttribute<int>.TypeDiscriminator))
+                    ?.GetValue(attr);
+                if (key == null) ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(type, attr.DerivedType);
+                objectInfo.SetTypeDiscriminator(key,
+                    new ProtoPolymorphicDerivedTypeInfo<T>
+                    {
+                        DerivedType = attr.DerivedType,
+                        ObjectCreator = MemberAccessor.CreateParameterlessConstructor<T>(derivedCtor),
+                        Fields = derivedFields
+                    });
+            }
+
+            return objectInfo;
+        }
+
+        return null;
     }
 
     internal static Dictionary<uint, ProtoFieldInfo> CreateTypeFieldInfo(Type type)

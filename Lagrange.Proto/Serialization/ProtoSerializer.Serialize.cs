@@ -128,15 +128,15 @@ public static partial class ProtoSerializer
         uint skipTag = 0;
         
         // check polymorphic type
-        if (converter.ObjectInfo.PolymorphicIndicateIndex != 0)
+        if (converter.ObjectInfo.PolymorphicInfo?.PolymorphicIndicateIndex is > 0)
         {
             // has polymorphic type
-            var index = converter.ObjectInfo.PolymorphicIndicateIndex;
+            var index = converter.ObjectInfo.PolymorphicInfo.PolymorphicIndicateIndex;
             var fieldInfo = objectInfo.Fields.FirstOrDefault(t=>t.Value.Field == index);
             if (fieldInfo.Value is null) ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(typeof(T));
             var discriminator = fieldInfo.Value.Get?.Invoke(boxed);
             if (discriminator is null) ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(typeof(T));
-            if (objectInfo.PolymorphicFields?.TryGetValue(discriminator, out var derivedTypeInfo) is not true)
+            if (objectInfo.PolymorphicInfo!.GetTypeFromDiscriminator(discriminator) is not { } derivedTypeInfo)
             {
                 ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(typeof(T));
                 return; // make compiler happy
@@ -144,7 +144,7 @@ public static partial class ProtoSerializer
             skipTag = fieldInfo.Key;
             writer.EncodeVarInt(fieldInfo.Key);
             fieldInfo.Value.Write(writer, boxed);
-            fields = derivedTypeInfo.fields;
+            fields = derivedTypeInfo.Fields;
         }
         
         foreach (var (tag, info) in fields)

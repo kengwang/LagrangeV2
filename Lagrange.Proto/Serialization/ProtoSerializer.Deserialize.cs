@@ -90,15 +90,15 @@ public static partial class ProtoSerializer
         var fieldInfos = converter.ObjectInfo.Fields;
 
         // polymorphic type
-        if (converter.ObjectInfo.PolymorphicIndicateIndex != 0)
+        if (converter.ObjectInfo.PolymorphicInfo?.PolymorphicIndicateIndex is > 0)
         {
             // has polymorphic type, read the first field to determine the actual type
             uint firstTag = reader.DecodeVarIntUnsafe<uint>();
 
-            if (firstTag >>> 3 != converter.ObjectInfo.PolymorphicIndicateIndex)
+            if (firstTag >>> 3 != converter.ObjectInfo.PolymorphicInfo.PolymorphicIndicateIndex)
             {
                 ThrowHelper.ThrowInvalidOperationException_PolymorphicFieldNotFirst(typeof(T),
-                    converter.ObjectInfo.PolymorphicIndicateIndex, firstTag >>> 3);
+                    converter.ObjectInfo.PolymorphicInfo.PolymorphicIndicateIndex, firstTag >>> 3);
             }
 
             var firstField = converter.ObjectInfo.Fields[firstTag];
@@ -109,15 +109,15 @@ public static partial class ProtoSerializer
                 ThrowHelper.ThrowInvalidOperationException_FailedParsePolymorphicType(typeof(T), firstTag);
             }
 
-            if (converter.ObjectInfo.PolymorphicFields?.TryGetValue(polyTypeKey, out var polyTypeInfo) is true)
+            if (converter.ObjectInfo.PolymorphicInfo.GetTypeFromDiscriminator(polyTypeKey) is { } polyTypeInfo)
             {
-                fieldInfos = polyTypeInfo.fields;
-                Debug.Assert(polyTypeInfo.objectCreator != null);
-                target = polyTypeInfo.objectCreator();
+                fieldInfos = polyTypeInfo.Fields;
+                Debug.Assert(polyTypeInfo.ObjectCreator != null);
+                target = polyTypeInfo.ObjectCreator();
                 boxed = (object?)target; // boxing
                 if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(typeof(T));
             }
-            else if (!converter.ObjectInfo.PolymorphicFallbackToBaseType)
+            else if (!converter.ObjectInfo.PolymorphicInfo.PolymorphicFallbackToBaseType)
             {
                 ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(typeof(T), polyTypeKey);
             }

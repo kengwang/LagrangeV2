@@ -6,11 +6,9 @@ namespace Lagrange.Proto.Serialization.Metadata;
 public class ProtoObjectInfo<T>
 {
     public Dictionary<uint, ProtoFieldInfo> Fields { get; init; } = new();
-    
+
     public Func<T>? ObjectCreator { get; init; }
-    
+
     public bool IgnoreDefaultFields { get; init; }
-    public uint PolymorphicIndicateIndex { get; init; } = 0;
-    public bool PolymorphicFallbackToBaseType { get; init; } = true;
-    public Dictionary<object, (Func<T>? objectCreator,Dictionary<uint, ProtoFieldInfo> fields)>? PolymorphicFields { get; init; }
+    public ProtoPolymorphicInfoBase<T>? PolymorphicInfo { get; init; }
 }
