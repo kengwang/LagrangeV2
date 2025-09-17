@@ -63,24 +63,7 @@ public static partial class ProtoSerializer
     private static T DeserializeCore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         ref ProtoReader reader)
     {
-        ProtoObjectConverter<T> converter;
-        if (ProtoTypeResolver.IsRegistered<T>())
-        {
-            if (ProtoTypeResolver.GetConverter<T>() as ProtoObjectConverter<T> is not { } c)
-            {
-                converter = new ProtoObjectConverter<T>(ProtoTypeResolver.CreateObjectInfo<T>());
-                ProtoTypeResolver.Register(converter);
-            }
-            else
-            {
-                converter = c;
-            }
-        }
-        else
-        {
-            ProtoTypeResolver.Register(converter = new ProtoObjectConverter<T>());
-        }
-
+        var converter = GetConverterOf<T>();
         Debug.Assert(converter.ObjectInfo.ObjectCreator != null);
 
         T target = converter.ObjectInfo.ObjectCreator();
@@ -109,13 +92,12 @@ public static partial class ProtoSerializer
                 ThrowHelper.ThrowInvalidOperationException_FailedParsePolymorphicType(typeof(T), firstTag);
             }
 
-            if (converter.ObjectInfo.PolymorphicInfo.GetTypeFromDiscriminator(polyTypeKey) is { } polyTypeInfo)
+            if (converter.ObjectInfo.PolymorphicInfo.GetTypeFromDiscriminator(polyTypeKey) is { } polyType)
             {
-                fieldInfos = polyTypeInfo.Fields;
-                Debug.Assert(polyTypeInfo.ObjectCreator != null);
-                target = polyTypeInfo.ObjectCreator();
-                boxed = (object?)target; // boxing
-                if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(typeof(T));
+                (fieldInfos, var objectCreator ) = GetObjectInfoReflection<T>(polyType);
+                target = objectCreator();
+                boxed = target;
+                if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(polyType);
             }
             else if (!converter.ObjectInfo.PolymorphicInfo.PolymorphicFallbackToBaseType)
             {

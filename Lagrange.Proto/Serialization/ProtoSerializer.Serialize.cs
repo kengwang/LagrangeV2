@@ -102,25 +102,8 @@ public static partial class ProtoSerializer
     [RequiresUnreferencedCode(SerializationUnreferencedCodeMessage)]
     [RequiresDynamicCode(SerializationRequiresDynamicCodeMessage)]
     private static void SerializeCore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(ProtoWriter writer, T obj)
-    {       
-        ProtoObjectConverter<T> converter;
-        if (ProtoTypeResolver.IsRegistered<T>())
-        {
-            if (ProtoTypeResolver.GetConverter<T>() as ProtoObjectConverter<T> is not { } c)
-            {
-                converter = new ProtoObjectConverter<T>(ProtoTypeResolver.CreateObjectInfo<T>());
-                ProtoTypeResolver.Register(converter);
-            }
-            else
-            {
-                converter = c;
-            }
-        }
-        else
-        {
-            ProtoTypeResolver.Register(converter = new ProtoObjectConverter<T>());
-        }
-        
+    {
+        var converter = GetConverterOf<T>();
         var objectInfo = converter.ObjectInfo;
         object? boxed = obj; // avoid multiple times of boxing
         if (boxed is null) return;
@@ -144,7 +127,8 @@ public static partial class ProtoSerializer
             skipTag = fieldInfo.Key;
             writer.EncodeVarInt(fieldInfo.Key);
             fieldInfo.Value.Write(writer, boxed);
-            fields = derivedTypeInfo.Fields;
+            
+            (fields, _) = GetObjectInfoReflection<T>(derivedTypeInfo);
         }
         
         foreach (var (tag, info) in fields)

@@ -103,20 +103,10 @@ public static partial class ProtoTypeResolver
 
             foreach (var attr in polymorphicAttributes)
             {
-                var derivedFields = CreateTypeFieldInfo(attr.DerivedType);
-                var derivedCtor = attr.DerivedType.IsValueType
-                    ? null
-                    : attr.DerivedType.GetConstructor(Type.EmptyTypes);
                 var key = attr.GetType().GetProperty(nameof(ProtoDerivedTypeAttribute<int>.TypeDiscriminator))
                     ?.GetValue(attr);
                 if (key == null) ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(type, attr.DerivedType);
-                objectInfo.SetTypeDiscriminator(key,
-                    new ProtoPolymorphicDerivedTypeInfo<T>
-                    {
-                        DerivedType = attr.DerivedType,
-                        ObjectCreator = MemberAccessor.CreateParameterlessConstructor<T>(derivedCtor),
-                        Fields = derivedFields
-                    });
+                objectInfo.SetTypeDiscriminator(key, attr.DerivedType);
             }
 
             return objectInfo;
