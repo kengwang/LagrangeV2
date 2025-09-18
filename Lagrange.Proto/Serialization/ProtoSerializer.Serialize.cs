@@ -109,12 +109,12 @@ public static partial class ProtoSerializer
         if (boxed is null) return;
         var fields = objectInfo.Fields;
         uint skipTag = 0;
-        
+        var polymorphicInfo = converter.ObjectInfo.PolymorphicInfo;
         // check polymorphic type
-        if (converter.ObjectInfo.PolymorphicInfo?.PolymorphicIndicateIndex is > 0)
+        if (polymorphicInfo?.PolymorphicIndicateIndex is > 0)
         {
             // has polymorphic type
-            var index = converter.ObjectInfo.PolymorphicInfo.PolymorphicIndicateIndex;
+            var index = polymorphicInfo.PolymorphicIndicateIndex;
             var fieldInfo = objectInfo.Fields.FirstOrDefault(t=>t.Value.Field == index);
             if (fieldInfo.Value is null) ThrowHelper.ThrowInvalidOperationException_NullPolymorphicDiscriminator(typeof(T));
             var discriminator = fieldInfo.Value.Get?.Invoke(boxed);
@@ -128,7 +128,7 @@ public static partial class ProtoSerializer
             writer.EncodeVarInt(fieldInfo.Key);
             fieldInfo.Value.Write(writer, boxed);
             
-            (fields, _) = GetObjectInfoReflection<T>(derivedTypeInfo);
+            (fields, _, _) = GetObjectInfoReflection<T>(derivedTypeInfo);
         }
         
         foreach (var (tag, info) in fields)

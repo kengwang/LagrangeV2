@@ -26,11 +26,39 @@ public static partial class ProtoSerializer
         Debug.Assert(objectInfo.ObjectCreator != null);
 
         T target = objectInfo.ObjectCreator();
+        var fields = objectInfo.Fields;
+        if (objectInfo.PolymorphicInfo?.PolymorphicIndicateIndex is > 0)
+        {
+            // has polymorphic type, read the first field to determine the actual type
+            uint firstTag = reader.DecodeVarIntUnsafe<uint>();
 
+            if (firstTag >>> 3 != objectInfo.PolymorphicInfo.PolymorphicIndicateIndex)
+            {
+                ThrowHelper.ThrowInvalidOperationException_PolymorphicFieldNotFirst(typeof(T),
+                    objectInfo.PolymorphicInfo.PolymorphicIndicateIndex, firstTag >>> 3);
+            }
+
+            var firstField = objectInfo.Fields[firstTag];
+            firstField.Read(ref reader, target);
+            var polyTypeKey = firstField.Get?.Invoke(target);
+
+            var typeDescriptor = T.GetPolymorphicTypeDescriptor(polyTypeKey);
+            if (typeDescriptor is not null)
+            {
+                fields = typeDescriptor.Fields;
+                target = typeDescriptor.ObjectCreator.Invoke();
+            }
+            else if (!objectInfo.PolymorphicInfo.PolymorphicFallbackToBaseType)
+            {
+                ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(typeof(T), polyTypeKey!);
+            }
+        }
+        
+        
         while (!reader.IsCompleted)
         {
             uint tag = reader.DecodeVarIntUnsafe<uint>();
-            if (objectInfo.Fields.TryGetValue(tag, out var fieldInfo))
+            if (fields.TryGetValue(tag, out var fieldInfo))
             {
                 fieldInfo.Read(ref reader, target);
             }
@@ -69,19 +97,19 @@ public static partial class ProtoSerializer
         T target = converter.ObjectInfo.ObjectCreator();
         var boxed = (object?)target; // avoid multiple times of boxing
         if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(typeof(T));
-
         var fieldInfos = converter.ObjectInfo.Fields;
-
+        var polymorphicInfo = converter.ObjectInfo.PolymorphicInfo;
+        startDeserialize:
         // polymorphic type
-        if (converter.ObjectInfo.PolymorphicInfo?.PolymorphicIndicateIndex is > 0)
+        if (polymorphicInfo?.PolymorphicIndicateIndex is > 0)
         {
             // has polymorphic type, read the first field to determine the actual type
             uint firstTag = reader.DecodeVarIntUnsafe<uint>();
 
-            if (firstTag >>> 3 != converter.ObjectInfo.PolymorphicInfo.PolymorphicIndicateIndex)
+            if (firstTag >>> 3 != polymorphicInfo.PolymorphicIndicateIndex)
             {
                 ThrowHelper.ThrowInvalidOperationException_PolymorphicFieldNotFirst(typeof(T),
-                    converter.ObjectInfo.PolymorphicInfo.PolymorphicIndicateIndex, firstTag >>> 3);
+                    polymorphicInfo.PolymorphicIndicateIndex, firstTag >>> 3);
             }
 
             var firstField = converter.ObjectInfo.Fields[firstTag];
@@ -92,17 +120,19 @@ public static partial class ProtoSerializer
                 ThrowHelper.ThrowInvalidOperationException_FailedParsePolymorphicType(typeof(T), firstTag);
             }
 
-            if (converter.ObjectInfo.PolymorphicInfo.GetTypeFromDiscriminator(polyTypeKey) is { } polyType)
+            if (polymorphicInfo.GetTypeFromDiscriminator(polyTypeKey) is { } polyType)
             {
-                (fieldInfos, var objectCreator ) = GetObjectInfoReflection<T>(polyType);
+                (fieldInfos, var objectCreator, polymorphicInfo) = GetObjectInfoReflection<T>(polyType);
                 target = objectCreator();
                 boxed = target;
                 if (boxed is null) ThrowHelper.ThrowInvalidOperationException_CanNotCreateObject(polyType);
             }
-            else if (!converter.ObjectInfo.PolymorphicInfo.PolymorphicFallbackToBaseType)
+            else if (!polymorphicInfo.PolymorphicFallbackToBaseType)
             {
                 ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(typeof(T), polyTypeKey);
             }
+
+            goto startDeserialize;
         }
 
 

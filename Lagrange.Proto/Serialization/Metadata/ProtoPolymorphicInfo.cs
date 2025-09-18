@@ -1,35 +1,39 @@
 ﻿namespace Lagrange.Proto.Serialization.Metadata;
 
 
-public class ProtoPolymorphicInfoBase<T>
+public interface IProtoPolymorphicInfoBase
+{
+    public uint PolymorphicIndicateIndex { get; set; }
+    public bool PolymorphicFallbackToBaseType { get; set; }
+
+    public Type? GetTypeFromDiscriminator(object discriminator);
+
+    public bool SetTypeDiscriminator(object discriminator, Type type);
+}
+
+
+public class ProtoPolymorphicObjectInfo<TKey> : IProtoPolymorphicInfoBase where TKey : IEquatable<TKey>
 {
     public uint PolymorphicIndicateIndex { get; set; } = 0;
     public bool PolymorphicFallbackToBaseType { get; set; } = true;
 
-    public virtual Type? GetTypeFromDiscriminator(object discriminator)
-    {
-        return null;
-    }
-    
-    public virtual bool SetTypeDiscriminator(object discriminator, Type type)
-    {
-        return false;
-    }
-}
-
-
-public class ProtoPolymorphicObjectInfo<T, TKey> : ProtoPolymorphicInfoBase<T> where TKey : IEquatable<TKey>
-{
-    public override Type? GetTypeFromDiscriminator(object discriminator)
+    public Type? GetTypeFromDiscriminator(object discriminator)
     {
         return PolymorphicDerivedTypes.GetValueOrDefault((TKey)discriminator);
     }
 
-    public override bool SetTypeDiscriminator(object discriminator, Type type)
+    public bool SetTypeDiscriminator(object discriminator, Type type)
     {
         PolymorphicDerivedTypes[(TKey)discriminator] = type;
         return true;
     }
 
-    public Dictionary<TKey, Type> PolymorphicDerivedTypes { get; } = [];
+    public Dictionary<TKey, Type> PolymorphicDerivedTypes { get; init; } = [];
+}
+
+public class ProtoPolymorphicDerivedTypeDescriptor<TBase>
+{
+    public Dictionary<uint, ProtoFieldInfo> Fields { get; init; } = [];
+    public Func<TBase> ObjectCreator { get; init; } = null!;
+    public bool IgnoreDefaultFields { get; init; }
 }

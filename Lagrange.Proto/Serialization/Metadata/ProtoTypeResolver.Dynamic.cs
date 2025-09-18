@@ -78,7 +78,7 @@ public static partial class ProtoTypeResolver
         };
     }
 
-    internal static ProtoPolymorphicInfoBase<T>? PopulatePolymorphicInfo<T>()
+    internal static IProtoPolymorphicInfoBase? PopulatePolymorphicInfo<T>()
     {
         var type = typeof(T);
         var polymorphicAttributes = type.GetCustomAttributes(typeof(ProtoDerivedTypeAttribute<>))
@@ -93,9 +93,8 @@ public static partial class ProtoTypeResolver
             // get the TKey from first
             var firstAttr = polymorphicAttributes[0];
             var keyType = firstAttr.GetType().GetGenericArguments()[0];
-            var objectInfo = MemberAccessor.CreateParameterlessConstructor<ProtoPolymorphicInfoBase<T>>(
-                typeof(ProtoPolymorphicObjectInfo<,>).MakeGenericType(typeof(T), keyType)
-                    .GetConstructor(Type.EmptyTypes))?.Invoke();
+            var objectInfo = (IProtoPolymorphicInfoBase?) typeof(ProtoPolymorphicObjectInfo<>).MakeGenericType(keyType)
+                    .GetConstructor(Type.EmptyTypes)?.Invoke(null);
 
             Debug.Assert(objectInfo != null);
             objectInfo.PolymorphicIndicateIndex = polymorphicFieldNumber;
@@ -103,7 +102,7 @@ public static partial class ProtoTypeResolver
 
             foreach (var attr in polymorphicAttributes)
             {
-                var key = attr.GetType().GetProperty(nameof(ProtoDerivedTypeAttribute<int>.TypeDiscriminator))
+                var key = attr.GetType().GetProperty(nameof(ProtoDerivedTypeAttribute<int>.TypeDiscriminator), BindingFlags.NonPublic | BindingFlags.Instance)
                     ?.GetValue(attr);
                 if (key == null) ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(type, attr.DerivedType);
                 objectInfo.SetTypeDiscriminator(key, attr.DerivedType);

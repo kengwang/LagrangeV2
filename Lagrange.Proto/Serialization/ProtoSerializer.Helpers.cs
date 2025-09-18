@@ -33,7 +33,7 @@ public static partial class ProtoSerializer
         return converter;
     }
     
-    internal static (Dictionary<uint, ProtoFieldInfo> Fields, Func<T> ObjectCreator) GetObjectInfoReflection<T>(Type polyType)
+    internal static (Dictionary<uint, ProtoFieldInfo> Fields, Func<T> ObjectCreator, IProtoPolymorphicInfoBase? polymorphicInfo) GetObjectInfoReflection<T>(Type polyType)
     {
         Debug.Assert(polyType != typeof(T));
         Debug.Assert(polyType.IsAssignableTo(typeof(T)));
@@ -50,7 +50,9 @@ public static partial class ProtoSerializer
             .GetProperty("ObjectCreator")!.GetValue(polyObjectInfo)!;
         var fieldInfos = (Dictionary<uint, ProtoFieldInfo>)polyObjectInfo.GetType()
             .GetProperty("Fields")!.GetValue(polyObjectInfo)!;
-        return (fieldInfos, ObjectCreator);
+        var polymorphicInfo = (IProtoPolymorphicInfoBase)polyObjectInfo.GetType()
+            .GetProperty("PolymorphicInfo")!.GetValue(polyObjectInfo)!;
+        return (fieldInfos, ObjectCreator,polymorphicInfo);
         T ObjectCreator() => (T)polyCreator.GetType().GetMethod("Invoke")!.Invoke(polyCreator, null)!;
     }
 }
