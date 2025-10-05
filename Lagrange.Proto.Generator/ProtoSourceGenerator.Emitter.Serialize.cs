@@ -33,17 +33,20 @@ public partial class ProtoSourceGenerator
             source.WriteLine("{");
             source.Indentation++;
             
-            if (parser.BaseTypeSymbol is not null)
+            if (parser.BaseTypeInfo.BaseType.GetFullName() != _fullQualifiedName &&  parser.BaseTypeInfo?.PolymorphicInfo.PolymorphicIndicateIndex is > 0)
             {
-                source.WriteLine($"{parser.BaseTypeSymbol.GetFullName()}.SerializeHandler({ObjectVarName},{WriterVarName});");
+                source.WriteLine($"{parser.BaseTypeInfo.BaseType.GetFullName()}.SerializeHandler({ObjectVarName},{WriterVarName});");
+            }
+            else
+            {
+                source.WriteLine($"SerializeHandlerCore({ObjectVarName}, {WriterVarName});");
             }
             
-            source.WriteLine($"SerializeHandlerCore({ObjectVarName}, {WriterVarName});");
             source.Indentation--;
             source.WriteLine("}");
             source.WriteLine();
             
-            source.WriteLine($"private static void SerializeHandlerCore({_fullQualifiedName} {ObjectVarName}, {ProtoWriterTypeRef} {WriterVarName})");
+            source.WriteLine($"public static void SerializeHandlerCore({_fullQualifiedName} {ObjectVarName}, {ProtoWriterTypeRef} {WriterVarName})");
             source.WriteLine("{");
             source.Indentation++;
             if (parser.PolymorphicInfo.PolymorphicIndicateIndex > 0)
@@ -60,9 +63,9 @@ public partial class ProtoSourceGenerator
                 for (var index = 0; index < parser.PolymorphicInfo.PolymorphicTypes.Count; index++)
                 {
                     var kv = parser.PolymorphicInfo.PolymorphicTypes[index];
-                    source.WriteLine($"case {kv.DerivedType.GetFullName()} derived{index}:");
+                    source.WriteLine($"case {kv.DerivedType.GetFullName()} _:");
                     source.Indentation++;
-                    source.WriteLine($"{kv.DerivedType.GetFullName()}.SerializeHandlerCore(derived{index}, {WriterVarName});");
+                    source.WriteLine($"{kv.DerivedType.GetFullName()}.SerializeHandlerCore(({kv.DerivedType.GetFullName()}){ObjectVarName}, {WriterVarName});");
                     source.WriteLine("break;");
                     source.Indentation--;
                 }

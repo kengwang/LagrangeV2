@@ -1,39 +1,75 @@
-﻿namespace Lagrange.Proto.Serialization.Metadata;
+﻿using Lagrange.Proto.Primitives;
+using Lagrange.Proto.Utility;
+
+namespace Lagrange.Proto.Serialization.Metadata;
 
 
-public interface IProtoPolymorphicInfoBase
+public class ProtoPolymorphicInfoBase
 {
     public uint PolymorphicIndicateIndex { get; set; }
     public bool PolymorphicFallbackToBaseType { get; set; }
-
-    public Type? GetTypeFromDiscriminator(object discriminator);
-
-    public bool SetTypeDiscriminator(object discriminator, Type type);
+    public virtual ProtoPolymorphicDerivedTypeDescriptor? GetDerivedTypeDescriptorFromReader(ref ProtoReader reader) => null;
+    public virtual void SetDerivedTypeDescriptor(object key, ProtoPolymorphicDerivedTypeDescriptor descriptor) => throw new MissingMethodException();
+    public Func<ProtoPolymorphicDerivedTypeDescriptor>? RootTypeDescriptorGetter { get; set; }
+    public virtual IEnumerable<ProtoPolymorphicDerivedTypeDescriptor> GetAllDerivedTypeDescriptors() => [];
 }
 
 
-public class ProtoPolymorphicObjectInfo<TKey> : IProtoPolymorphicInfoBase where TKey : IEquatable<TKey>
+public class ProtoPolymorphicObjectInfo<TKey> : ProtoPolymorphicInfoBase where TKey : IEquatable<TKey>
 {
-    public uint PolymorphicIndicateIndex { get; set; } = 0;
-    public bool PolymorphicFallbackToBaseType { get; set; } = true;
-
-    public Type? GetTypeFromDiscriminator(object discriminator)
+    public Dictionary<TKey, ProtoPolymorphicDerivedTypeDescriptor> PolymorphicDerivedTypes { get; init; } = [];
+    public override ProtoPolymorphicDerivedTypeDescriptor? GetDerivedTypeDescriptorFromReader(ref ProtoReader reader)
     {
-        return PolymorphicDerivedTypes.GetValueOrDefault((TKey)discriminator);
+        uint tag = reader.DecodeVarIntUnsafe<uint>();
+        int field = (int)(tag >> 3);
+        var wireType = (WireType)(tag & 0x7);
+        if (field != PolymorphicIndicateIndex)
+        {
+            reader.Rewind(-ProtoHelper.GetVarIntLength(tag));
+            return null;
+        }
+        var converter = ProtoTypeResolver.GetConverter<TKey>();
+        var key = converter.Read(field, wireType, ref reader);
+        var rst = PolymorphicDerivedTypes.GetValueOrDefault(key);
+        if (rst == null && !PolymorphicFallbackToBaseType)
+            ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(typeof(TKey), key);
+        return rst;
     }
 
-    public bool SetTypeDiscriminator(object discriminator, Type type)
+    public override void SetDerivedTypeDescriptor(object o, ProtoPolymorphicDerivedTypeDescriptor descriptor)
     {
-        PolymorphicDerivedTypes[(TKey)discriminator] = type;
-        return true;
+        if (o is TKey key)
+            PolymorphicDerivedTypes[key] = descriptor;
+        else
+            ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(typeof(TKey), o);
     }
 
-    public Dictionary<TKey, Type> PolymorphicDerivedTypes { get; init; } = [];
+    public override IEnumerable<ProtoPolymorphicDerivedTypeDescriptor> GetAllDerivedTypeDescriptors()
+    {
+        return PolymorphicDerivedTypes.Values;
+    }
 }
 
-public class ProtoPolymorphicDerivedTypeDescriptor<TBase>
+
+public class ProtoPolymorphicDerivedTypeDescriptor
 {
-    public Dictionary<uint, ProtoFieldInfo> Fields { get; init; } = [];
+    public required Type CurrentType { get; init; }
+    public Func<Dictionary<uint, ProtoFieldInfo>> FieldsGetter { get; init; } = () => throw new MissingMethodException();
+    public Func<bool> IgnoreDefaultFieldsGetter { get; init; } = () => false;
+    public Func<ProtoPolymorphicInfoBase?> PolymorphicInfoGetter { get; init; } = () => null;
+
+    public virtual object? CreateObject()
+    {
+        return null;
+    }
+}
+
+public class ProtoPolymorphicDerivedTypeDescriptor<TBase> : ProtoPolymorphicDerivedTypeDescriptor
+{
     public Func<TBase> ObjectCreator { get; init; } = null!;
-    public bool IgnoreDefaultFields { get; init; }
+
+    public override object? CreateObject()
+    {
+        return ObjectCreator();
+    }
 }

@@ -33,10 +33,8 @@ public static partial class ProtoSerializer
         return converter;
     }
     
-    internal static (Dictionary<uint, ProtoFieldInfo> Fields, Func<T> ObjectCreator, IProtoPolymorphicInfoBase? polymorphicInfo) GetObjectInfoReflection<T>(Type polyType)
+    internal static ProtoPolymorphicDerivedTypeDescriptor<object?> GetObjectInfoReflection(Type polyType)
     {
-        Debug.Assert(polyType != typeof(T));
-        Debug.Assert(polyType.IsAssignableTo(typeof(T)));
         var method = typeof(ProtoSerializer).GetMethod(nameof(GetConverterOf),
             BindingFlags.Static | BindingFlags.NonPublic);
         Debug.Assert(method != null);
@@ -50,9 +48,18 @@ public static partial class ProtoSerializer
             .GetProperty("ObjectCreator")!.GetValue(polyObjectInfo)!;
         var fieldInfos = (Dictionary<uint, ProtoFieldInfo>)polyObjectInfo.GetType()
             .GetProperty("Fields")!.GetValue(polyObjectInfo)!;
-        var polymorphicInfo = (IProtoPolymorphicInfoBase)polyObjectInfo.GetType()
+        var polymorphicInfo = (ProtoPolymorphicInfoBase)polyObjectInfo.GetType()
             .GetProperty("PolymorphicInfo")!.GetValue(polyObjectInfo)!;
-        return (fieldInfos, ObjectCreator,polymorphicInfo);
-        T ObjectCreator() => (T)polyCreator.GetType().GetMethod("Invoke")!.Invoke(polyCreator, null)!;
+        var ignoreDefaultFields = polyObjectInfo.GetType()
+            .GetProperty("IgnoreDefaultFields")!.GetValue(polyObjectInfo) is true;
+        return new ProtoPolymorphicDerivedTypeDescriptor<object?>
+        {
+            CurrentType = polyType,
+            FieldsGetter = () => fieldInfos,
+            IgnoreDefaultFieldsGetter = () => ignoreDefaultFields,
+            PolymorphicInfoGetter = () => polymorphicInfo,
+            ObjectCreator = ObjectCreator
+        };
+        object? ObjectCreator() => (object?)polyCreator.GetType().GetMethod("Invoke")!.Invoke(polyCreator, null)!;
     }
 }

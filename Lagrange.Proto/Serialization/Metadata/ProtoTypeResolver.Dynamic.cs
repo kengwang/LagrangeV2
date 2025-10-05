@@ -78,9 +78,23 @@ public static partial class ProtoTypeResolver
         };
     }
 
-    internal static IProtoPolymorphicInfoBase? PopulatePolymorphicInfo<T>()
+    internal static ProtoPolymorphicInfoBase? PopulatePolymorphicInfo<T>()
     {
         var type = typeof(T);
+        ProtoPolymorphicInfoBase? objectInfo = null;
+        // goto root
+        var checkingType = type;
+        while (checkingType.BaseType != null)
+        {
+            // check if base type has polymorphic attribute
+            var basePolymorphicAttributes = checkingType.BaseType.GetCustomAttributes(typeof(ProtoDerivedTypeAttribute<>))
+                .OfType<ProtoDerivedTypeAttribute>().ToArray();
+            if (basePolymorphicAttributes.Length > 0) checkingType = checkingType.BaseType;
+            else break;
+        }
+
+        if (checkingType == type) checkingType = null;
+        
         var polymorphicAttributes = type.GetCustomAttributes(typeof(ProtoDerivedTypeAttribute<>))
             .OfType<ProtoDerivedTypeAttribute>().ToArray();
         if (polymorphicAttributes.Length > 0)
@@ -93,25 +107,33 @@ public static partial class ProtoTypeResolver
             // get the TKey from first
             var firstAttr = polymorphicAttributes[0];
             var keyType = firstAttr.GetType().GetGenericArguments()[0];
-            var objectInfo = (IProtoPolymorphicInfoBase?) typeof(ProtoPolymorphicObjectInfo<>).MakeGenericType(keyType)
+            objectInfo = (ProtoPolymorphicInfoBase?) typeof(ProtoPolymorphicObjectInfo<>).MakeGenericType(keyType)
                     .GetConstructor(Type.EmptyTypes)?.Invoke(null);
 
             Debug.Assert(objectInfo != null);
             objectInfo.PolymorphicIndicateIndex = polymorphicFieldNumber;
             objectInfo.PolymorphicFallbackToBaseType = fallbackToBaseType;
-
+            
             foreach (var attr in polymorphicAttributes)
             {
                 var key = attr.GetType().GetProperty(nameof(ProtoDerivedTypeAttribute<int>.TypeDiscriminator), BindingFlags.NonPublic | BindingFlags.Instance)
                     ?.GetValue(attr);
                 if (key == null) ThrowHelper.ThrowInvalidOperationException_UnknownPolymorphicType(type, attr.DerivedType);
-                objectInfo.SetTypeDiscriminator(key, attr.DerivedType);
+                objectInfo.SetDerivedTypeDescriptor(key, ProtoSerializer.GetObjectInfoReflection(attr.DerivedType));
             }
-
-            return objectInfo;
         }
 
-        return null;
+        if (checkingType is not null)
+        {
+            objectInfo ??= new ProtoPolymorphicInfoBase()
+            {
+                PolymorphicIndicateIndex = 0,
+                PolymorphicFallbackToBaseType = true
+            };
+            objectInfo.RootTypeDescriptorGetter = () => ProtoSerializer.GetObjectInfoReflection(checkingType);
+        }
+        
+        return objectInfo;
     }
 
     internal static Dictionary<uint, ProtoFieldInfo> CreateTypeFieldInfo(Type type)

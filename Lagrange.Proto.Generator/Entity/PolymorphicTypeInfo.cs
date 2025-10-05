@@ -18,3 +18,11 @@ public class PolymorphicDerivedTypeInfo
     public INamedTypeSymbol DerivedType { get; internal set; } = null!;
     public TypedConstant Key { get; internal set; }
 }
+
+public class BaseTypeInfo
+{
+    public INamedTypeSymbol BaseType { get; internal set; } = null!;
+    public PolymorphicTypeInfo PolymorphicInfo { get; internal set; } = new();
+    public bool IgnoreDefaultFields { get; internal set; }
+    public Dictionary<int, ProtoFieldInfo> Fields { get; } = new();
+}
