@@ -33,7 +33,7 @@ public partial class ProtoSourceGenerator
             source.WriteLine("{");
             source.Indentation++;
             
-            if (parser.BaseTypeInfo.BaseType.GetFullName() != _fullQualifiedName &&  parser.BaseTypeInfo?.PolymorphicInfo.PolymorphicIndicateIndex is > 0)
+            if (parser.BaseTypeInfo?.BaseType.GetFullName() != _fullQualifiedName &&  parser.BaseTypeInfo?.PolymorphicInfo.PolymorphicIndicateIndex is > 0)
             {
                 source.WriteLine($"{parser.BaseTypeInfo.BaseType.GetFullName()}.SerializeHandler({ObjectVarName},{WriterVarName});");
             }

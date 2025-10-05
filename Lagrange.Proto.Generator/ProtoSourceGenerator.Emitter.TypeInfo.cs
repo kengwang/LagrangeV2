@@ -72,7 +72,7 @@ public partial class ProtoSourceGenerator
             EmitFieldsInfo(source, parser.Fields);
             
             source.WriteLine($"ObjectCreator = () => new {_fullQualifiedName}(),");
-            EmitPolymorphicInfo(source, parser.PolymorphicInfo, parser.BaseTypeInfo);
+            EmitPolymorphicInfo(source, parser.PolymorphicInfo, parser.BaseTypeInfo!);
             source.WriteLine($"IgnoreDefaultFields = {parser.IgnoreDefaultFields.ToString().ToLower()}");
             
             source.Indentation--;
