@@ -39,7 +39,7 @@ internal class MessagePacker
     {
         var contentHead = msg.ContentHead;
         var routingHead = msg.RoutingHead;
-        var elems = msg.MessageBody.RichText.Elems;
+        var elems = msg.MessageBody?.RichText.Elems;
 
         var contact = await ResolveContact(contentHead.Type, routingHead);
         var receiver = await ResolveReceiver(contentHead.Type, routingHead);
@@ -52,13 +52,16 @@ internal class MessagePacker
             Random = contentHead.Random
         };
         
+        if (msg.MessageBody is null)
+            return message;
+        
         if (ParsePttRichText(msg.MessageBody.RichText) is { } record) 
         {
             message.Entities.Add(record);
         }
         else
         {
-            foreach (var elem in elems)
+            foreach (var elem in elems!)
             {
                 foreach (var factory in _factory)
                 {
