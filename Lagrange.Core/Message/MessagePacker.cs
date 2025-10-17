@@ -39,7 +39,6 @@ internal class MessagePacker
     {
         var contentHead = msg.ContentHead;
         var routingHead = msg.RoutingHead;
-        var elems = msg.MessageBody?.RichText.Elems;
 
         var contact = await ResolveContact(contentHead.Type, routingHead);
         var receiver = await ResolveReceiver(contentHead.Type, routingHead);
@@ -61,7 +60,8 @@ internal class MessagePacker
         }
         else
         {
-            foreach (var elem in elems!)
+            var elems = msg.MessageBody.RichText.Elems;
+            foreach (var elem in elems)
             {
                 foreach (var factory in _factory)
                 {
