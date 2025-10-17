@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Web;
@@ -23,7 +24,7 @@ internal class PushLogic : ILogic
 
     private BotContext context;
     
-    private FrozenDictionary<MsgMatchKey, List<MsgPushHandlerBase>> _handlers;
+    private readonly FrozenDictionary<MsgMatchKey, List<MsgPushProcessorBase>> _processors;
 
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "All the types are preserved in the csproj by using the TrimmerRootAssembly attribute")]
     [UnconditionalSuppressMessage("Trimming", "IL2062", Justification = "All the types are preserved in the csproj by using the TrimmerRootAssembly attribute")]
@@ -32,15 +33,18 @@ internal class PushLogic : ILogic
     {
         context = ctx;
         
-        var handlers = new Dictionary<MsgMatchKey, List<MsgPushHandlerBase>>();
-        foreach (var type in typeof(MsgPushHandlerBase).Assembly.GetTypes())
+        var handlers = new Dictionary<MsgMatchKey, List<MsgPushProcessorBase>>();
+        foreach (var type in typeof(MsgPushProcessorBase).Assembly.GetTypes())
         {
-            if (!type.HasImplemented<MsgPushHandlerBase>() ||
-                Activator.CreateInstance(type) is not MsgPushHandlerBase instance)
+            if (!type.HasImplemented<MsgPushProcessorBase>() ||
+                Activator.CreateInstance(type) is not MsgPushProcessorBase instance)
                 continue;
             
-            foreach (var msgType in instance.MatchKeys)
+            var attributes = type.GetCustomAttributes<MsgPushProcessorAttribute>();
+            
+            foreach (var attribute in attributes)
             {
+                var msgType = new MsgMatchKey(attribute.MsgType, attribute.SubType, attribute.RequireContent);
                 if (!handlers.TryGetValue(msgType, out var set))
                 {
                     set = [];
@@ -50,7 +54,7 @@ internal class PushLogic : ILogic
                 set.Add(instance);
             }
         }
-        _handlers = handlers.ToFrozenDictionary();
+        _processors = handlers.ToFrozenDictionary();
     }
     
     public async ValueTask Incoming(ProtocolEvent e)
@@ -61,16 +65,16 @@ internal class PushLogic : ILogic
         var hasContent = msgEvt.MsgPush.CommonMessage.MessageBody?.MsgContent is not null;
         var content = msgEvt.MsgPush.CommonMessage.MessageBody?.MsgContent;
 
-        if (_handlers.TryGetValue(new MsgMatchKey(msgType, subType, hasContent), out var handlers))
+        if (_processors.TryGetValue(new MsgMatchKey(msgType, subType, hasContent), out var handlers))
         {
             foreach (var handler in handlers)
             {
                 if (await handler.Handle(context, msgType, subType, msgEvt, content))
                     return;
             }
-        }
+        } 
         
-        if (_handlers.TryGetValue(new MsgMatchKey(msgType, -1, hasContent), out handlers))
+        if (_processors.TryGetValue(new MsgMatchKey(msgType, -1, hasContent), out handlers))
         {
             foreach (var handler in handlers)
             {
@@ -94,22 +98,27 @@ internal enum MsgType
     Event0x2DC = 732,  // group related event
 }
 
-internal record struct MsgMatchKey(MsgType MsgType, int SubType = -1, bool RequireContent = false)
+internal readonly record struct MsgMatchKey(MsgType MsgType, int SubType = -1, bool RequireContent = false);
+
+internal abstract class MsgPushProcessorBase
 {
-    public static implicit operator MsgMatchKey(MsgType msgType) => new(msgType);
-    public static implicit operator MsgMatchKey((MsgType msgType, int subType) tuple) => new(tuple.msgType, tuple.subType);
-    public static implicit operator MsgMatchKey((MsgType msgType, bool requireContent) tuple) => new(tuple.msgType, -1, tuple.requireContent);
-    public static implicit operator MsgMatchKey((MsgType msgType, int subType, bool requireContent) tuple) => new(tuple.msgType, tuple.subType, tuple.requireContent);
+    internal abstract ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content);
 }
 
-internal abstract class MsgPushHandlerBase
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+internal class MsgPushProcessorAttribute : Attribute
 {
-    public MsgMatchKey[] MatchKeys { get; set; }
-
-    internal MsgPushHandlerBase(MsgMatchKey[] keys)
-    {
-        MatchKeys = keys;
-    }
+    public MsgType MsgType { get; init; }
+    public int SubType { get; }
+    public bool RequireContent { get; } = false;
     
-    internal abstract ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content);
+    public MsgPushProcessorAttribute(MsgType msgType, bool requireContent = false)
+        : this(msgType, -1, requireContent) { }
+    
+    public MsgPushProcessorAttribute(MsgType msgType, int subType, bool requireContent = false)
+    {
+        MsgType = msgType;
+        SubType = subType;
+        RequireContent = requireContent;
+    }
 }

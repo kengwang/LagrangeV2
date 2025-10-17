@@ -5,15 +5,12 @@ using Lagrange.Core.Internal.Events.System;
 using Lagrange.Core.Internal.Packets.Notify;
 using Lagrange.Core.Utility;
 
-namespace Lagrange.Core.Internal.Logic.MsgPushHandlers;
+namespace Lagrange.Core.Internal.Logic.MsgPushProccessors;
 
-internal class GroupInviteHandler() : MsgPushHandlerBase([
-    (MsgType.Event0x20D, true)
-])
+[MsgPushProcessor(MsgType.Event0x20D, true)]
+internal class GroupInviteProcessor : MsgPushProcessorBase
 {
-    
-    // another in `RichTextMsgHandler` for private send invitation card.
-    
+    // another in `RichTextMsgProcessor` for private send invitation card.
     internal override async ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType,
         PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)
     {

@@ -5,10 +5,12 @@ using Lagrange.Core.Events.EventArgs;
 using Lagrange.Core.Internal.Events.Message;
 using Lagrange.Core.Message.Entities;
 
-namespace Lagrange.Core.Internal.Logic.MsgPushHandlers;
+namespace Lagrange.Core.Internal.Logic.MsgPushProccessors;
 
-internal class RichTextMsgHandler() : 
-    MsgPushHandlerBase([MsgType.GroupMessage, MsgType.PrivateMessage, MsgType.TempMessage])
+[MsgPushProcessor(MsgType.GroupMessage)]
+[MsgPushProcessor(MsgType.PrivateMessage)]
+[MsgPushProcessor(MsgType.TempMessage)]
+internal class RichTextMsgProcessor : MsgPushProcessorBase
 {
     internal override async ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)
     {

@@ -3,11 +3,10 @@ using Lagrange.Core.Internal.Events.Message;
 using Lagrange.Core.Internal.Packets.Notify;
 using Lagrange.Core.Utility;
 
-namespace Lagrange.Core.Internal.Logic.MsgPushHandlers;
+namespace Lagrange.Core.Internal.Logic.MsgPushProccessors;
 
-internal class FriendRequestHandler() : MsgPushHandlerBase([
-    (MsgType.Event0x210, 35, true) // FriendRequestNotice
-])
+[MsgPushProcessor(MsgType.Event0x210, 35, true)] // FriendRequestNotice
+internal class FriendRequestProcessor : MsgPushProcessorBase
 {
     internal override ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType,
         PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)

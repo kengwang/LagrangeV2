@@ -5,11 +5,10 @@ using Lagrange.Core.Internal.Events.System;
 using Lagrange.Core.Internal.Packets.Notify;
 using Lagrange.Core.Utility;
 
-namespace Lagrange.Core.Internal.Logic.MsgPushHandlers;
+namespace Lagrange.Core.Internal.Logic.MsgPushProccessors;
 
-internal class GroupJoinHandler() : MsgPushHandlerBase([
-    (MsgType.GroupJoinNotification, true)
-])
+[MsgPushProcessor(MsgType.GroupJoinNotification, true)]
+internal class GroupJoinProcessor : MsgPushProcessorBase
 {
     internal override async ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)
     {

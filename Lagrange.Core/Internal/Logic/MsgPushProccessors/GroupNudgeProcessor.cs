@@ -4,11 +4,10 @@ using Lagrange.Core.Internal.Packets.Notify;
 using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Binary;
 
-namespace Lagrange.Core.Internal.Logic.MsgPushHandlers;
+namespace Lagrange.Core.Internal.Logic.MsgPushProccessors;
 
-internal class GroupNudgeHandler() : MsgPushHandlerBase([
-    (MsgType.Event0x2DC, 20, true) // GroupGreyTipNotice20
-])
+[MsgPushProcessor(MsgType.Event0x2DC, 20, true)] // GroupGreyTipNotice20
+internal class GroupNudgeProcessor : MsgPushProcessorBase
 {
     internal override ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType,
         PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)

@@ -3,10 +3,10 @@ using Lagrange.Core.Internal.Events.Message;
 using Lagrange.Core.Internal.Packets.Notify;
 using Lagrange.Core.Utility;
 
-namespace Lagrange.Core.Internal.Logic.MsgPushHandlers;
+namespace Lagrange.Core.Internal.Logic.MsgPushProccessors;
 
-internal class GroupMemberDecreaseHandler()
-    : MsgPushHandlerBase([(MsgType.GroupMemberDecreaseNotice, true)])
+[MsgPushProcessor(MsgType.GroupMemberDecreaseNotice, true)]
+internal class GroupMemberDecreaseProcessor : MsgPushProcessorBase
 {
     internal override async ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)
     {
