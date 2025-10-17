@@ -111,5 +111,5 @@ internal abstract class MsgPushHandlerBase
         MatchKeys = keys;
     }
     
-    internal abstract ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType ,PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content);
+    internal abstract ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content);
 }
