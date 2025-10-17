@@ -40,7 +40,7 @@ internal class GroupMemberDecreaseHandler()
             }
             default:
             {
-                context.LogDebug(nameof(PushLogic), "Unknown decrease type: {0}", decrease.DecreaseType);
+                context.LogDebug(nameof(PushLogic), "Unknown decrease type: {0}", null, decrease.DecreaseType);
                 break;
             }
         }
