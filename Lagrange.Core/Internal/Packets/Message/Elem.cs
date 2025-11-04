@@ -13,10 +13,13 @@ internal partial class Elem
     [ProtoMember(5)] public TransElem? TransElemInfo { get; set; }
     
     [ProtoMember(8)] public CustomFace? CustomFace { get; set; }
+    [ProtoMember(9)] public ElemFlags2? ElemFlags2 { get; set; }
     
     [ProtoMember(12)] public RichMsg? RichMsg { get; set; }
     
     [ProtoMember(19)] public VideoFile? VideoFile { get; set; }
+    
+    [ProtoMember(37)] public GeneralFlags? GeneralFlags { get; set; }
     
     [ProtoMember(45)] public SourceMsg? SrcMsg { get; set; }
     
@@ -218,6 +221,12 @@ internal partial class CustomFace
 }
 
 [ProtoPackable]
+internal partial class ElemFlags2
+{
+    [ProtoMember(1)] public uint BubbleId { get; set; }
+}
+
+[ProtoPackable]
 internal partial class RichMsg
 {
     [ProtoMember(1)] public ReadOnlyMemory<byte> BytesTemplate1 { get; set; } // Xml模板一
@@ -283,6 +292,29 @@ internal partial class VideoFile
     [ProtoMember(23)] public int VideoDownloadFlag { get; set; }
     
     [ProtoMember(24)] public byte[] PbReserve { get; set; }
+}
+
+[ProtoPackable]
+internal partial class GeneralFlags
+{
+    [ProtoMember(1)] public uint BubbleDiyTextId { get; set; }
+    
+    [ProtoMember(16)] public uint BubbleSubId { get; set; }
+    
+    [ProtoMember(17)] public ulong PendantId { get; set; }
+
+    [ProtoMember(19)] public GeneralFlagsPbReserve? PbReserve { get; set; } = new();
+    
+    [ProtoPackable]
+    public partial class GeneralFlagsPbReserve
+    {
+        [ProtoMember(15)] public int Field15 { get; set; } = 65536;
+        [ProtoMember(51)] public int Field51 { get; set; } = 258;
+        [ProtoMember(52)] public int Field52 { get; set; } = 64;
+        [ProtoMember(56)] public int Field56 { get; set; } = 20083;
+        [ProtoMember(71)] public int Field71 { get; set; } = 258;
+    }
+    
 }
 
 [ProtoPackable]

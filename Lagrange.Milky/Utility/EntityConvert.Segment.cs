@@ -73,6 +73,8 @@ public partial class EntityConvert
         GroupFileEntity groupFile => new FileIncomingSegment(groupFile.FileId, groupFile.FileName, groupFile.FileSize),
         MultiMsgEntity multiMsg => new ForwardIncomingSegment(multiMsg.ResId!),
         LightAppEntity lightApp => new LightAppIncomingSegment(lightApp.AppName, lightApp.Payload),
+        ElemFlags2Entity flags2 => new ElemFlags2IncomingSegment(flags2.BubbleId),
+        GeneralFlagsEntity generalFlags => new GeneralFlagsIncomingSegment(generalFlags.BubbleDiyTextId,generalFlags.BubbleSubId,generalFlags.PendantId),
         // ? => new MarketFaceSegment(...),
         // ? => new LightAppSegment(...),
         // ? => new XmlSegment(...),
@@ -121,7 +123,14 @@ public partial class EntityConvert
             video.Data.ThumbUri != null ? await _resolver.ToMemoryStreamAsync(video.Data.ThumbUri, token) : null,
             disposeOnCompletion: true
         ),
-        // TODO: ForwardOutgoingSegment
+        ElemFlags2OutgoingSegment flags2 => new ElemFlags2Entity(flags2.Data.BubbleId),
+        GeneralFlagsOutgoingSegment generalFlags => new GeneralFlagsEntity
+        {
+            BubbleDiyTextId = generalFlags.Data.BubbleId,
+            BubbleSubId = generalFlags.Data.BubbleSubId,
+            PendantId = generalFlags.Data.PendantId
+        },
+        ForwardOutgoingSegment forwardOutgoingSegment => await BuildMultiMsgEntityAsync(forwardOutgoingSegment.Data.Messages, token),
         _ => throw new NotSupportedException(),
     };
 
@@ -140,5 +149,17 @@ public partial class EntityConvert
         if (message == null) throw new Exception("message not found");
 
         return new ReplyEntity(message);
+    }
+    
+    private async Task<MultiMsgEntity> BuildMultiMsgEntityAsync(IReadOnlyList<ForwardOutgoingSegmentDataItem> data, CancellationToken token)
+    {
+        var multiMsgEntity = new MultiMsgEntity();
+        foreach (var segment in data)
+        {
+            var msgChain = await FakeSegmentsAsync(segment.Segments, token);
+            var msg = BotMessage.CreateCustomFriend(segment.UserId,segment.SenderName,0, string.Empty, DateTime.Now, msgChain);
+            multiMsgEntity.Messages.Add(msg);
+        }
+        return multiMsgEntity;
     }
 }

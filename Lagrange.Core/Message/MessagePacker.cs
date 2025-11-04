@@ -240,15 +240,12 @@ internal class MessagePacker
             },
             ContentHead = new ContentHead
             {
-                Type = msg.Contact switch
-                {
-                    BotGroupMember => 82,
-                    BotFriend => 166,
-                    BotStranger => 141,
-                    _ => throw new ArgumentOutOfRangeException(nameof(msg.Contact))
-                },
+                Type = 9,
+                SubType = 175,
+                C2CCommand = 175,
                 Random = msg.Random,
                 Sequence = msg.Sequence,
+                PkgNum = 1,
                 Time = new DateTimeOffset(msg.Time).ToUnixTimeSeconds(),
                 ClientSequence = msg.ClientSequence,
                 MsgUid = msg.MessageId,
