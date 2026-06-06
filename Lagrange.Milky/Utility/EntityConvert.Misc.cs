@@ -25,6 +25,24 @@ public partial class EntityConvert
 
     private FriendCategory FriendCategory(BotFriendCategory category) => new(category.Id, category.Name);
 
+    public FriendRequest FriendRequest(BotFriendRequest request, bool isFiltered) => new(
+        request.Time.ToUnixTimeSeconds(),
+        request.SourceUin,
+        request.SourceUid,
+        request.TargetUin,
+        request.TargetUid,
+        request.EventState switch
+        {
+            BotFriendRequest.State.Pending => "pending",
+            BotFriendRequest.State.Approved => "accepted",
+            BotFriendRequest.State.Disapproved => "rejected",
+            _ => "ignored",
+        },
+        request.Comment,
+        request.Source,
+        isFiltered
+    );
+
     public Group Group(BotGroup group) => new(
         group.GroupUin,
         group.GroupName,

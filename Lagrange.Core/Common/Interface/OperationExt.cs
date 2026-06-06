@@ -45,9 +45,48 @@ public static class OperationExt
     public static Task SetGroupReaction(this BotContext context, long groupUin, ulong sequence, string code, bool isAdd) =>
         context.EventContext.GetLogic<OperationLogic>().SetGroupReaction(groupUin, sequence, code, isAdd);
 
+    public static Task GroupSetAdmin(this BotContext context, long groupUin, long targetUin, bool isAdmin) =>
+        context.EventContext.GetLogic<OperationLogic>().GroupSetAdmin(groupUin, targetUin, isAdmin);
+
+    public static Task GroupMuteMember(this BotContext context, long groupUin, long targetUin, uint duration) =>
+        context.EventContext.GetLogic<OperationLogic>().GroupMuteMember(groupUin, targetUin, duration);
+
+    public static Task GroupMuteGlobal(this BotContext context, long groupUin, bool isMute) =>
+        context.EventContext.GetLogic<OperationLogic>().GroupMuteGlobal(groupUin, isMute);
+
+    public static Task GroupKickMember(this BotContext context, long groupUin, long targetUin, bool rejectAddRequest) =>
+        context.EventContext.GetLogic<OperationLogic>().GroupKickMember(groupUin, targetUin, rejectAddRequest);
+
+    public static Task SendProfileLike(this BotContext context, long targetUin, uint count) =>
+        context.EventContext.GetLogic<OperationLogic>().SendProfileLike(targetUin, count);
+
+    public static Task DeleteFriend(this BotContext context, long targetUin) =>
+        context.EventContext.GetLogic<OperationLogic>().DeleteFriend(targetUin);
+
+    public static Task<List<BotFriendRequest>> FetchFriendRequests(this BotContext context) =>
+        context.EventContext.GetLogic<OperationLogic>().FetchFriendRequests();
+
+    public static Task SetFriendRequest(this BotContext context, string initiatorUid, bool accept) =>
+        context.EventContext.GetLogic<OperationLogic>().SetFriendRequest(initiatorUid, accept);
+
+    public static Task<BotPeerPins> FetchPins(this BotContext context) =>
+        context.EventContext.GetLogic<OperationLogic>().FetchPins();
+
+    public static Task SetPinFriend(this BotContext context, long targetUin, bool isPin) =>
+        context.EventContext.GetLogic<OperationLogic>().SetPinFriend(targetUin, isPin);
+
+    public static Task SetPinGroup(this BotContext context, long groupUin, bool isPin) =>
+        context.EventContext.GetLogic<OperationLogic>().SetPinGroup(groupUin, isPin);
+
+    public static Task<List<string>> FetchCustomFace(this BotContext context) =>
+        context.EventContext.GetLogic<OperationLogic>().FetchCustomFace();
+
     public static Task<string> GetNTV2RichMediaUrl(this BotContext context, string fileUuid) =>
         context.EventContext.GetLogic<OperationLogic>().GetNTV2RichMediaUrl(fileUuid);
 
     public static Task<bool> SetBotAvatar(this BotContext context, Stream stream) =>
         context.HighwayContext.UploadFile(stream, 90, Array.Empty<byte>());
+
+    public static Task<bool> SetGroupAvatar(this BotContext context, long groupUin, Stream stream) =>
+        context.EventContext.GetLogic<OperationLogic>().SetGroupAvatar(groupUin, stream);
 }

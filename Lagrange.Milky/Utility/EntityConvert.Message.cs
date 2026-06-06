@@ -42,4 +42,12 @@ public partial class EntityConvert
         Segments(message.Entities),
         null
     );
+
+    public IncomingForwardedMessage IncomingForwardedMessage(BotMessage message) => new(
+        (long)message.Sequence,
+        message.Contact.Nickname,
+        string.Empty,
+        message.Time.ToUnixTimeSeconds(),
+        Segments(message.Entities)
+    );
 }

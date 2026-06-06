@@ -129,7 +129,8 @@ internal class GroupFSMoveService : OidbService<GroupFSMoveEventReq, GroupFSMove
                 Uint32AppId = 7,
                 Uint32BusId = 102,
                 StrFileId = request.FileId,
-                StrParentFolderId = request.ParentDirectory
+                StrParentFolderId = request.ParentDirectory,
+                StrDestFolderId = request.TargetDirectory
             }
         });
     }
@@ -140,5 +141,38 @@ internal class GroupFSMoveService : OidbService<GroupFSMoveEventReq, GroupFSMove
         if (move.Int32RetCode != 0) throw new OperationException((int)move.Int32RetCode, move.StrRetMsg);
 
         return Task.FromResult(new GroupFSMoveEventResp());
+    }
+}
+
+[EventSubscribe<GroupFSRenameEventReq>(Protocols.All)]
+[Service("OidbSvcTrpcTcp.0x6d6_4")]
+internal class GroupFSRenameService : OidbService<GroupFSRenameEventReq, GroupFSRenameEventResp, D6D6ReqBody, D6D6RspBody>
+{
+    private protected override uint Command => 0x6d6;
+
+    private protected override uint Service => 4;
+
+    private protected override Task<D6D6ReqBody> ProcessRequest(GroupFSRenameEventReq request, BotContext context)
+    {
+        return Task.FromResult(new D6D6ReqBody
+        {
+            RenameFileReq = new RenameFileReqBody
+            {
+                Uint64GroupCode = (ulong)request.GroupUin,
+                Uint32AppId = 7,
+                Uint32BusId = 102,
+                StrFileId = request.FileId,
+                StrParentFolderId = request.ParentDirectory,
+                StrNewFileName = request.NewFileName
+            }
+        });
+    }
+
+    private protected override Task<GroupFSRenameEventResp> ProcessResponse(D6D6RspBody response, BotContext context)
+    {
+        var rename = response.RenameFileRsp;
+        if (rename.Int32RetCode != 0) throw new OperationException((int)rename.Int32RetCode, rename.StrRetMsg);
+
+        return Task.FromResult(new GroupFSRenameEventResp());
     }
 }

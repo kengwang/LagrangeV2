@@ -55,6 +55,15 @@ public static partial class JsonUtility
     // get_cookies
     [JsonSerializable(typeof(GetCookiesParameter))]
     [JsonSerializable(typeof(GetCookiesResult))]
+    // get_csrf_token
+    [JsonSerializable(typeof(GetCsrfTokenResult))]
+    // peer pins
+    [JsonSerializable(typeof(GetPeerPinsResult))]
+    [JsonSerializable(typeof(SetPeerPinParameter))]
+    // set_avatar
+    [JsonSerializable(typeof(SetAvatarParameter))]
+    // get_custom_face_url_list
+    [JsonSerializable(typeof(GetCustomFaceUrlListResult))]
     // == message ==
     // send_private_message
     [JsonSerializable(typeof(SendPrivateMessageParameter))]
@@ -71,6 +80,11 @@ public static partial class JsonUtility
     // get_resource_temp_url
     [JsonSerializable(typeof(GetResourceTempUrlParameter))]
     [JsonSerializable(typeof(GetResourceTempUrlResult))]
+    // get_forwarded_messages
+    [JsonSerializable(typeof(GetForwardedMessagesParameter))]
+    [JsonSerializable(typeof(GetForwardedMessagesResult))]
+    // mark_message_as_read
+    [JsonSerializable(typeof(MarkMessageAsReadParameter))]
     // recall_private_message
     [JsonSerializable(typeof(RecallPrivateMessageParameter))]
     // recall_group_message
@@ -78,11 +92,21 @@ public static partial class JsonUtility
     // == friend ==
     // send_friend_nudge
     [JsonSerializable(typeof(SendFriendNudgeParameter))]
+    // friend actions
+    [JsonSerializable(typeof(SendProfileLikeParameter))]
+    [JsonSerializable(typeof(DeleteFriendParameter))]
+    // friend requests
+    [JsonSerializable(typeof(GetFriendRequestsParameter))]
+    [JsonSerializable(typeof(GetFriendRequestsResult))]
+    [JsonSerializable(typeof(AcceptFriendRequestParameter))]
+    [JsonSerializable(typeof(RejectFriendRequestParameter))]
     // == group ==
     // send_group_nudge
     [JsonSerializable(typeof(SendGroupNudgeParameter))]
     // set_group_name
     [JsonSerializable(typeof(SetGroupNameParameter))]
+    // set_group_avatar
+    [JsonSerializable(typeof(SetGroupAvatarParameter))]
     // set_group_member_card
     [JsonSerializable(typeof(SetGroupMemberCardParameter))]
     // set_group_member_special_title
@@ -94,6 +118,17 @@ public static partial class JsonUtility
     // get_group_notifications
     [JsonSerializable(typeof(GetGroupNotificationsParameter))]
     [JsonSerializable(typeof(GetGroupNotificationsResult))]
+    // group moderation
+    [JsonSerializable(typeof(SetGroupMemberAdminParameter))]
+    [JsonSerializable(typeof(SetGroupMemberMuteParameter))]
+    [JsonSerializable(typeof(SetGroupWholeMuteParameter))]
+    [JsonSerializable(typeof(KickGroupMemberParameter))]
+    // group request operations
+    [JsonSerializable(typeof(GroupRequestParameter))]
+    [JsonSerializable(typeof(RejectGroupRequestParameter))]
+    [JsonSerializable(typeof(GroupInvitationOperateParameter))]
+    // set_group_essence_message
+    [JsonSerializable(typeof(SetGroupEssenceMessageParameter))]
     // == file ==
     // upload_group_file
     [JsonSerializable(typeof(UploadGroupFileParameter))]
@@ -108,8 +143,22 @@ public static partial class JsonUtility
     // get_group_file_download_url
     [JsonSerializable(typeof(GetGroupFileDownloadUrlParameter))]
     [JsonSerializable(typeof(GetGroupFileDownloadUrlResult))]
+    // get_private_file_download_url
+    [JsonSerializable(typeof(GetPrivateFileDownloadUrlParameter))]
+    [JsonSerializable(typeof(GetPrivateFileDownloadUrlResult))]
     // delete_group_file
     [JsonSerializable(typeof(DeleteGroupFileParameter))]
+    // move_group_file
+    [JsonSerializable(typeof(MoveGroupFileParameter))]
+    // rename_group_file
+    [JsonSerializable(typeof(RenameGroupFileParameter))]
+    // group file folders
+    [JsonSerializable(typeof(GetGroupFilesParameter))]
+    [JsonSerializable(typeof(GetGroupFilesResult))]
+    [JsonSerializable(typeof(CreateGroupFolderParameter))]
+    [JsonSerializable(typeof(CreateGroupFolderResult))]
+    [JsonSerializable(typeof(RenameGroupFolderParameter))]
+    [JsonSerializable(typeof(DeleteGroupFolderParameter))]
     // === debug ===
 
     // === event ===

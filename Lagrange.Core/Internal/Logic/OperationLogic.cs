@@ -58,6 +58,44 @@ internal class OperationLogic(BotContext context) : ILogic
         await context.EventContext.SendEvent<GroupSetSpecialTitleEventResp>(new GroupSetSpecialTitleEventReq(groupUin, uid, title));
     }
 
+    public async Task GroupSetAdmin(long groupUin, long targetUin, bool isAdmin)
+    {
+        if (context.CacheContext.ResolveCachedUid(targetUin) is not { } uid)
+        {
+            await context.CacheContext.GetMemberList(groupUin, true);
+            uid = context.CacheContext.ResolveCachedUid(targetUin) ?? throw new InvalidTargetException(targetUin, groupUin);
+        }
+
+        await context.EventContext.SendEvent<GroupSetAdminEventResp>(new GroupSetAdminEventReq(groupUin, uid, isAdmin));
+    }
+
+    public async Task GroupMuteMember(long groupUin, long targetUin, uint duration)
+    {
+        if (context.CacheContext.ResolveCachedUid(targetUin) is not { } uid)
+        {
+            await context.CacheContext.GetMemberList(groupUin, true);
+            uid = context.CacheContext.ResolveCachedUid(targetUin) ?? throw new InvalidTargetException(targetUin, groupUin);
+        }
+
+        await context.EventContext.SendEvent<GroupMuteMemberEventResp>(new GroupMuteMemberEventReq(groupUin, uid, duration));
+    }
+
+    public async Task GroupMuteGlobal(long groupUin, bool isMute)
+    {
+        await context.EventContext.SendEvent<GroupMuteGlobalEventResp>(new GroupMuteGlobalEventReq(groupUin, isMute));
+    }
+
+    public async Task GroupKickMember(long groupUin, long targetUin, bool rejectAddRequest)
+    {
+        if (context.CacheContext.ResolveCachedUid(targetUin) is not { } uid)
+        {
+            await context.CacheContext.GetMemberList(groupUin, true);
+            uid = context.CacheContext.ResolveCachedUid(targetUin) ?? throw new InvalidTargetException(targetUin, groupUin);
+        }
+
+        await context.EventContext.SendEvent<GroupKickMemberEventResp>(new GroupKickMemberEventReq(groupUin, uid, rejectAddRequest));
+    }
+
     public async Task GroupMemberRename(long groupUin, long targetUin, string name)
     {
         if (context.CacheContext.ResolveCachedUid(targetUin) is not { } uid)
@@ -73,6 +111,138 @@ internal class OperationLogic(BotContext context) : ILogic
         await context.EventContext.SendEvent<GroupQuitEventResp>(new GroupQuitEventReq(groupUin));
     }
 
+    public async Task SendProfileLike(long targetUin, uint count)
+    {
+        if (context.CacheContext.ResolveCachedUid(targetUin) is not { } uid)
+        {
+            await context.CacheContext.GetFriendList(true);
+            uid = context.CacheContext.ResolveCachedUid(targetUin) ?? throw new InvalidTargetException(targetUin);
+        }
+
+        await context.EventContext.SendEvent<FriendLikeEventResp>(new FriendLikeEventReq(uid, count));
+    }
+
+    public async Task DeleteFriend(long targetUin)
+    {
+        if (context.CacheContext.ResolveCachedUid(targetUin) is not { } uid)
+        {
+            await context.CacheContext.GetFriendList(true);
+            uid = context.CacheContext.ResolveCachedUid(targetUin) ?? throw new InvalidTargetException(targetUin);
+        }
+
+        await context.EventContext.SendEvent<DeleteFriendEventResp>(new DeleteFriendEventReq(uid));
+    }
+
+    public async Task<List<BotFriendRequest>> FetchFriendRequests()
+    {
+        var response = await context.EventContext.SendEvent<FetchFriendRequestsEventResp>(new FetchFriendRequestsEventReq());
+        return response.Requests.ToList();
+    }
+
+    public async Task SetFriendRequest(string initiatorUid, bool accept)
+    {
+        await context.EventContext.SendEvent<SetFriendRequestEventResp>(new SetFriendRequestEventReq(initiatorUid, accept));
+    }
+
+    public async Task<BotPeerPins> FetchPins()
+    {
+        var response = await context.EventContext.SendEvent<FetchPinsEventResp>(new FetchPinsEventReq());
+        var friends = await context.CacheContext.GetFriendList();
+        var groups = await context.CacheContext.GetGroupList();
+
+        return new BotPeerPins(
+            friends.Where(friend => response.FriendUids.Contains(friend.Uid)).ToList(),
+            groups.Where(group => response.GroupUins.Contains(group.GroupUin)).ToList()
+        );
+    }
+
+    public async Task SetPinFriend(long targetUin, bool isPin)
+    {
+        if (context.CacheContext.ResolveCachedUid(targetUin) is not { } uid)
+        {
+            await context.CacheContext.GetFriendList(true);
+            uid = context.CacheContext.ResolveCachedUid(targetUin) ?? throw new InvalidTargetException(targetUin);
+        }
+
+        await context.EventContext.SendEvent<SetPinFriendEventResp>(new SetPinFriendEventReq(uid, isPin));
+    }
+
+    public async Task SetPinGroup(long groupUin, bool isPin)
+    {
+        await context.EventContext.SendEvent<SetPinGroupEventResp>(new SetPinGroupEventReq(groupUin, isPin));
+    }
+
+    public async Task<List<string>> FetchCustomFace()
+    {
+        var response = await context.EventContext.SendEvent<FetchCustomFaceEventResp>(new FetchCustomFaceEventReq());
+        return response.Urls.ToList();
+    }
+
+    public async Task MarkAsRead(MessageType type, long peerUin, ulong sequence)
+    {
+        switch (type)
+        {
+            case MessageType.Group:
+                await context.EventContext.SendEvent<MarkReadEventResp>(new MarkReadEventReq(peerUin, null, sequence, 0));
+                break;
+            case MessageType.Private:
+            {
+                if (context.CacheContext.ResolveCachedUid(peerUin) is not { } uid)
+                {
+                    await context.CacheContext.GetFriendList(true);
+                    uid = context.CacheContext.ResolveCachedUid(peerUin) ?? throw new InvalidTargetException(peerUin);
+                }
+
+                uint time = (uint)DateTimeOffset.Now.ToUnixTimeSeconds();
+                await context.EventContext.SendEvent<MarkReadEventResp>(new MarkReadEventReq(0, uid, sequence, time));
+                break;
+            }
+            default:
+                throw new NotSupportedException($"Unsupported message type: {type}");
+        }
+    }
+
+    public async Task SetGroupEssenceMessage(long groupUin, ulong sequence, bool isSet)
+    {
+        var messages = await context.EventContext.GetLogic<MessagingLogic>().GetGroupMessage(groupUin, sequence, sequence);
+        var message = messages.FirstOrDefault(message => message.Sequence == sequence) ?? throw new OperationException(-2, "message not found");
+
+        if (isSet)
+        {
+            await context.EventContext.SendEvent<SetEssenceMessageEventResp>(new SetEssenceMessageEventReq(groupUin, sequence, message.Random));
+        }
+        else
+        {
+            await context.EventContext.SendEvent<RemoveEssenceMessageEventResp>(new RemoveEssenceMessageEventReq(groupUin, sequence, message.Random));
+        }
+    }
+
+    public async Task<string> PrivateFSDownload(long targetUin, string fileId, string fileHash)
+    {
+        if (context.CacheContext.ResolveCachedUid(targetUin) is not { } uid)
+        {
+            await context.CacheContext.GetFriendList(true);
+            uid = context.CacheContext.ResolveCachedUid(targetUin) ?? throw new InvalidTargetException(targetUin);
+        }
+
+        var response = await context.EventContext.SendEvent<PrivateFSDownloadEventResp>(new PrivateFSDownloadEventReq(fileId, fileHash, uid));
+        return response.DownloadUrl;
+    }
+
+    public Task<bool> SetGroupAvatar(long groupUin, Stream stream)
+    {
+        var extra = new GroupAvatarExtra
+        {
+            Type = 101,
+            GroupUin = groupUin,
+            Field3 = new GroupAvatarExtraField3 { Field1 = 1 },
+            Field5 = 3,
+            Field6 = 1
+        };
+
+        return context.HighwayContext.UploadFile(stream, 3000, ProtoHelper.Serialize(extra));
+    }
+
     public async Task<string> GroupFSDownload(long groupUin, string fileId)
     {
         var request = new GroupFSDownloadEventReq(groupUin, fileId);
@@ -82,7 +252,38 @@ internal class OperationLogic(BotContext context) : ILogic
 
     public async Task GroupFSMove(long groupUin, string fileId, string parentDirectory, string targetDirectory) => await context.EventContext.SendEvent<GroupFSMoveEventResp>(new GroupFSMoveEventReq(groupUin, fileId, parentDirectory, targetDirectory));
 
+    public async Task GroupFSRename(long groupUin, string fileId, string parentDirectory, string newFileName) => await context.EventContext.SendEvent<GroupFSRenameEventResp>(new GroupFSRenameEventReq(groupUin, fileId, parentDirectory, newFileName));
+
     public async Task GroupFSDelete(long groupUin, string fileId) => await context.EventContext.SendEvent<GroupFSDeleteEventResp>(new GroupFSDeleteEventReq(groupUin, fileId));
+
+    public async Task<List<IBotFSEntry>> GroupFSList(long groupUin, string parentDirectory)
+    {
+        var entries = new List<IBotFSEntry>();
+        uint startIndex = 0;
+        while (true)
+        {
+            var response = await context.EventContext.SendEvent<GroupFSListEventResp>(new GroupFSListEventReq(groupUin, parentDirectory, startIndex, 20));
+            entries.AddRange(response.Entries);
+            if (response.IsEnd) return entries;
+            startIndex += 20;
+        }
+    }
+
+    public async Task<string> GroupFSCreateFolder(long groupUin, string folderName)
+    {
+        var response = await context.EventContext.SendEvent<GroupFSCreateFolderEventResp>(new GroupFSCreateFolderEventReq(groupUin, folderName));
+        return response.FolderId;
+    }
+
+    public async Task GroupFSRenameFolder(long groupUin, string folderId, string newFolderName)
+    {
+        await context.EventContext.SendEvent<GroupFSRenameFolderEventResp>(new GroupFSRenameFolderEventReq(groupUin, folderId, newFolderName));
+    }
+
+    public async Task GroupFSDeleteFolder(long groupUin, string folderId)
+    {
+        await context.EventContext.SendEvent<GroupFSDeleteFolderEventResp>(new GroupFSDeleteFolderEventReq(groupUin, folderId));
+    }
 
     public async Task<(ulong, DateTime)> SendFriendFile(long targetUin, Stream fileStream, string? fileName)
     {

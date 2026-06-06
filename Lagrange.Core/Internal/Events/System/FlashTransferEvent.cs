@@ -14,8 +14,6 @@ internal class FlashTransferFile(string fileId, uint index, string fileName, Str
 
     public uint FileType { get; } = ResolveFileType(fileName);
 
-    public FlashTransferFileCategory Category => ResolveCategory(FileType);
-
     public Stream Stream { get; } = stream;
 
     public byte[] FileSha1 { get; } = stream.Sha1();
@@ -52,44 +50,7 @@ internal class FlashTransferFile(string fileId, uint index, string fileName, Str
             _ => DefaultFileType
         };
     }
-
-    private static FlashTransferFileCategory ResolveCategory(uint fileType)
-    {
-        return fileType switch
-        {
-            3 or 6 or 7 or 9 or 10 or 13 or 18 or 19 or 20 or 21 => FlashTransferFileCategory.Document,
-            26 => FlashTransferFileCategory.Image,
-            2 => FlashTransferFileCategory.Video,
-            4 => FlashTransferFileCategory.Archive,
-            25 => FlashTransferFileCategory.Folder,
-            _ => FlashTransferFileCategory.Other
-        };
-    }
-
-    private static string ResolveCategoryName(FlashTransferFileCategory category)
-    {
-        return category switch
-        {
-            FlashTransferFileCategory.Document => "文档",
-            FlashTransferFileCategory.Image => "图片",
-            FlashTransferFileCategory.Video => "视频",
-            FlashTransferFileCategory.Archive => "压缩包",
-            FlashTransferFileCategory.Folder => "文件夹",
-            _ => "其他"
-        };
-    }
 }
-
-internal enum FlashTransferFileCategory : uint
-{
-    Document = 1,
-    Image = 2,
-    Video = 3,
-    Archive = 4,
-    Folder = 5,
-    Other = 6
-}
-
 
 internal class FlashTransferCreateFileSetEventReq(string title, string asciiTitle, List<FlashTransferFile> files) : ProtocolEvent
 {

@@ -31,6 +31,17 @@ internal class GroupFSMoveEventReq(long groupUin, string fileId, string parentDi
     public string TargetDirectory { get; } = targetDirectory;
 }
 
+internal class GroupFSRenameEventReq(long groupUin, string fileId, string parentDirectory, string newFileName) : ProtocolEvent
+{
+    public long GroupUin { get; } = groupUin;
+
+    public string FileId { get; } = fileId;
+
+    public string ParentDirectory { get; } = parentDirectory;
+
+    public string NewFileName { get; } = newFileName;
+}
+
 internal class GroupFSDeleteEventReq(long groupUin, string fileId) : ProtocolEvent
 {
     public long GroupUin { get; } = groupUin;
@@ -57,5 +68,7 @@ internal class GroupFSDownloadEventResp(string fileUrl) : ProtocolEvent
 }
 
 internal class GroupFSMoveEventResp : ProtocolEvent;
+
+internal class GroupFSRenameEventResp : ProtocolEvent;
 
 internal class GroupFSDeleteEventResp : ProtocolEvent;
