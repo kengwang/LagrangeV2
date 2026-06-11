@@ -2,17 +2,19 @@ using System.Text.Json.Serialization;
 
 namespace Lagrange.Milky.Entity.Event;
 
-
 public class GroupInvitationEvent(long time, long selfId, GroupInvitationEventData data) : EventBase<GroupInvitationEventData>(time, selfId, "group_invitation", data) { }
 
-public class GroupInvitationEventData(long invitationSeq, long initiatorId, long groupId)
+public class GroupInvitationEventData(long invitationSeq, long initiatorId, long groupId, long? sourceGroupId = null)
 {
-    [JsonPropertyName("invitation_seq")] 
+    [JsonPropertyName("invitation_seq")]
     public long InvitationSeq { get; } = invitationSeq;
 
-    [JsonPropertyName("initiator_id")] 
+    [JsonPropertyName("initiator_id")]
     public long InitiatorID { get; } = initiatorId;
 
-    [JsonPropertyName("group_id")] 
+    [JsonPropertyName("group_id")]
     public long GroupID { get; } = groupId;
+
+    [JsonPropertyName("source_group_id")]
+    public long? SourceGroupId { get; } = sourceGroupId;
 }

@@ -14,6 +14,14 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
     public List<BotMessage> Messages { get; } = [];
     
     public string? ResId { get; private set; } = resId;
+
+    public string? Title { get; set; }
+
+    public List<string>? Preview { get; set; }
+
+    public string? Summary { get; set; }
+
+    public string? Prompt { get; set; }
     
     public MultiMsgEntity(List<BotMessage> messages) : this(default(string))
     {
@@ -50,14 +58,19 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
         
         int count = Math.Clamp(Messages.Count, 0, 4);
         string guid = Guid.NewGuid().ToString();
+        string title = Title ?? "聊天记录";
+        string summary = Summary ?? $"查看{count}条转发消息";
+        string prompt = Prompt ?? "[聊天记录]";
         var extra = new JsonObject { { "filename", guid }, { "tsum", count } };
-        var news = new JsonArray(Messages[..count].Select(x => new JsonObject { { "text", $"{x.Contact.Nickname}: {string.Join(' ', x.Entities.Select(e => e.ToPreviewString()))}" } }).Cast<JsonNode>().ToArray());
+        var preview = Preview?.Take(4).Select(x => new JsonObject { { "text", x } })
+            ?? Messages[..count].Select(x => new JsonObject { { "text", $"{x.Contact.Nickname}: {string.Join(' ', x.Entities.Select(e => e.ToPreviewString()))}" } });
+        var news = new JsonArray(preview.Cast<JsonNode>().ToArray());
         var detail = new JsonObject
         {
             { "news", news },
             { "resid", ResId },
-            { "source", "聊天记录" },
-            { "summary", $"查看{count}条转发消息" },
+            { "source", title },
+            { "summary", summary },
             { "uniseq", guid }
         };
 
@@ -73,9 +86,9 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
                 Width = 300
             },
             Meta = new JsonObject { { "detail", detail } },
-            Desc = "[聊天记录]",
+            Desc = prompt,
             Extra = JsonHelper.Serialize(extra),
-            Prompt = "[聊天记录]",
+            Prompt = prompt,
             Ver = "0.0.0.5",
             View = "contact"
         };
@@ -108,7 +121,8 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
             
             var doc = new XmlDocument();
             doc.Load(xmlReader);
-            return new MultiMsgEntity(doc["msg"]?.Attributes["m_resid"]?.Value ?? string.Empty);
+            string? resId = doc["msg"]?.Attributes["m_resid"]?.Value;
+            return string.IsNullOrEmpty(resId) ? null : new MultiMsgEntity(resId);
         }
 
         return null;

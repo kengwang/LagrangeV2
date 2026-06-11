@@ -48,8 +48,14 @@ public partial class EntityConvert
         TextEntity text => new TextIncomingSegment(text.Text),
         MentionEntity mention when mention.Uin != 0 => new MentionIncomingSegment(mention.Uin, mention.Display ?? string.Empty),
         MentionEntity mention when mention.Uin == 0 => new MentionAllIncomingSegment(),
-        // ? => new FaceSegment(...),
-        ReplyEntity reply => new ReplyIncomingSegment((long)reply.SrcSequence),
+        FaceEntity face => new FaceIncomingSegment(face.FaceId.ToString(), face.IsLargeFace),
+        ReplyEntity reply => new ReplyIncomingSegment(
+            (long)reply.SrcSequence,
+            reply.SourceUin,
+            reply.Source?.Nickname,
+            reply.SourceTime,
+            Segments(reply.SourceEntities)
+        ),
         ImageEntity image => new ImageIncomingSegment(
             image.FileUuid,
             image.FileUrl,
@@ -73,15 +79,15 @@ public partial class EntityConvert
         GroupFileEntity groupFile => new FileIncomingSegment(groupFile.FileId, groupFile.FileName, groupFile.FileSize),
         MultiMsgEntity multiMsg => new ForwardIncomingSegment(
             multiMsg.ResId ?? string.Empty,
-            string.Empty, // TODO: Core MultiMsgEntity does not expose title
-            [], // TODO: Core MultiMsgEntity does not expose preview
-            string.Empty // TODO: Core MultiMsgEntity does not expose summary
+            multiMsg.Title ?? string.Empty,
+            multiMsg.Preview?.ToArray() ?? [],
+            multiMsg.Summary ?? string.Empty
         ),
         LightAppEntity lightApp => new LightAppIncomingSegment(lightApp.AppName, lightApp.Payload),
-        // ? => new MarketFaceSegment(...),
-        // ? => new LightAppSegment(...),
-        // ? => new XmlSegment(...),
-        _ => throw new NotSupportedException(),
+        MarketFaceEntity marketFace => new MarketFaceIncomingSegment(marketFace.EmojiPackageId, marketFace.EmojiId, marketFace.Key, marketFace.Summary, marketFace.Url),
+        XmlEntity xml => new XmlIncomingSegment(xml.ServiceId, xml.Xml),
+        MarkdownEntity markdown => new MarkdownIncomingSegment(markdown.Content),
+        _ => new TextIncomingSegment($"[Unsupported message entity: {entities.GetType().Name}]"),
     };
     private Task<IMessageEntity> GroupSegmentAsync(IOutgoingSegment segment, long uin, CancellationToken token) => segment switch
     {
@@ -103,8 +109,7 @@ public partial class EntityConvert
         TextOutgoingSegment text => new TextEntity(text.Data.Text),
         MentionOutgoingSegment mention => new MentionEntity(mention.Data.UserId, null),
         MentionAllOutgoingSegment => new MentionEntity(0, "@全体成员"),
-        // TODO: no FaceEntity
-        FaceOutgoingSegment => throw new NotImplementedException(),
+        FaceOutgoingSegment face => new FaceEntity(ParseFaceId(face.Data.FaceId), face.Data.IsLarge),
         // ReplySegment => 
         ImageOutgoingSegment image => new ImageEntity(
             await _resolver.ToMemoryStreamAsync(image.Data.Uri, token),
@@ -126,7 +131,9 @@ public partial class EntityConvert
             video.Data.ThumbUri != null ? await _resolver.ToMemoryStreamAsync(video.Data.ThumbUri, token) : null,
             disposeOnCompletion: true
         ),
-        ForwardOutgoingSegment forwardOutgoingSegment => await BuildMultiMsgEntityAsync(forwardOutgoingSegment.Data.Messages, token),
+        ForwardOutgoingSegment forwardOutgoingSegment => await BuildMultiMsgEntityAsync(forwardOutgoingSegment.Data, token),
+        LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
+        MarkdownOutgoingSegment markdown => new MarkdownEntity(markdown.Data.Content),
         _ => throw new NotSupportedException(),
     };
 
@@ -147,10 +154,16 @@ public partial class EntityConvert
         return new ReplyEntity(message);
     }
 
-    private async Task<MultiMsgEntity> BuildMultiMsgEntityAsync(IReadOnlyList<ForwardOutgoingSegmentDataItem> data, CancellationToken token)
+    private async Task<MultiMsgEntity> BuildMultiMsgEntityAsync(ForwardOutgoingSegmentData data, CancellationToken token)
     {
-        var multiMsgEntity = new MultiMsgEntity();
-        foreach (var segment in data)
+        var multiMsgEntity = new MultiMsgEntity
+        {
+            Title = data.Title,
+            Preview = data.Preview?.ToList(),
+            Summary = data.Summary,
+            Prompt = data.Prompt
+        };
+        foreach (var segment in data.Messages)
         {
             var msgChain = await FakeSegmentsAsync(segment.Segments, token);
             var msg = BotMessage.CreateCustomFriend(segment.UserId, segment.SenderName, 0, string.Empty, DateTime.Now, msgChain);
@@ -159,4 +172,12 @@ public partial class EntityConvert
 
         return multiMsgEntity;
     }
+
+    private static ushort ParseFaceId(string faceId)
+    {
+        return ushort.TryParse(faceId, out ushort id)
+            ? id
+            : throw new NotSupportedException($"Invalid face_id: {faceId}");
+    }
+
 }

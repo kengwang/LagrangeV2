@@ -7,10 +7,14 @@ namespace Lagrange.Core.Internal.Packets.Message;
 internal partial class Elem
 {
     [ProtoMember(1)] public Text? Text { get; set; } 
+
+    [ProtoMember(2)] public Face? Face { get; set; }
     
     [ProtoMember(4)] public NotOnlineImage? NotOnlineImage { get; set; }
 
     [ProtoMember(5)] public TransElem? TransElemInfo { get; set; }
+
+    [ProtoMember(6)] public Marketface? Marketface { get; set; }
     
     [ProtoMember(8)] public CustomFace? CustomFace { get; set; }
     
@@ -39,6 +43,16 @@ internal partial class Text
     [ProtoMember(11)] public byte[] Buf { get; set; }
 
     [ProtoMember(12)] public ReadOnlyMemory<byte> PbReserve { get; set; }
+}
+
+[ProtoPackable]
+internal partial class Face
+{
+    [ProtoMember(1)] public int? Index { get; set; }
+
+    [ProtoMember(2)] public byte[]? Old { get; set; }
+
+    [ProtoMember(11)] public byte[]? Buf { get; set; }
 }
 
 [ProtoPackable]
@@ -109,6 +123,36 @@ internal partial class TransElem
     [ProtoMember(1)] public uint ElemType { get; set; }
 
     [ProtoMember(2)] public byte[] ElemValue { get; set; }
+}
+
+[ProtoPackable]
+internal partial class Marketface
+{
+    [ProtoMember(1)] public string Summary { get; set; }
+
+    [ProtoMember(2)] public int ItemType { get; set; }
+
+    [ProtoMember(3)] public int Info { get; set; }
+
+    [ProtoMember(4)] public byte[] FaceId { get; set; }
+
+    [ProtoMember(5)] public int TabId { get; set; }
+
+    [ProtoMember(6)] public int SubType { get; set; }
+
+    [ProtoMember(7)] public string Key { get; set; }
+
+    [ProtoMember(10)] public int Width { get; set; }
+
+    [ProtoMember(11)] public int Height { get; set; }
+
+    [ProtoMember(13)] public MarketfaceReserve PbReserve { get; set; }
+}
+
+[ProtoPackable]
+internal partial class MarketfaceReserve
+{
+    [ProtoMember(8)] public int Field8 { get; set; }
 }
 
 [ProtoPackable]
@@ -327,4 +371,34 @@ internal partial class CommonElem
     [ProtoMember(2)] public ReadOnlyMemory<byte> PbElem { get; set; }
 
     [ProtoMember(3)] public uint BusinessType { get; set; }
+}
+
+[ProtoPackable]
+internal partial class QBigFaceExtra
+{
+    [ProtoMember(1)] public string? AniStickerPackId { get; set; }
+
+    [ProtoMember(2)] public string? AniStickerId { get; set; }
+
+    [ProtoMember(3)] public int? FaceId { get; set; }
+
+    [ProtoMember(4)] public int? Field4 { get; set; }
+
+    [ProtoMember(5)] public int? AniStickerType { get; set; }
+
+    [ProtoMember(6)] public string? Field6 { get; set; }
+
+    [ProtoMember(7)] public string? Preview { get; set; }
+
+    [ProtoMember(9)] public int? Field9 { get; set; }
+}
+
+[ProtoPackable]
+internal partial class QSmallFaceExtra
+{
+    [ProtoMember(1)] public uint FaceId { get; set; }
+
+    [ProtoMember(2)] public string? Text { get; set; }
+
+    [ProtoMember(3)] public string? CompatText { get; set; }
 }

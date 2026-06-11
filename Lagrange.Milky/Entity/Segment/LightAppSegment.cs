@@ -26,6 +26,7 @@ public class LightAppIncomingSegmentData(string appName, string jsonPayload)
 public class LightAppOutgoingSegmentData(string jsonPayload)
 {
 
+    [JsonRequired]
     [JsonPropertyName("json_payload")]
     public string JsonPayload { get; } = jsonPayload;
 }

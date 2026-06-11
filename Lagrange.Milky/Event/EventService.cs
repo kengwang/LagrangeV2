@@ -32,6 +32,9 @@ public class EventService(ILogger<EventService> logger, IOptions<MilkyConfigurat
         _bot.EventInvoker.RegisterEvent<LgrEvents.BotGroupMemberIncreaseEvent>(HandleGroupMemberIncreaseEvent);
         _bot.EventInvoker.RegisterEvent<LgrEvents.BotGroupMemberDecreaseEvent>(HandleGroupMemberDecreaseEvent);
         _bot.EventInvoker.RegisterEvent<LgrEvents.BotFriendRequestEvent>(HandleFriendRequestEvent);
+        _bot.EventInvoker.RegisterEvent<LgrEvents.BotGroupJoinNotificationEvent>(HandleGroupJoinRequestEvent);
+        _bot.EventInvoker.RegisterEvent<LgrEvents.BotGroupInviteNotificationEvent>(HandleGroupInviteNotificationEvent);
+        _bot.EventInvoker.RegisterEvent<LgrEvents.BotGroupReactionEvent>(HandleGroupReactionEvent);
         _bot.EventInvoker.RegisterEvent<LgrEvents.BotGroupRecallEvent>(HandleGroupRecallEvent);
         _bot.EventInvoker.RegisterEvent<LgrEvents.BotFriendRecallEvent>(HandleFriendRecallEvent);
 
@@ -204,6 +207,83 @@ public class EventService(ILogger<EventService> logger, IOptions<MilkyConfigurat
         }
     }
 
+    private void HandleGroupJoinRequestEvent(BotContext bot, LgrEvents.BotGroupJoinNotificationEvent @event)
+    {
+        try
+        {
+            _logger.LogGroupJoinRequestEvent(
+                @event.Notification.Sequence,
+                @event.Notification.TargetUin,
+                @event.Notification.GroupUin
+            );
+            var result = _convert.GroupJoinRequestEvent(@event);
+            byte[] bytes = JsonUtility.SerializeToUtf8Bytes(result.GetType(), result);
+            using (_lock.UsingReadLock())
+            {
+                foreach (var handler in _handlers)
+                {
+                    handler(bytes);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogHandleEventException(nameof(LgrEvents.BotGroupJoinNotificationEvent), e);
+        }
+    }
+
+    private void HandleGroupInviteNotificationEvent(BotContext bot, LgrEvents.BotGroupInviteNotificationEvent @event)
+    {
+        try
+        {
+            _logger.LogGroupInvitationEvent(
+                @event.Notification.Sequence,
+                @event.Notification.InviterUin,
+                @event.Notification.GroupUin
+            );
+            var result = _convert.GroupInvitedJoinRequestEvent(@event);
+            byte[] bytes = JsonUtility.SerializeToUtf8Bytes(result.GetType(), result);
+            using (_lock.UsingReadLock())
+            {
+                foreach (var handler in _handlers)
+                {
+                    handler(bytes);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogHandleEventException(nameof(LgrEvents.BotGroupInviteNotificationEvent), e);
+        }
+    }
+
+    private void HandleGroupReactionEvent(BotContext bot, LgrEvents.BotGroupReactionEvent @event)
+    {
+        try
+        {
+            _logger.LogGroupReactionEvent(
+                @event.TargetGroupUin,
+                @event.OperatorUin,
+                @event.TargetSequence,
+                @event.Code,
+                @event.IsAdd
+            );
+            var result = _convert.GroupMessageReactionEvent(@event);
+            byte[] bytes = JsonUtility.SerializeToUtf8Bytes(result.GetType(), result);
+            using (_lock.UsingReadLock())
+            {
+                foreach (var handler in _handlers)
+                {
+                    handler(bytes);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogHandleEventException(nameof(LgrEvents.BotGroupReactionEvent), e);
+        }
+    }
+
     private void HandleGroupRecallEvent(BotContext bot, LgrEvents.BotGroupRecallEvent @event)
     {
         try
@@ -261,6 +341,9 @@ public class EventService(ILogger<EventService> logger, IOptions<MilkyConfigurat
         _bot.EventInvoker.UnregisterEvent<LgrEvents.BotGroupMemberIncreaseEvent>(HandleGroupMemberIncreaseEvent);
         _bot.EventInvoker.UnregisterEvent<LgrEvents.BotGroupMemberDecreaseEvent>(HandleGroupMemberDecreaseEvent);
         _bot.EventInvoker.UnregisterEvent<LgrEvents.BotFriendRequestEvent>(HandleFriendRequestEvent);
+        _bot.EventInvoker.UnregisterEvent<LgrEvents.BotGroupJoinNotificationEvent>(HandleGroupJoinRequestEvent);
+        _bot.EventInvoker.UnregisterEvent<LgrEvents.BotGroupInviteNotificationEvent>(HandleGroupInviteNotificationEvent);
+        _bot.EventInvoker.UnregisterEvent<LgrEvents.BotGroupReactionEvent>(HandleGroupReactionEvent);
         _bot.EventInvoker.UnregisterEvent<LgrEvents.BotGroupRecallEvent>(HandleGroupRecallEvent);
         _bot.EventInvoker.UnregisterEvent<LgrEvents.BotFriendRecallEvent>(HandleFriendRecallEvent);
 
@@ -305,7 +388,13 @@ public static partial class EventServiceLoggerExtension
     public static partial void LogFriendRequestEvent(this ILogger<EventService> logger, string request, long user, string? message, string? source);
 
     [LoggerMessage(LogLevel.Debug, "BotGroupInviteEvent {{ request: {request}, user: {user}, group: {group} }}")]
-    public static partial void LogGroupInvitationEvent(this ILogger<EventService> logger, long request, long user, long group);
+    public static partial void LogGroupInvitationEvent(this ILogger<EventService> logger, ulong request, long user, long group);
+
+    [LoggerMessage(LogLevel.Debug, "BotGroupJoinRequestEvent {{ request: {request}, user: {user}, group: {group} }}")]
+    public static partial void LogGroupJoinRequestEvent(this ILogger<EventService> logger, ulong request, long user, long group);
+
+    [LoggerMessage(LogLevel.Debug, "BotGroupReactionEvent {{ group: {group}, user: {user}, sequence: {sequence}, code: {code}, isAdd: {isAdd} }}")]
+    public static partial void LogGroupReactionEvent(this ILogger<EventService> logger, long group, long user, ulong sequence, string code, bool isAdd);
 
     [LoggerMessage(LogLevel.Debug, "BotGroupMemberIncreaseEvent {{ group: {group}, user: {user}, operator: {operator}, invitor: {invitor} }}")]
     public static partial void LogGroupMemberIncreaseEvent(this ILogger<EventService> logger, long group, long user, long? @operator, long? invitor);

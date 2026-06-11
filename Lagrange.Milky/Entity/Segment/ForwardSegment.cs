@@ -13,26 +13,35 @@ public class ForwardIncomingSegmentData(string forwardId, string title, string[]
     [JsonPropertyName("forward_id")]
     public string ForwardId { get; } = forwardId;
 
-    // TODO: Core MultiMsgEntity does not expose title
     [JsonPropertyName("title")]
     public string Title { get; } = title;
 
-    // TODO: Core MultiMsgEntity does not expose preview
     [JsonPropertyName("preview")]
     public string[] Preview { get; } = preview;
 
-    // TODO: Core MultiMsgEntity does not expose summary
     [JsonPropertyName("summary")]
     public string Summary { get; } = summary;
 }
 
 public class ForwardOutgoingSegment(ForwardOutgoingSegmentData data) : OutgoingSegmentBase<ForwardOutgoingSegmentData>(data) { }
 
-public class ForwardOutgoingSegmentData(ForwardOutgoingSegmentDataItem[] messages)
+public class ForwardOutgoingSegmentData(ForwardOutgoingSegmentDataItem[] messages, string? title = null, string[]? preview = null, string? summary = null, string? prompt = null)
 {
     [JsonRequired]
     [JsonPropertyName("messages")]
     public ForwardOutgoingSegmentDataItem[] Messages { get; init; } = messages;
+
+    [JsonPropertyName("title")]
+    public string? Title { get; init; } = title;
+
+    [JsonPropertyName("preview")]
+    public string[]? Preview { get; init; } = preview;
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; init; } = summary;
+
+    [JsonPropertyName("prompt")]
+    public string? Prompt { get; init; } = prompt;
 }
 
 public class ForwardOutgoingSegmentDataItem(long userId, string senderName, IOutgoingSegment[] segments)

@@ -56,6 +56,52 @@ public partial class EntityConvert
         )
     );
 
+    public GroupJoinRequestEvent GroupJoinRequestEvent(LgrEventArgs.BotGroupJoinNotificationEvent @event) => new(
+        @event.EventTime.ToUnixTimeSeconds(),
+        _bot.BotUin,
+        new GroupJoinRequestEventData(
+            @event.Notification.GroupUin,
+            (long)@event.Notification.Sequence,
+            @event.Notification.IsFiltered,
+            @event.Notification.TargetUin,
+            @event.Notification.Comment
+        )
+    );
+
+    public GroupInvitedJoinRequestEvent GroupInvitedJoinRequestEvent(LgrEventArgs.BotGroupInviteNotificationEvent @event) => new(
+        @event.EventTime.ToUnixTimeSeconds(),
+        _bot.BotUin,
+        new GroupInvitedJoinRequestEventData(
+            @event.Notification.GroupUin,
+            (long)@event.Notification.Sequence,
+            @event.Notification.InviterUin,
+            @event.Notification.TargetUin
+        )
+    );
+
+    public GroupInvitationEvent GroupInvitationEvent(LgrEventArgs.BotGroupInviteNotificationEvent @event) => new(
+        @event.EventTime.ToUnixTimeSeconds(),
+        _bot.BotUin,
+        new GroupInvitationEventData(
+            (long)@event.Notification.Sequence,
+            @event.Notification.InviterUin,
+            @event.Notification.GroupUin
+        )
+    );
+
+    public GroupMessageReactionEvent GroupMessageReactionEvent(LgrEventArgs.BotGroupReactionEvent @event) => new(
+        @event.EventTime.ToUnixTimeSeconds(),
+        _bot.BotUin,
+        new GroupMessageReactionEventData(
+            @event.TargetGroupUin,
+            @event.OperatorUin,
+            (long)@event.TargetSequence,
+            @event.Code,
+            "face",
+            @event.IsAdd
+        )
+    );
+
     public MessageRecallEvent MessageRecallEvent(LgrEventArgs.BotGroupRecallEvent @event) => new(
         @event.EventTime.ToUnixTimeSeconds(),
         _bot.BotUin,

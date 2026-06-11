@@ -16,6 +16,7 @@ namespace Lagrange.Milky.Entity.Segment;
 [JsonDerivedType(typeof(MarketFaceIncomingSegment), typeDiscriminator: "market_face")]
 [JsonDerivedType(typeof(LightAppIncomingSegment), typeDiscriminator: "light_app")]
 [JsonDerivedType(typeof(XmlIncomingSegment), typeDiscriminator: "xml")]
+[JsonDerivedType(typeof(MarkdownIncomingSegment), typeDiscriminator: "markdown")]
 public interface IIncomingSegment
 {
     object? Data { get; }
@@ -33,6 +34,7 @@ public interface IIncomingSegment
 [JsonDerivedType(typeof(VideoOutgoingSegment), typeDiscriminator: "video")]
 [JsonDerivedType(typeof(ForwardOutgoingSegment), typeDiscriminator: "forward")]
 [JsonDerivedType(typeof(LightAppOutgoingSegment), typeDiscriminator: "light_app")]
+[JsonDerivedType(typeof(MarkdownOutgoingSegment), typeDiscriminator: "markdown")]
 public interface IOutgoingSegment
 {
     object? Data { get; }
