@@ -17,16 +17,15 @@ public class LightAppOutgoingSegment(LightAppOutgoingSegmentData data) : Outgoin
 public class LightAppIncomingSegmentData(string appName, string jsonPayload)
 {
     [JsonPropertyName("app_name")]
-    public string AppName { get; } = appName;
+    public string AppName { get; init; } = appName;
 
     [JsonPropertyName("json_payload")]
-    public string JsonPayload { get; } = jsonPayload;
+    public string JsonPayload { get; init; } = jsonPayload;
 }
 
 public class LightAppOutgoingSegmentData(string jsonPayload)
 {
-
     [JsonRequired]
     [JsonPropertyName("json_payload")]
-    public string JsonPayload { get; } = jsonPayload;
+    public string JsonPayload { get; init; } = jsonPayload;
 }

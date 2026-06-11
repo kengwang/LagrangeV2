@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Text.Json.Serialization;
 using Lagrange.Core.Common;
 using Lagrange.Milky.Api.Handler.File;
@@ -8,11 +9,17 @@ using Lagrange.Milky.Api.Handler.Message;
 using Lagrange.Milky.Api.Handler.System;
 using Lagrange.Milky.Api.Result;
 using Lagrange.Milky.Entity.Event;
+using Lagrange.Milky.Entity.Segment;
 
 namespace Lagrange.Milky.Utility;
 
 public static partial class JsonUtility
 {
+    private static readonly JsonSerializerOptions Options = new(JsonContext.Default.Options)
+    {
+        TypeInfoResolver = JsonContext.Default.WithAddedModifier(ApplySegmentPolymorphism)
+    };
+
     [JsonSourceGenerationOptions(AllowOutOfOrderMetadataProperties = true)]
 
     // BotContext
@@ -188,30 +195,79 @@ public static partial class JsonUtility
 
     public static string Serialize<T>(T value) where T : class
     {
-        return JsonSerializer.Serialize(value, typeof(T), JsonContext.Default);
+        return JsonSerializer.Serialize(value, Options.GetTypeInfo(typeof(T)));
     }
 
     public static byte[] SerializeToUtf8Bytes<T>(T value) where T : class
     {
-        return JsonSerializer.SerializeToUtf8Bytes(value, typeof(T), JsonContext.Default);
+        return JsonSerializer.SerializeToUtf8Bytes(value, Options.GetTypeInfo(typeof(T)));
     }
 
     public static byte[] SerializeToUtf8Bytes(Type type, object? value)
     {
-        return JsonSerializer.SerializeToUtf8Bytes(value, type, JsonContext.Default);
+        return JsonSerializer.SerializeToUtf8Bytes(value, Options.GetTypeInfo(type));
     }
 
     public static T? Deserialize<T>(byte[] json) where T : class
     {
-        return JsonSerializer.Deserialize(json, typeof(T), JsonContext.Default) as T;
+        return JsonSerializer.Deserialize(json, Options.GetTypeInfo(typeof(T))) as T;
     }
     public static object? Deserialize(Type type, byte[] json)
     {
-        return JsonSerializer.Deserialize(json, type, JsonContext.Default);
+        return JsonSerializer.Deserialize(json, Options.GetTypeInfo(type));
     }
 
     public static T? Deserialize<T>(Stream json) where T : class
     {
-        return JsonSerializer.Deserialize(json, typeof(T), JsonContext.Default) as T;
+        return JsonSerializer.Deserialize(json, Options.GetTypeInfo(typeof(T))) as T;
+    }
+
+    private static void ApplySegmentPolymorphism(JsonTypeInfo typeInfo)
+    {
+        if (typeInfo.Type == typeof(IIncomingSegment))
+        {
+            typeInfo.PolymorphismOptions = new JsonPolymorphismOptions
+            {
+                TypeDiscriminatorPropertyName = "type",
+                DerivedTypes =
+                {
+                    new JsonDerivedType(typeof(TextIncomingSegment), "text"),
+                    new JsonDerivedType(typeof(MentionIncomingSegment), "mention"),
+                    new JsonDerivedType(typeof(MentionAllIncomingSegment), "mention_all"),
+                    new JsonDerivedType(typeof(FaceIncomingSegment), "face"),
+                    new JsonDerivedType(typeof(ReplyIncomingSegment), "reply"),
+                    new JsonDerivedType(typeof(ImageIncomingSegment), "image"),
+                    new JsonDerivedType(typeof(RecordIncomingSegment), "record"),
+                    new JsonDerivedType(typeof(VideoIncomingSegment), "video"),
+                    new JsonDerivedType(typeof(FileIncomingSegment), "file"),
+                    new JsonDerivedType(typeof(ForwardIncomingSegment), "forward"),
+                    new JsonDerivedType(typeof(MarketFaceIncomingSegment), "market_face"),
+                    new JsonDerivedType(typeof(LightAppIncomingSegment), "light_app"),
+                    new JsonDerivedType(typeof(XmlIncomingSegment), "xml"),
+                    new JsonDerivedType(typeof(MarkdownIncomingSegment), "markdown")
+                }
+            };
+        }
+        else if (typeInfo.Type == typeof(IOutgoingSegment))
+        {
+            typeInfo.PolymorphismOptions = new JsonPolymorphismOptions
+            {
+                TypeDiscriminatorPropertyName = "type",
+                DerivedTypes =
+                {
+                    new JsonDerivedType(typeof(TextOutgoingSegment), "text"),
+                    new JsonDerivedType(typeof(MentionOutgoingSegment), "mention"),
+                    new JsonDerivedType(typeof(MentionAllOutgoingSegment), "mention_all"),
+                    new JsonDerivedType(typeof(FaceOutgoingSegment), "face"),
+                    new JsonDerivedType(typeof(ReplyOutgoingSegment), "reply"),
+                    new JsonDerivedType(typeof(ImageOutgoingSegment), "image"),
+                    new JsonDerivedType(typeof(RecordOutgoingSegment), "record"),
+                    new JsonDerivedType(typeof(VideoOutgoingSegment), "video"),
+                    new JsonDerivedType(typeof(ForwardOutgoingSegment), "forward"),
+                    new JsonDerivedType(typeof(LightAppOutgoingSegment), "light_app"),
+                    new JsonDerivedType(typeof(MarkdownOutgoingSegment), "markdown")
+                }
+            };
+        }
     }
 }

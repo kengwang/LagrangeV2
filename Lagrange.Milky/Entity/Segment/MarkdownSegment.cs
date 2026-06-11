@@ -18,5 +18,5 @@ public class MarkdownSegmentData(string content)
 {
     [JsonRequired]
     [JsonPropertyName("content")]
-    public string Content { get; } = content;
+    public string Content { get; init; } = content;
 }
