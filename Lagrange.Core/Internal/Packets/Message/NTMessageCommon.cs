@@ -40,6 +40,22 @@ internal partial class ContentHead
     [ProtoMember(11)] public ulong ClientSequence { get; set; } // nt_msg_seq
     
     [ProtoMember(12)] public ulong MsgUid { get; set; }
+
+    [ProtoMember(15)] public ForwardHead? Forward { get; set; }
+}
+
+[ProtoPackable]
+internal partial class ForwardHead
+{
+    [ProtoMember(1)] public uint Field1 { get; set; }
+
+    [ProtoMember(2)] public uint Field2 { get; set; }
+
+    [ProtoMember(3)] public uint Field3 { get; set; }
+
+    [ProtoMember(4)] public string? UnknownBase64 { get; set; }
+
+    [ProtoMember(5)] public string? Avatar { get; set; }
 }
 
 [ProtoPackable]

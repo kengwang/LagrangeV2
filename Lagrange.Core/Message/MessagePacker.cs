@@ -84,7 +84,7 @@ internal class MessagePacker
     {
         switch (type)
         {
-            case 166:
+            case 9 or 166:
                 var friend = await _context.CacheContext.ResolveFriend(routingHead.FromUin);
                 return friend ?? new BotFriend(routingHead.FromUin, routingHead.FromUid, string.Empty, string.Empty, string.Empty, string.Empty, null!);
 
@@ -106,7 +106,7 @@ internal class MessagePacker
     {
         switch (type)
         {
-            case 166:
+            case 9 or 166:
                 var friend = await _context.CacheContext.ResolveFriend(routingHead.ToUin);
                 if (friend == null)
                 {
@@ -242,25 +242,35 @@ internal class MessagePacker
                 Type = msg.Contact switch
                 {
                     BotGroupMember => 82,
-                    BotFriend => 166,
+                    BotFriend => 9,
                     BotStranger => 141,
                     _ => throw new ArgumentOutOfRangeException(nameof(msg.Contact))
                 },
+                SubType = msg.Contact is BotGroupMember ? 0 : 4,
+                C2CCommand = msg.Contact is BotGroupMember ? 0 : 4,
                 Random = msg.Random,
                 Sequence = msg.Sequence,
                 Time = new DateTimeOffset(msg.Time).ToUnixTimeSeconds(),
                 ClientSequence = msg.ClientSequence,
                 MsgUid = msg.MessageId,
+                Forward = new ForwardHead
+                {
+                    Field1 = 0,
+                    Field2 = 0,
+                    Field3 = msg.Contact is BotGroupMember ? 0u : 2u,
+                    UnknownBase64 = GetAvatarUrl(msg.Contact.Uin),
+                    Avatar = GetAvatarUrl(msg.Contact.Uin)
+                }
             },
             MessageBody = new MessageBody { RichText = new RichText { Elems = [] } }
         };
         
         proto.RoutingHead.FromUin = msg.Contact.Uin;
-        proto.RoutingHead.FromUid = _context.CacheContext.ResolveCachedUid(msg.Contact.Uin) ?? "";
+        proto.RoutingHead.FromUid = _context.CacheContext.ResolveCachedUid(msg.Contact.Uin) ?? msg.Contact.Uid;
         if (msg.Receiver is BotFriend f)
         {
-            proto.RoutingHead.ToUin = f.Uin;
-            proto.RoutingHead.ToUid = _context.CacheContext.ResolveCachedUid(f.Uin) ?? "";
+            proto.RoutingHead.ToUin = _context.BotUin;
+            proto.RoutingHead.ToUid = _context.Keystore.Uid ?? _context.CacheContext.ResolveCachedUid(f.Uin) ?? f.Uid;
         }
 
         foreach (var entity in msg.Entities)
@@ -271,6 +281,8 @@ internal class MessagePacker
 
         return Task.FromResult(proto);
     }
+
+    private static string GetAvatarUrl(long uin) => $"https://q.qlogo.cn/headimg_dl?dst_uin={uin}&spec=640&img_type=jpg";
 
     private RecordEntity? ParsePttRichText(RichText richText)
     {

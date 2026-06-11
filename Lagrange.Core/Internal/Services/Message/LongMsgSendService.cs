@@ -5,6 +5,7 @@ using Lagrange.Core.Internal.Events;
 using Lagrange.Core.Internal.Events.Message;
 using Lagrange.Core.Internal.Logic;
 using Lagrange.Core.Internal.Packets.Message;
+using Lagrange.Core.Message;
 using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Extension;
 
@@ -20,7 +21,9 @@ internal class LongMsgSendService : BaseService<LongMsgSendEventReq, LongMsgSend
 
         foreach (var msg in input.Messages)
         {
-            var fakeMsg = await context.EventContext.GetLogic<MessagingLogic>().BuildFake(msg);
+            var fakeMessage = CreateFakeMessage(input.Receiver, msg, context);
+            await PreprocessFakeMessage(fakeMessage, context);
+            var fakeMsg = await context.EventContext.GetLogic<MessagingLogic>().BuildFake(fakeMessage);
             messages.Add(fakeMsg);
         }
 
@@ -40,7 +43,7 @@ internal class LongMsgSendService : BaseService<LongMsgSendEventReq, LongMsgSend
             SendReq = new LongMsgSendReq
             {
                 MsgType = input.Receiver is not BotGroup ? 1u : 3u, // 4 for wpamsg, 5 for grpmsg temp
-                PeerInfo = new LongMsgPeerInfo { PeerUid = input.Receiver.Uid },
+                PeerInfo = new LongMsgPeerInfo { PeerUid = input.Receiver is BotGroup ? input.Receiver.Uid : context.Keystore.Uid },
                 GroupUin = input.Receiver is BotGroup group ? group.Uin : 0,
                 Payload = compressedContent
             },
@@ -70,6 +73,41 @@ internal class LongMsgSendService : BaseService<LongMsgSendEventReq, LongMsgSend
         };
         
         return ProtoHelper.Serialize(longMsg);
+    }
+
+    private static async Task PreprocessFakeMessage(BotMessage message, BotContext context)
+    {
+        foreach (var entity in message.Entities)
+        {
+            await entity.Preprocess(context, message);
+        }
+    }
+
+    private static BotMessage CreateFakeMessage(BotContact receiver, BotMessage message, BotContext context)
+    {
+        if (receiver is BotGroup group)
+        {
+            var fakeGroup = new BotGroup(group.GroupUin, group.GroupName, 0, 0, 0, null, null, null);
+            var fakeMemberUid = context.CacheContext.ResolveCachedUid(message.Contact.Uin) ?? message.Contact.Uid;
+            var fakeMember = new BotGroupMember(fakeGroup, message.Contact.Uin, fakeMemberUid, message.Contact.Nickname, GroupMemberPermission.Member, 0, message.Contact.Nickname, null, DateTime.Now, DateTime.Now, DateTime.Now);
+            return CreateFakeMessage(message, fakeMember, fakeGroup);
+        }
+
+        var selfUid = context.Keystore.Uid ?? string.Empty;
+        var fakeSender = new BotFriend(message.Contact.Uin, message.Contact.Nickname, selfUid, string.Empty, string.Empty, string.Empty, null!);
+        var self = new BotFriend(context.BotUin, string.Empty, selfUid, string.Empty, string.Empty, string.Empty, null!);
+        return CreateFakeMessage(message, fakeSender, self);
+    }
+
+    private static BotMessage CreateFakeMessage(BotMessage source, BotContact contact, BotContact receiver)
+    {
+        uint random = (uint)Random.Shared.Next();
+        return new BotMessage(source.Entities, contact, receiver, source.Time)
+        {
+            Random = random,
+            Sequence = (ulong)Random.Shared.Next(1000000, 9999999),
+            MessageId = (0x01000000ul << 32) | random,
+        };
     }
 
     protected override ValueTask<LongMsgSendEventResp> Parse(ReadOnlyMemory<byte> input, BotContext context)
