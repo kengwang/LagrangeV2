@@ -13,7 +13,7 @@ internal class FetchGroupMembersService : OidbService<FetchGroupMembersEventReq,
 {
     private protected override uint Command => 0xfe7;
 
-    private protected override uint Service => 3;
+    private protected override uint Service => 4;
 
     private protected override Task<FetchGroupMembersRequest> ProcessRequest(FetchGroupMembersEventReq request, BotContext context)
     {
