@@ -25,7 +25,7 @@ internal class RichTextMsgProcessor : MsgPushProcessorBase
 
     private bool TryHandleLightApp(BotContext context, BotMessage message, LightAppEntity app)
     {
-        if ((app.AppName == "com.tencent.qun.invite" || app.AppName == "com.tencent.qun.invite") && TryHandleQunInvite(context, message, app)) return true;
+        if ((app.AppName is "com.tencent.qun.invite" or "com.tencent.tuwen.lua") && TryHandleQunInvite(context, message, app)) return true;
 
         return false;
     }
