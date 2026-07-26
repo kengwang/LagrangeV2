@@ -39,7 +39,8 @@ internal class PacketContext
     {
         var tcs = new SsoPacketValueTaskSource();
         _pendingTasks.TryAdd(packet.Sequence, tcs);
-
+        _context.LogTrace(nameof(PacketContext), "[↑] <{0}>[{1}]({2}, {4}|{5}) {3}", packet.Sequence, packet.Command, packet.RetCode,
+            Convert.ToHexString(packet.Data.Span), options.RequestType, options.EncryptType);
         Task.Run(async () => // Schedule the task to the ThreadPool
         {
             try
@@ -103,7 +104,8 @@ internal class PacketContext
     {
         var service = _servicePacker.Parse(buffer);
         var sso = _ssoPacker.Parse(service);
-
+        _context.LogTrace(nameof(PacketContext), "[↓] <{0}>[{1}]({2}) {3}", sso.Sequence, sso.Command, sso.RetCode,
+            Convert.ToHexString(sso.Data.Span));
         if (_pendingTasks.TryRemove(sso.Sequence, out var tcs))
         {
             if (sso is { RetCode: not 0, Extra: var extra })
