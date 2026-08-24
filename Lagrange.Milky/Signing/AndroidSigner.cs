@@ -48,6 +48,7 @@ public sealed class AndroidSigner : AndroidBotSignProvider, IDisposable
             ["uin"] = uin,
             ["cmd"] = cmd,
             ["seq"] = seq,
+            ["android_id"] = Context.Keystore.AndroidId,
             ["buffer"] = Convert.ToHexString(body.Span),
             ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
             ["version"] = Context.AppInfo.PtVersion,
@@ -73,6 +74,7 @@ public sealed class AndroidSigner : AndroidBotSignProvider, IDisposable
         {
             ["uin"] = uin,
             ["data"] = data,
+            ["android_id"] = Context.Keystore.AndroidId,
             ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
             ["ver"] = Context.AppInfo.SdkInfo.SdkVersion,
             ["version"] = Context.AppInfo.PtVersion,
@@ -84,6 +86,7 @@ public sealed class AndroidSigner : AndroidBotSignProvider, IDisposable
         {
             ["uin"] = uin,
             ["data"] = data,
+            ["android_id"] = Context.Keystore.AndroidId,
             ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
             ["version"] = Context.AppInfo.PtVersion,
             ["qua"] = Context.AppInfo.Qua
