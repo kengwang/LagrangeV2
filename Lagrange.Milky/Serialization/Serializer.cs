@@ -54,6 +54,8 @@ public static partial class Serializer
     [JsonSerializable(typeof(BotKeystore))]
     [JsonSerializable(typeof(SecSignRequest))]
     [JsonSerializable(typeof(SignerResponse<SecSignResult>))]
+    [JsonSerializable(typeof(AndroidSigner.ResponseRoot<AndroidSigner.SignResponse>))]
+    [JsonSerializable(typeof(AndroidSigner.ResponseRoot<string>))]
     // Api
     [JsonSerializable(typeof(MilkyApiResponse))]
     [JsonSerializable(typeof(GetLoginInfoHandler.Result), TypeInfoPropertyName = "GetLoginInfoResult")]

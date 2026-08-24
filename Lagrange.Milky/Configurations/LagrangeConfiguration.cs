@@ -30,15 +30,18 @@ public class LagrangeServerConfiguration(bool autoReconnect = true, bool useIPv6
     public bool GetOptimumServer { get; } = getOptimumServer;
 }
 
-public class LagrangeProtocolConfiguration(LagrangeSignerConfiguration signer, Platform platform = Platform.Linux, BotAppInfo? appInfo = null)
+public class LagrangeProtocolConfiguration(
+    LagrangeSignerConfiguration? signer = null,
+    Platform platform = Platform.Linux,
+    BotAppInfo? appInfo = null)
 {
     public Platform Platform { get; } = platform;
     public BotAppInfo? AppInfo { get; } = appInfo;
 
-    public LagrangeSignerConfiguration Signer { get; } = signer;
+    public LagrangeSignerConfiguration Signer { get; } = signer ?? new();
 }
 
-public class LagrangeSignerConfiguration(string baseUrl, string token, string? proxyUrl = null)
+public class LagrangeSignerConfiguration(string baseUrl = "https://sign.lagrangecore.org/api/", string token = "", string? proxyUrl = null)
 {
     public string BaseUrl { get; } = baseUrl;
     public string NormalizedBaseUrl => BaseUrl.EndsWith('/') ? BaseUrl : $"{BaseUrl}/";
@@ -52,4 +55,6 @@ public enum Platform
     Windows = 0b00000001,
     Linux = 0b00000100,
     MacOS = 0b00000010,
+    AndroidPhone = 0b00001000,
+    AndroidPad = 0b00010000,
 }

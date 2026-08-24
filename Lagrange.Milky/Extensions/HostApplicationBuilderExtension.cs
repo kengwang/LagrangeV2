@@ -31,7 +31,14 @@ public static class HostApplicationBuilderExtension
             ?? throw new Exception("Failed to load 'Lagrange' configuration");
         builder.Services.AddSingleton(configuration);
 
-        builder.Services.TryAddSingleton<BotSignProvider, HttpSigner>();
+        if (configuration.Protocol.Platform is Platform.AndroidPhone or Platform.AndroidPad)
+        {
+            builder.Services.TryAddSingleton<BotSignProvider, AndroidSigner>();
+        }
+        else
+        {
+            builder.Services.TryAddSingleton<BotSignProvider, HttpSigner>();
+        }
         builder.Services.AddSingleton(sp =>
         {
             var environment = sp.GetRequiredService<IHostEnvironment>();
@@ -53,8 +60,9 @@ public static class HostApplicationBuilderExtension
                     ?? throw new Exception("Failed to deserialize BotKeystore")
                 : BotKeystore.CreateEmpty();
 
+            var protocol = (Protocols)configuration.Protocol.Platform;
             var appInfo = configuration.Protocol.AppInfo
-                ?? BotAppInfo.ProtocolToAppInfo[(Protocols)configuration.Protocol.Platform];
+                ?? BotAppInfo.ProtocolToAppInfo[protocol];
 
             return BotFactory.Create(config, ks, appInfo);
         });
