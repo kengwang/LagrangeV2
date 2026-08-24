@@ -6,6 +6,7 @@ using Lagrange.Core.Internal.Packets.Service;
 using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Binary;
 using Lagrange.Core.Utility.Extension;
+using Lagrange.Proto.Jce;
 
 namespace Lagrange.Core.Internal.Context;
 
@@ -26,6 +27,7 @@ internal class HighwayContext
     private (byte[], DateTime)? _ticket;
 
     private string? _url;
+    private byte[]? _sessionKey;
     
     public HighwayContext(BotContext context)
     {
@@ -38,6 +40,35 @@ internal class HighwayContext
         _sequence = 0;
         _chunkSize = context.Config.HighwayChunkSize;
         _concurrent = (int)context.Config.HighwayConcurrent;
+    }
+
+    internal void ApplyPush(FileStoragePushFSSvcList storage)
+    {
+        if (storage.BigDataChannel is not { } channel || channel.SigSession.Length == 0) return;
+        _ticket = (channel.SigSession, DateTime.Now);
+        _sessionKey = channel.KeySession;
+        if (channel.PbBuf.Length > 0)
+        {
+            try
+            {
+                var response = ProtoHelper.Deserialize<C501RspBody>(channel.PbBuf);
+                if (response.RspBody is { } body)
+                {
+                    _ticket = (body.SigSession.Length > 0 ? body.SigSession : channel.SigSession, DateTime.Now);
+                    _sessionKey = body.SessionKey.Length > 0 ? body.SessionKey : channel.KeySession;
+                    var pushed = body.Addrs.FirstOrDefault(x => x.ServiceType == 10)?.Addrs.FirstOrDefault();
+                    if (pushed is not null && pushed.Port > 0)
+                        _url = $"{ProtocolHelper.UInt32ToIPV4Addr(pushed.Ip)}:{pushed.Port}/cgi-bin/httpconn?htcmd=0x6FF0087&uin={_context.Keystore.Uin}";
+                }
+            }
+            catch (Exception e)
+            {
+                _context.LogDebug(Tag, "Invalid pushed highway session payload: {0}", null, e.Message);
+            }
+        }
+        var address = channel.IPLists.FirstOrDefault(x => x.ServiceType == 10)?.IPList.FirstOrDefault();
+        if (address is not null && !string.IsNullOrWhiteSpace(address.Server) && address.Port > 0)
+            _url = $"{address.Server}:{address.Port}";
     }
 
     public async Task<bool> UploadFile(Stream stream, int commandId, ReadOnlyMemory<byte> extendInfo)

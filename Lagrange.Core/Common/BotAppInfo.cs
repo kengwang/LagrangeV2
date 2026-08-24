@@ -103,17 +103,18 @@ public class BotAppInfo
     private static readonly BotAppInfo AndroidPhone = new()
     {
         Os = "Android",
-        CurrentVersion = "9.1.60.045f5d19",
-        PtVersion = "9.1.60",
+        CurrentVersion = "9.2.35.d330943e",
+        PtVersion = "9.2.35",
         SsoVersion = 22,
         AppId = 16,
-        SubAppId = 537275636,
+        SubAppId = 537326989,
         PackageName = "com.tencent.mobileqq",
+        Qua = "V1_AND_SQ_9.2.35_12458_HDBM_T",
         ApkSignatureMd5 = [0xA6, 0xB7, 0x45, 0xBF, 0x24, 0xA2, 0xC2, 0x77, 0x52, 0x77, 0x16, 0xF6, 0xF3, 0x6E, 0xB6, 0x8D],
         SdkInfo = new WtLoginSdkInfo
         {
-            SdkBuildTime = 1740483688,
-            SdkVersion = "6.0.0.2568",
+            SdkBuildTime = 1762849776,
+            SdkVersion = "6.0.0.2591",
             MiscBitMap = 150470524,
             SubSigMap = 66560,
             MainSigMap = Sig.WLOGIN_A5 | Sig.WLOGIN_RESERVED | Sig.WLOGIN_STWEB | Sig.WLOGIN_A2 | Sig.WLOGIN_ST | Sig.WLOGIN_LSKEY | Sig.WLOGIN_SKEY | Sig.WLOGIN_SIG64 | Sig.WLOGIN_VKEY | Sig.WLOGIN_D2 | Sig.WLOGIN_SID | Sig.WLOGIN_PSKEY | Sig.WLOGIN_AQSIG | Sig.WLOGIN_LHSIG | Sig.WLOGIN_PAYTOKEN | (Sig)65536
@@ -124,18 +125,18 @@ public class BotAppInfo
     private static readonly BotAppInfo AndroidPad = new()
     {
         Os = "ANDROID",
-        CurrentVersion = "9.2.20.777b5929",
-        PtVersion = "9.2.20",
-        Qua = "V1_AND_SQ_9.2.20_11650_YYB_D",
+        CurrentVersion = "9.2.35.d330943e",
+        PtVersion = "9.2.35",
+        Qua = "V1_AND_SQ_9.2.35_12458_HDBM_T",
         AppId = 16,
-        SubAppId = 537315825,
+        SubAppId = 537327000,
         SsoVersion = 22,
         PackageName = "com.tencent.mobileqq",
         ApkSignatureMd5 = [0xA6, 0xB7, 0x45, 0xBF, 0x24, 0xA2, 0xC2, 0x77, 0x52, 0x77, 0x16, 0xF6, 0xF3, 0x6E, 0xB6, 0x8D],
         SdkInfo = new WtLoginSdkInfo
         {
-            SdkBuildTime = 1757058014,
-            SdkVersion = "6.0.0.2589",
+            SdkBuildTime = 1762849776,
+            SdkVersion = "6.0.0.2591",
             MiscBitMap = 150470524,
             SubSigMap = 66560,
             MainSigMap = Sig.WLOGIN_A5 | Sig.WLOGIN_RESERVED | Sig.WLOGIN_STWEB | Sig.WLOGIN_A2 | Sig.WLOGIN_ST | Sig.WLOGIN_LSKEY | Sig.WLOGIN_SKEY | Sig.WLOGIN_SIG64 | Sig.WLOGIN_VKEY | Sig.WLOGIN_D2 | Sig.WLOGIN_SID | Sig.WLOGIN_PSKEY | Sig.WLOGIN_AQSIG | Sig.WLOGIN_LHSIG | Sig.WLOGIN_PAYTOKEN | (Sig)65536

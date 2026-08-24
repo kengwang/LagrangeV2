@@ -23,6 +23,10 @@
     </ItemGroup>
     
     <ItemGroup>
+      <ProjectReference Include="..\Lagrange.Proto.Generator\Lagrange.Proto.Generator.csproj" PrivateAssets="all" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
       <None Update="Serialization\Metadata\ProtoTypeResolver.WellKnownTypes.tt">
         <Generator>TextTemplatingFileGenerator</Generator>
         <LastGenOutput>ProtoTypeResolver.WellKnownTypes.cs</LastGenOutput>

@@ -18,7 +18,7 @@ internal class DefaultAndroidBotSignProvider : AndroidBotSignProvider, IDisposab
 
     private readonly HttpClient _client = new();
 
-    private readonly string _url = "http://127.0.0.1:8081";
+    private readonly string _url = "http://127.0.0.1:8080";
 
     private static readonly HashSet<string> WhiteListCommand =
     [
@@ -567,10 +567,11 @@ internal class DefaultAndroidBotSignProvider : AndroidBotSignProvider, IDisposab
             ["uin"] = uin,
             ["cmd"] = cmd,
             ["seq"] = seq,
+            ["android_id"] = Context.Keystore.AndroidId,
             ["buffer"] = Convert.ToHexString(body.Span),
             ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
             ["version"] = Context.AppInfo.PtVersion,
-            ["qua"] = "V1_AND_SQ_9.2.20_11650_YYB_D"
+            ["qua"] = Context.AppInfo.Qua
         };
 
         var response = await _client.PostAsync($"{_url}/sign", new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"));
@@ -593,10 +594,11 @@ internal class DefaultAndroidBotSignProvider : AndroidBotSignProvider, IDisposab
         {
             ["uin"] = uin,
             ["data"] = data,
+            ["android_id"] = Context.Keystore.AndroidId,
             ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
             ["ver"] = Context.AppInfo.SdkInfo.SdkVersion,
             ["version"] = Context.AppInfo.PtVersion,
-            ["qua"] = "V1_AND_SQ_9.2.20_11650_YYB_D"
+            ["qua"] = Context.AppInfo.Qua
         };
 
         var response = await _client.PostAsync($"{_url}/energy", new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"));
@@ -612,9 +614,10 @@ internal class DefaultAndroidBotSignProvider : AndroidBotSignProvider, IDisposab
         {
             ["uin"] = uin,
             ["data"] = data,
+            ["android_id"] = Context.Keystore.AndroidId,
             ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
             ["version"] = Context.AppInfo.PtVersion,
-            ["qua"] = "V1_AND_SQ_9.2.20_11650_YYB_D"
+            ["qua"] = Context.AppInfo.Qua
         };
 
         var response = await _client.PostAsync($"{_url}/get_tlv553", new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json"));

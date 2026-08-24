@@ -49,21 +49,9 @@ namespace Lagrange.Core.NativeAPI.NativeModel.Message
                 member.GroupLevel,
                 Encoding.UTF8.GetString(member.MemberCard),
                 Encoding.UTF8.GetString(member.SpecialTitle),
-                DateTime.ParseExact(
-                    Encoding.UTF8.GetString(member.JoinTime),
-                    "O",
-                    CultureInfo.InvariantCulture
-                ),
-                DateTime.ParseExact(
-                    Encoding.UTF8.GetString(member.LastMsgTime),
-                    "O",
-                    CultureInfo.InvariantCulture
-                ),
-                DateTime.ParseExact(
-                    Encoding.UTF8.GetString(member.ShutUpTimestamp),
-                    "O",
-                    CultureInfo.InvariantCulture
-                )
+                0,
+                0,
+                0
             );
         }
 
