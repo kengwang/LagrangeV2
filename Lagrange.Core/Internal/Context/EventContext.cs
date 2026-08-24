@@ -31,7 +31,8 @@ internal class EventContext : IDisposable
             var @return = await _context.PacketContext.SendPacket(frame, attribute);
             var resolved = await _context.ServiceContext.Resolve(@return);
 
-            var result = resolved as T ?? throw new LagrangeException($"The event type is not the same as the expected type. Expected: {typeof(T)}, Actual: {resolved.GetType()}");
+            var result = resolved as T ?? throw new LagrangeException(
+                $"The event type is not the same as the expected type. Expected: {typeof(T)}, Actual: {resolved.GetType()}");
             await HandleIncomingEvent(result);
             return result;
         }
