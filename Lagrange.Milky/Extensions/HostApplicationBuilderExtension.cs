@@ -71,7 +71,7 @@ public static class HostApplicationBuilderExtension
         {
             builder.Services.AddSingleton<ICaptchaResolver, OnlineCaptchaResolver>();
         }
-        else builder.Services.AddSingleton<ICaptchaResolver, OnlineCaptchaResolver>();
+        else builder.Services.AddSingleton<ICaptchaResolver, ManualCaptchaResolver>();
 
         builder.Services.AddHostedService<LagrangeLoggingService>();
         builder.Services.AddHostedService<LoginService>();
