@@ -17,7 +17,8 @@ namespace Lagrange.Milky.Signing;
 public sealed class AndroidSigner : AndroidBotSignProvider, IDisposable
 {
     [UnsafeAccessor(UnsafeAccessorKind.StaticField, Name = "WhiteListCommand")]
-    private static extern HashSet<string> GetWhiteList([UnsafeAccessorType("Lagrange.Core.Common.DefaultAndroidBotSignProvider, Lagrange.Core")] object? _);
+    private static extern ref HashSet<string> GetWhiteList(
+        [UnsafeAccessorType("Lagrange.Core.Common.DefaultAndroidBotSignProvider, Lagrange.Core")] object? _);
 
     private readonly HttpClient _http = new();
     private readonly string _baseUrl;
@@ -42,36 +43,71 @@ public sealed class AndroidSigner : AndroidBotSignProvider, IDisposable
 
     public override async Task<SsoSecureInfo?> GetSecSign(long uin, string cmd, int seq, ReadOnlyMemory<byte> body)
     {
-        var payload = new JsonObject { ["uin"] = uin, ["cmd"] = cmd, ["seq"] = seq,
-            ["buffer"] = Convert.ToHexString(body.Span), ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
-            ["version"] = Context.AppInfo.PtVersion, ["qua"] = Context.AppInfo.Qua };
+        var payload = new JsonObject
+        {
+            ["uin"] = uin,
+            ["cmd"] = cmd,
+            ["seq"] = seq,
+            ["buffer"] = Convert.ToHexString(body.Span),
+            ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
+            ["version"] = Context.AppInfo.PtVersion,
+            ["qua"] = Context.AppInfo.Qua
+        };
         var response = await _http.PostAsync($"{_baseUrl}/sign", Json(payload));
         if (!response.IsSuccessStatusCode) return null;
-        var result = await Serializer.JsonDeserializeAsync<ResponseRoot<SignResponse>>(await response.Content.ReadAsStreamAsync());
-        return result?.Value is { } value ? new SsoSecureInfo {
-            SecSign = Convert.FromHexString(value.Sign), SecToken = Convert.FromHexString(value.Token), SecExtra = Convert.FromHexString(value.Extra) } : null;
+        var result =
+            await Serializer.JsonDeserializeAsync<ResponseRoot<SignResponse>>(
+                await response.Content.ReadAsStreamAsync());
+        return result?.Value is { } value
+            ? new SsoSecureInfo
+            {
+                SecSign = Convert.FromHexString(value.Sign),
+                SecToken = Convert.FromHexString(value.Token),
+                SecExtra = Convert.FromHexString(value.Extra)
+            }
+            : null;
     }
 
-    public override Task<byte[]> GetEnergy(long uin, string data) => GetBytes("energy", new JsonObject {
-        ["uin"] = uin, ["data"] = data, ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
-        ["ver"] = Context.AppInfo.SdkInfo.SdkVersion, ["version"] = Context.AppInfo.PtVersion, ["qua"] = Context.AppInfo.Qua });
+    public override Task<byte[]> GetEnergy(long uin, string data) => GetBytes("energy",
+        new JsonObject
+        {
+            ["uin"] = uin,
+            ["data"] = data,
+            ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
+            ["ver"] = Context.AppInfo.SdkInfo.SdkVersion,
+            ["version"] = Context.AppInfo.PtVersion,
+            ["qua"] = Context.AppInfo.Qua
+        });
 
-    public override Task<byte[]> GetDebugXwid(long uin, string data) => GetBytes("get_tlv553", new JsonObject {
-        ["uin"] = uin, ["data"] = data, ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
-        ["version"] = Context.AppInfo.PtVersion, ["qua"] = Context.AppInfo.Qua });
+    public override Task<byte[]> GetDebugXwid(long uin, string data) => GetBytes("get_tlv553",
+        new JsonObject
+        {
+            ["uin"] = uin,
+            ["data"] = data,
+            ["guid"] = Convert.ToHexString(Context.Keystore.Guid),
+            ["version"] = Context.AppInfo.PtVersion,
+            ["qua"] = Context.AppInfo.Qua
+        });
 
     private async Task<byte[]> GetBytes(string endpoint, JsonObject payload)
     {
         var response = await _http.PostAsync($"{_baseUrl}/{endpoint}", Json(payload));
         if (!response.IsSuccessStatusCode) return [];
-        var result = await Serializer.JsonDeserializeAsync<ResponseRoot<string>>(await response.Content.ReadAsStreamAsync());
+        var result =
+            await Serializer.JsonDeserializeAsync<ResponseRoot<string>>(await response.Content.ReadAsStreamAsync());
         return result?.Value is { } value ? Convert.FromHexString(value) : [];
     }
 
-    private static StringContent Json(JsonObject payload) => new(payload.ToJsonString(), Encoding.UTF8, "application/json");
+    private static StringContent Json(JsonObject payload) =>
+        new(payload.ToJsonString(), Encoding.UTF8, "application/json");
+
     public void Dispose() => _http.Dispose();
 
-    internal sealed class ResponseRoot<T> { [JsonPropertyName("data")] public T Value { get; set; } = default!; }
+    internal sealed class ResponseRoot<T>
+    {
+        [JsonPropertyName("data")] public T Value { get; set; } = default!;
+    }
+
     internal sealed class SignResponse
     {
         [JsonPropertyName("sign")] public string Sign { get; set; } = string.Empty;
