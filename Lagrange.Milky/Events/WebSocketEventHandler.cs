@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using Lagrange.Milky.Serialization;
+using Lagrange.Core.Events.EventArgs;
 
 namespace Lagrange.Milky.Events;
 
@@ -28,6 +29,7 @@ public sealed class WebSocketEventHandler : IHttpHandler, IGenericEventHandler, 
     private readonly BotContext _lagrange;
 
     private readonly string? _token;
+    private readonly bool _suppressSelfMessageEvents;
 
     private readonly ConcurrentDictionary<Guid, (WebSocket WS, SemaphoreSlim SendLock)> _wss = new();
     private readonly CancellationTokenSource _cts = new();
@@ -42,6 +44,7 @@ public sealed class WebSocketEventHandler : IHttpHandler, IGenericEventHandler, 
         _lagrange = lagrange;
 
         _token = configuration.AccessToken;
+        _suppressSelfMessageEvents = configuration.Event.SuppressSelfMessageEvents;
 
         _lagrange.RegisterConvertibleEvents(this);
     }
@@ -162,6 +165,8 @@ public sealed class WebSocketEventHandler : IHttpHandler, IGenericEventHandler, 
 
     public async Task OnEvent<TEvent>(BotContext lagrange, TEvent @event) where TEvent : EventBase
     {
+        if (_suppressSelfMessageEvents && @event is BotMessageEvent message && message.Message.Contact.Uin == _lagrange.BotUin) return;
+
         await using var scope = _scopeFactory.CreateAsyncScope();
         var converter = scope.ServiceProvider.GetRequiredService<IEventConverter<TEvent>>();
         byte[] bytes = Serializer.JsonSerializeToUtf8Bytes(new MilkyEvent

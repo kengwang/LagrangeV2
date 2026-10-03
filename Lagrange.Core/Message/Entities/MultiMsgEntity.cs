@@ -7,6 +7,8 @@ using Lagrange.Core.Internal.Packets.Message;
 using Lagrange.Core.Internal.Packets.Service;
 using Lagrange.Core.Utility;
 
+using System.Collections.Generic;
+
 namespace Lagrange.Core.Message.Entities;
 
 public class MultiMsgEntity(string? resId) : IMessageEntity
@@ -14,6 +16,12 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
     public List<BotMessage> Messages { get; } = [];
     
     public string? ResId { get; private set; } = resId;
+
+    /// <summary>Optional presentation metadata carried by forwarded-message payloads.</summary>
+    public string? Title { get; set; }
+    public IReadOnlyList<string>? Preview { get; set; }
+    public string? Summary { get; set; }
+    public string? Prompt { get; set; }
     
     public MultiMsgEntity(List<BotMessage> messages) : this(default(string))
     {

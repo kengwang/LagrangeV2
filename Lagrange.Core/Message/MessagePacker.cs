@@ -1,5 +1,7 @@
 using System.Formats.Asn1;
+using System.Text;
 using Lagrange.Core.Common.Entity;
+using Lagrange.Core.Exceptions;
 using Lagrange.Core.Internal.Events.System;
 using Lagrange.Core.Internal.Packets.Message;
 using Lagrange.Core.Message.Entities;
@@ -31,6 +33,18 @@ internal class MessagePacker(BotContext context)
 
         if (msg.MessageBody is null)
             return message;
+
+        if (msg.MessageBody.RichText.NotOnlineFile is { } file)
+        {
+            message.Entities.Add(new GroupFileEntity
+            {
+                FileId = file.FileUuid,
+                FileName = file.FileName,
+                FileSize = checked((long)file.FileSize),
+                FileMd5 = file.FileMd5 is null ? string.Empty : Convert.ToHexString(file.FileMd5),
+                FileUrl = file.FileUrls.Count > 0 ? Encoding.UTF8.GetString(file.FileUrls[0]) : string.Empty,
+            });
+        }
 
         if (ParsePttRichText(msg.MessageBody.RichText) is { } record)
         {
@@ -64,6 +78,7 @@ internal class MessagePacker(BotContext context)
         switch (type)
         {
             case 166:
+            case 529:
                 var friend = await context.CacheContext.ResolveFriend(routingHead.FromUin);
                 return friend ?? new BotFriend(routingHead.FromUin, routingHead.FromUid, string.Empty, string.Empty, string.Empty, string.Empty, null!);
 
@@ -78,7 +93,7 @@ internal class MessagePacker(BotContext context)
                 return new BotGroupMember(dummyGroup, routingHead.FromUin, routingHead.FromUid, routingHead.Group.GroupCard, GroupMemberPermission.Member, 0, routingHead.Group.GroupCard, null, now, now, now);
 
             default:
-                throw new NotImplementedException();
+                throw new OperationException(-1, $"Unsupported incoming message type: {type}.");
         }
     }
 
@@ -87,6 +102,7 @@ internal class MessagePacker(BotContext context)
         switch (type)
         {
             case 166:
+            case 529:
                 var friend = await context.CacheContext.ResolveFriend(routingHead.ToUin);
                 if (friend == null)
                 {
@@ -107,7 +123,7 @@ internal class MessagePacker(BotContext context)
 
                 return items.Value.Item2;
             default:
-                throw new NotImplementedException();
+                throw new OperationException(-1, $"Unsupported incoming message type: {type}.");
         }
     }
 
@@ -120,8 +136,11 @@ internal class MessagePacker(BotContext context)
             case BotFriend:
                 routingHead.C2C = new C2C { PeerUin = message.Receiver.Uin, PeerUid = message.Receiver.Uid };
                 break;
+            case BotGroupMember member:
+                routingHead.Group = new Grp { GroupUin = member.Group.GroupUin };
+                break;
             case BotStranger:
-                throw new NotSupportedException();
+                throw new InvalidOperationException("Sending messages to unresolved strangers is not supported.");
         }
 
         if (message.Receiver is BotGroup group)

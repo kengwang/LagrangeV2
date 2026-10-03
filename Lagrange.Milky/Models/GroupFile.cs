@@ -9,7 +9,11 @@ public sealed class GroupFile {
     [JsonPropertyName("parent_folder_id")] public required string ParentFolderId { get; init; }
     [JsonPropertyName("file_size")] public required long FileSize { get; init; }
     [JsonPropertyName("uploaded_time")] public required long UploadedTime { get; init; }
+    [JsonPropertyName("modify_time")] public long ModifyTime { get; init; }
     [JsonPropertyName("expire_time")] public long? ExpireTime { get; init; }
     [JsonPropertyName("uploader_id")] public required long UploaderId { get; init; }
     [JsonPropertyName("downloaded_times")] public required int DownloadedTimes { get; init; }
+    [JsonPropertyName("uploader_name")] public string UploaderName { get; init; } = string.Empty;
+    [JsonPropertyName("create_time")] public long CreateTime { get; init; }
+    [JsonPropertyName("download_url")] public string DownloadUrl { get; init; } = string.Empty;
 }

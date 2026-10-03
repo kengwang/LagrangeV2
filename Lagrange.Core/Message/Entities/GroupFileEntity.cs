@@ -1,4 +1,6 @@
-﻿using Lagrange.Core.Internal.Packets.Message;
+using Lagrange.Core.Internal.Packets.Message;
+using Lagrange.Core.Common.Entity;
+using Lagrange.Core.Internal.Logic;
 using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Binary;
 
@@ -16,12 +18,36 @@ public class GroupFileEntity : IMessageEntity
 
     public string FileUrl { get; set; }  = string.Empty;
 
-    public Task Postprocess(BotContext context, BotMessage message)
+    public async Task Postprocess(BotContext context, BotMessage message)
     {
-        return Task.CompletedTask; // TODO: implement group file download event
+        if (string.IsNullOrWhiteSpace(FileUrl) && message.Contact is BotGroupMember member)
+            FileUrl = await context.EventContext.GetLogic<OperationLogic>().GroupFSDownload(member.Group.Uin, FileId);
     }
 
-    Elem[] IMessageEntity.Build() => throw new NotSupportedException();
+    Elem[] IMessageEntity.Build()
+    {
+        var extra = new GroupFileExtra
+        {
+            Field1 = 4,
+            FileName = FileName,
+            Display = FileName,
+            Inner = new GroupFileExtraInner
+            {
+                Info = new GroupFileExtraInfo
+                {
+                    FileId = FileId,
+                    FileName = FileName,
+                    FileSize = FileSize,
+                    FileMd5 = FileMd5,
+                    Field7 = FileUrl
+                }
+            }
+        };
+        using var payload = new BinaryPacket(256);
+        payload.Write<byte>(1);
+        payload.Write(ProtoHelper.Serialize(extra).Span, Prefix.Int16 | Prefix.LengthOnly);
+        return [new Elem { TransElemInfo = new TransElem { ElemType = 24, ElemValue = payload.ToArray() } }];
+    }
 
     IMessageEntity? IMessageEntity.Parse(List<Elem> elements, Elem target)
     {

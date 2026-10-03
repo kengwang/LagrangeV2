@@ -21,7 +21,7 @@ internal class ServicePacker(BotContext context) : StructBase(context)
         };
         sso.Dispose(); // may allocate on the heap, ensure to return it to the ArrayPool after encryption
         
-        var writer = new BinaryPacket(0x200); // TODO: Implement the packet size
+        var writer = new BinaryPacket(Math.Max(0x200, cipher.Length + 64));
         
         writer.EnterLengthBarrier<int>();
         
@@ -48,7 +48,7 @@ internal class ServicePacker(BotContext context) : StructBase(context)
             _ => throw new ArgumentOutOfRangeException(nameof(options.EncryptType), options.EncryptType, null)
         }; // the payload would always be allocated on the stack for packetType 13
         
-        var writer = new BinaryPacket(0x200);
+        var writer = new BinaryPacket(Math.Max(0x200, cipher.Length + 64));
         
         writer.EnterLengthBarrier<int>();
         

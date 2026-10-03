@@ -13,6 +13,9 @@ namespace Lagrange.Milky.Models.Segments;
 [JsonDerivedType(typeof(FileIncomingSegment), "file")]
 [JsonDerivedType(typeof(ForwardIncomingSegment), "forward")]
 [JsonDerivedType(typeof(LightAppIncomingSegment), "light_app")]
+[JsonDerivedType(typeof(FaceIncomingSegment), "face")]
+[JsonDerivedType(typeof(XmlIncomingSegment), "xml")]
+[JsonDerivedType(typeof(MarketFaceIncomingSegment), "market_face")]
 public abstract class IncomingSegmentBase;
 public abstract class IncomingSegmentBase<T> : IncomingSegmentBase
 {
@@ -29,6 +32,9 @@ public abstract class IncomingSegmentBase<T> : IncomingSegmentBase
 [JsonDerivedType(typeof(VideoOutgoingSegment), "video")]
 [JsonDerivedType(typeof(ForwardOutgoingSegment), "forward")]
 [JsonDerivedType(typeof(LightAppOutgoingSegment), "light_app")]
+[JsonDerivedType(typeof(FaceOutgoingSegment), "face")]
+[JsonDerivedType(typeof(MarketFaceOutgoingSegment), "market_face")]
+[JsonDerivedType(typeof(XmlOutgoingSegment), "xml")]
 public abstract class OutgoingSegmentBase;
 public abstract class OutgoingSegmentBase<T> : OutgoingSegmentBase
 {

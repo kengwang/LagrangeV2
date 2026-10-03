@@ -12,6 +12,8 @@ public sealed class ServiceSourceGenerator : IIncrementalGenerator
 {
     private const string ServiceAttributeFullName = "Lagrange.Core.Services.ServiceAttribute";
     private const string ServiceInterfaceFullName = "Lagrange.Core.Services.IService";
+    private const string HttpServiceAttributeFullName = "Lagrange.Core.Services.HttpServiceAttribute";
+    private const string HttpServiceInterfaceFullName = "Lagrange.Core.Services.IHttpService";
     private const string EventSubscribeAttributeNamespace = "Lagrange.Core.Services";
     private const string EventSubscribeAttributeName = "EventSubscribeAttribute";
     private const long DefaultRequestType = 0x0C;
@@ -30,6 +32,34 @@ public sealed class ServiceSourceGenerator : IIncrementalGenerator
         var services = candidates.SelectMany(static (service, _) => service.HasValue ? [service.GetValueOrDefault()] : ImmutableArray<ServiceInfo>.Empty);
 
         context.RegisterSourceOutput(services.Collect(), static (context, services) => Output(context, services));
+
+        var httpCandidates = context.SyntaxProvider.ForAttributeWithMetadataName(
+            HttpServiceAttributeFullName,
+            static (_, _) => true,
+            static (context, _) => ToHttpServiceInfo(context));
+        var httpServices = httpCandidates.SelectMany(static (service, _) => service.HasValue ? [service.GetValueOrDefault()] : ImmutableArray<HttpServiceInfo>.Empty);
+        context.RegisterSourceOutput(httpServices.Collect(), static (context, services) => OutputHttp(context, services));
+    }
+
+    private static HttpServiceInfo? ToHttpServiceInfo(GeneratorAttributeSyntaxContext context)
+    {
+        if (context.TargetSymbol is not INamedTypeSymbol { TypeKind: TypeKind.Class } typeSymbol || typeSymbol.IsAbstract) return null;
+        var serviceInterface = context.SemanticModel.Compilation.GetTypeByMetadataName(HttpServiceInterfaceFullName);
+        if (serviceInterface is null || !typeSymbol.AllInterfaces.Any(type => SymbolEqualityComparer.Default.Equals(type, serviceInterface))) return null;
+        var events = ImmutableArray.CreateBuilder<EventSubscriptionInfo>();
+        foreach (var attribute in typeSymbol.GetAttributes()) if (TryGetEventSubscription(attribute, out var subscription)) events.Add(subscription);
+        if (events.Count == 0) return null;
+        var location = typeSymbol.Locations.FirstOrDefault(static location => location.IsInSource);
+        return new HttpServiceInfo(typeSymbol.ToDisplayString(TypeDisplayFormat), events.ToImmutable(), location?.SourceTree?.FilePath ?? string.Empty, location?.SourceSpan.Start ?? 0);
+    }
+
+    private static void OutputHttp(SourceProductionContext context, ImmutableArray<HttpServiceInfo> services)
+    {
+        var ordered = services.OrderBy(static x => x.SortPath, StringComparer.Ordinal).ThenBy(static x => x.SortStart).ThenBy(static x => x.ServiceType).ToList();
+        var source = new StringBuilder("#nullable enable\n\nnamespace Lagrange.Core.Internal.Context;\n\ninternal static class HttpServiceRegistry\n{\n    internal static global::System.Collections.Generic.IReadOnlyDictionary<global::System.Type, global::Lagrange.Core.Services.IHttpService> Create(global::Lagrange.Core.BotContext context)\n    {\n        return new global::System.Collections.Generic.Dictionary<global::System.Type, global::Lagrange.Core.Services.IHttpService>\n        {\n");
+        foreach (var service in ordered) foreach (var subscription in service.Subscriptions) source.Append("            [typeof(").Append(subscription.EventType).Append(")] = new ").Append(service.ServiceType).AppendLine("(),");
+        source.AppendLine("        };\n    }\n}");
+        context.AddSource("Lagrange.Core.Internal.Context.HttpServiceRegistry.g.cs", source.ToString());
     }
 
     private static ServiceInfo? ToServiceInfo(GeneratorAttributeSyntaxContext context)
@@ -182,14 +212,12 @@ public sealed class ServiceSourceGenerator : IIncrementalGenerator
             source.AppendLine(";");
             source.AppendLine("            if (service is null)");
             source.AppendLine("            {");
-            source.AppendLine("                if (services.ContainsKey(attribute.Command))");
+            source.AppendLine("                if (!services.TryGetValue(attribute.Command, out service))");
             source.AppendLine("                {");
-            source.AppendLine("                    throw new global::Lagrange.Core.Exceptions.ServiceRegistrationException($\"Multiple protocol services are registered for command '{attribute.Command}'.\");");
+            source.Append("                    service = new ").Append(service.ServiceType).AppendLine("();");
+            source.AppendLine("                    services[attribute.Command] = service;");
+            source.AppendLine("                    if (attribute.DisableLog) disabledLog.Add(attribute.Command);");
             source.AppendLine("                }");
-            source.AppendLine();
-            source.Append("                service = new ").Append(service.ServiceType).AppendLine("();");
-            source.AppendLine("                services[attribute.Command] = service;");
-            source.AppendLine("                if (attribute.DisableLog) disabledLog.Add(attribute.Command);");
             source.AppendLine("            }");
             source.AppendLine();
             source.Append("            AddEvent(typeof(").Append(subscription.EventType).AppendLine("), attribute, service, servicesEventType);");
@@ -265,4 +293,6 @@ public sealed class ServiceSourceGenerator : IIncrementalGenerator
     );
 
     private readonly record struct EventSubscriptionInfo(string EventType, long Protocol);
+
+    private readonly record struct HttpServiceInfo(string ServiceType, ImmutableArray<EventSubscriptionInfo> Subscriptions, string SortPath, int SortStart);
 }

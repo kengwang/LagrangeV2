@@ -43,10 +43,12 @@ internal enum MsgType
 {
     GroupMemberIncreaseNotice = 33,
     GroupMemberDecreaseNotice = 34,
+    GroupAdminChangedNotice = 44,
     GroupMessage = 82,
     GroupJoinNotification = 84,
     TempMessage = 141,
     PrivateMessage = 166,
+    PrivateFileMessage = 529,
     Event0x20D = 525,
     Event0x210 = 528,  // friend related event
     Event0x2DC = 732,  // group related event

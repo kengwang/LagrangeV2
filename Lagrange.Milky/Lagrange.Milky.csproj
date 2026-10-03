@@ -21,6 +21,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Lagrange.Core\Lagrange.Core.csproj" />
-    <ProjectReference Include="..\Lagrange.Milky.Generator\Lagrange.Milky.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Lagrange.Milky.Generator\Lagrange.Milky.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot" />
   </ItemGroup>
 </Project>

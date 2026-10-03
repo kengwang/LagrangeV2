@@ -11,6 +11,7 @@ public class ForwardIncomingSegmentData
     [JsonPropertyName("title")] public required string Title { get; init; }
     [JsonPropertyName("preview")] public required IReadOnlyList<string> Preview { get; init; }
     [JsonPropertyName("summary")] public required string Summary { get; init; }
+    [JsonPropertyName("prompt")] public string? Prompt { get; init; }
 }
 
 

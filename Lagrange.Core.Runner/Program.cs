@@ -74,7 +74,7 @@ internal static class Program
             context.SubmitSMSCode(sms);
         });
         
-        await context.Login(2018109492, "Qbot@KW#2018");
+        await context.Login(3802431153, "Qbot@KW#3802");
         await Task.Delay(5000);
         var builder = new MessageBuilder().Text("Awoo!");
         var message = await context.SendFriendMessage(1136772134, builder.Build());

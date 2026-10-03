@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
+using Lagrange.Core.Exceptions;
 using Lagrange.Milky.Api.Handlers;
 using Lagrange.Milky.Configurations;
 using Lagrange.Milky.Extensions;
@@ -87,6 +88,17 @@ public class HttpApiHandler(IServiceScopeFactory scopeFactory, ILogger<HttpApiHa
             await Serializer.JsonSerializableAsync(context.Response.OutputStream, response, ct);
 
             context.Response.Close();
+        }
+        catch (HttpServiceException e)
+        {
+            _logger.LogApiException(id, e);
+            try
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                await Serializer.JsonSerializableAsync(context.Response.OutputStream, new MilkyApiResponse(e.BusinessCode ?? e.StatusCode ?? -1, e.Message), ct);
+                context.Response.Close();
+            }
+            catch { }
         }
         catch (OperationCanceledException)
         {

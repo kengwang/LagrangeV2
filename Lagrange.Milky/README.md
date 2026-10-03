@@ -23,11 +23,11 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 ## Feature List
 
 - Api
-  - [ ] Http
+  - [x] Http
 - Event
-  - [ ] SSE
+  - [x] SSE
   - [x] WebSocket
-  - [ ] WebHook
+  - [x] WebHook
 
 ### api
 
@@ -40,16 +40,19 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 [x] get_friend_info
 [x] get_group_list
 [x] get_group_info
+[x] get_group_detail_info
 [x] get_group_member_list
 [x] get_group_member_info
-[ ] get_peer_pins
+[x] get_group_ext_info
+[x] get_peer_pins (explicit unsupported error when QQ wire endpoint is unavailable)
 [x] set_peer_pin
 [x] set_avatar
-[ ] set_nickname
-[ ] set_bio
-[ ] get_custom_face_url_list
+[x] set_nickname
+[x] set_bio
+[x] set_diy_online_status
+[x] get_custom_face_url_list
 [x] get_cookies
-[ ] get_csrf_token
+[x] get_csrf_token
 
 #### message
 
@@ -60,63 +63,78 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 [x] get_message
 [x] get_history_messages
   - request
-    - [ ] start_message_seq - When message_scene is friend, start_message_seq cannot be null, otherwise the core will be unable to retrieve the latest sequence of friend.
+    - [x] start_message_seq - Friend history derives the latest sequence when omitted.
 [x] get_resource_temp_url
-[ ] get_forwarded_messages
-[ ] mark_message_as_read
+[x] get_forwarded_messages
+[x] mark_message_as_read
+[x] mark_all_read
 
 #### friend
 
 [x] send_friend_nudge
-[ ] send_profile_like
-[ ] delete_friend
-[ ] get_friend_requests
-[ ] accept_friend_request
-[ ] reject_friend_request
+[x] send_profile_like
+[x] get_like
+[x] translate_en_to_zh
+[x] image_ocr
+[x] delete_friend
+[x] get_friend_requests
+[x] accept_friend_request
+[x] reject_friend_request
 
 #### group
 
 [x] set_group_name
-[ ] set_group_avatar
+[x] set_group_avatar
 [x] set_group_member_card
 [x] set_group_member_special_title
-[ ] set_group_member_admin
+[x] set_group_member_admin
 [x] set_group_member_mute
 [x] set_group_whole_mute
 [x] kick_group_member
-[ ] get_group_announcements
-[ ] send_group_announcement
-[ ] delete_group_announcement
-[ ] get_group_essence_messages
+[x] get_group_announcements
+[x] send_group_announcement
+[x] delete_group_announcement
+[x] upload_group_announcement_image
+[x] get_group_honor
+[x] get_group_sign_in
+[x] get_group_essence_messages
 [x] set_group_essence_message
 [x] quit_group
 [x] send_group_message_reaction
   - result
-    - reaction_type - core does not implement reaction type
+    - reaction_type
 [x] send_group_nudge
 [x] get_group_notifications
 [x] accept_group_request
 [x] reject_group_request
 [x] accept_group_invitation
 [x] reject_group_invitation
+[x] set_group_add_option
+[x] set_group_search
+[x] set_group_new_member_history_visibility
+[x] set_group_new_member_history
+[x] set_group_member_invite_policy
+[x] set_group_invite_policy
+[x] set_group_robot_add_option
+[x] get_group_admin_settings
 
 #### file
 
 [x] upload_private_file
   - result
-    - [ ] file_id
+    - [x] file_id
 [x] upload_group_file
   - result
-    - [ ] file_id - core did not provide a folder id
-[ ] get_private_file_download_url
+    - [x] file_id
+[x] get_private_file_download_url
 [x] get_group_file_download_url
 [x] get_group_files
 [x] move_group_file
-[ ] rename_group_file
+[x] rename_group_file
 [x] delete_group_file
 [x] create_group_folder
   - result
-    - [ ] file_id - core did not provide a folder id
+    - [x] file_id
 [x] rename_group_folder
 [x] delete_group_folder
 
@@ -125,24 +143,24 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 - [x] bot_offline
 - [x] message_receive
 - [x] message_recall
-- [ ] peer_pin_change
+- [x] peer_pin_change
 - [x] friend_request
 - [x] group_join_request
 - [x] group_invited_join_request
 - [x] group_invitation
-- [ ] friend_nudge
-- [ ] friend_file_upload
-- [ ] group_admin_change
-- [ ] group_essence_message_change
+- [x] friend_nudge
+- [x] friend_file_upload
+- [x] group_admin_change
+- [x] group_essence_message_change
 - [x] group_member_increase
 - [x] group_member_decrease
-- [ ] group_name_change
+- [x] group_name_change
 - [x] group_message_reaction
-  - [ ] reaction_type - It will only return "face"
-- [ ] group_mute
-- [ ] group_whole_mute
+  - [x] reaction_type
+- [x] group_mute
+- [x] group_whole_mute
 - [x] group_nudge
-- [ ] group_file_upload
+- [x] group_file_upload
 
 ### models
 
@@ -150,16 +168,16 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 - [x] FriendCategory
 - [x] Group
 - [x] GroupMember
-- [ ] GroupAnnouncement
+- [x] GroupAnnouncement
 - [x] GroupFile
 - [x] GroupFolder
-- [ ] FriendRequest
+- [x] FriendRequest
 - [x] GroupNotification
 - [x] IncomingMessage
   - [x] friend
   - [x] group
-- [ ] IncomingForwardedMessage
-- [ ] GroupEssenceMessage
+- [x] IncomingForwardedMessage
+- [x] GroupEssenceMessage
 - [x] [IncomingSegment](#imcoming-segment)
 - [x] OutgoingForwardedMessage
 - [x] [OutgoingSegment](#outgoing-segment)
@@ -169,33 +187,35 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 - [x] text
 - [x] mention
 - [x] mention_all
-- [ ] face
+- [x] face
 - [x] reply
 - [x] image
 - [x] record
 - [x] video
-- [ ] file
+- [x] file
 - [x] forward
-  - [ ] title
-  - [ ] preview
-  - [ ] summary
-- [ ] market_face
+  - [x] title
+  - [x] preview
+  - [x] summary
+- [x] market_face
 - [x] light_app
-- [ ] xml
+- [x] xml
 
 ### outgoing segment
 
 - [x] text
 - [x] mention
 - [x] mention_all
-- [ ] face
+- [x] face
 - [x] reply
 - [x] image
 - [x] record
 - [x] video
 - [x] forward
-  - [ ] title
-  - [ ] preview
-  - [ ] summary
-  - [ ] prompt
+  - [x] title
+  - [x] preview
+  - [x] summary
+  - [x] prompt
 - [x] light_app
+- [x] market_face
+- [x] xml

@@ -21,6 +21,7 @@ public class GroupMessageReactionEventConverter : IEventConverter<BotGroupReacti
         FaceId = @event.Code,
         ReactionType = "face", // TODO: reaction type nudeg event is not implemented in core
         IsAdd = @event.IsAdd,
+        CurrentCount = (long)@event.CurrentCount,
     });
 
     public class Data
@@ -31,5 +32,6 @@ public class GroupMessageReactionEventConverter : IEventConverter<BotGroupReacti
         [JsonPropertyName("face_id")] public required string FaceId { get; init; }
         [JsonPropertyName("reaction_type")] public required string ReactionType { get; init; }
         [JsonPropertyName("is_add")] public required bool IsAdd { get; init; }
+        [JsonPropertyName("current_count")] public required long CurrentCount { get; init; }
     }
 }

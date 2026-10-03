@@ -23,7 +23,7 @@ public sealed class SetGroupEssenceMessageHandler(BotContext lagrange, MessageCa
                 .WaitAsync(ct))
                 .FirstOrDefault();
         if (message == null) return new MilkyApiResponse(-404, "message not found");
-        await _lagrange.SetEssenceMessage(message).WaitAsync(ct);
+        await _lagrange.SetEssenceMessage(message, ct);
         return new MilkyApiResponse();
     }
 

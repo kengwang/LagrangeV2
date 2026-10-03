@@ -10,12 +10,28 @@ namespace Lagrange.Core.Internal.Logic.Processors;
 
 [MsgPushProcessor(MsgType.GroupMessage)]
 [MsgPushProcessor(MsgType.PrivateMessage)]
+[MsgPushProcessor(MsgType.PrivateFileMessage)]
 [MsgPushProcessor(MsgType.TempMessage)]
 internal class RichTextMsgProcessor : MsgPushProcessorBase
 {
     internal override async ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)
     {
         var message = await context.EventContext.GetLogic<MessagingLogic>().Parse(msgEvt.MsgPush.CommonMessage);
+
+        if (message.Contact is BotGroupMember groupMember && message.Entities.OfType<GroupFileEntity>().FirstOrDefault() is { } uploadedFile)
+        {
+            context.EventInvoker.PostEvent(new BotGroupFileUploadEvent(
+                groupMember.Group.GroupUin,
+                message.Contact.Uin,
+                uploadedFile.FileId,
+                uploadedFile.FileName,
+                uploadedFile.FileSize));
+        }
+        else if (message.Contact is BotFriend friend && message.Entities.OfType<GroupFileEntity>().FirstOrDefault() is { } privateFile)
+        {
+            context.EventInvoker.PostEvent(new BotFriendFileUploadEvent(
+                friend.Uin, message.Contact.Uin, privateFile.FileId, privateFile.FileName, privateFile.FileSize));
+        }
 
         if (message.Entities.Count > 0 && message.Entities[0] is LightAppEntity app && TryHandleLightApp(context, message, app)) return true;
 

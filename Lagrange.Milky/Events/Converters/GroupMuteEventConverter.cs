@@ -1,0 +1,44 @@
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using Lagrange.Core.Events.EventArgs;
+using Lagrange.Milky.Events.Attributes;
+
+namespace Lagrange.Milky.Events.Converters;
+
+[EventConverter]
+public sealed class GroupMuteEventConverter : IEventConverter<BotGroupMuteEvent, GroupMuteEventConverter.Data>
+{
+    public string Name => "group_mute";
+    public bool CanConvert(BotGroupMuteEvent @event) => !@event.IsWholeGroup;
+    public ValueTask<Data> ConvertAsync(BotGroupMuteEvent @event, CancellationToken ct) => ValueTask.FromResult(new Data
+    {
+        GroupId = @event.GroupUin, OperatorId = @event.OperatorUin, UserId = @event.UserUin, Duration = @event.Duration,
+    });
+
+    public sealed class Data
+    {
+        [JsonPropertyName("group_id")] public required long GroupId { get; init; }
+        [JsonPropertyName("operator_id")] public required long OperatorId { get; init; }
+        [JsonPropertyName("user_id")] public required long UserId { get; init; }
+        [JsonPropertyName("duration")] public required uint Duration { get; init; }
+    }
+}
+
+[EventConverter]
+public sealed class GroupWholeMuteEventConverter : IEventConverter<BotGroupWholeMuteEvent, GroupWholeMuteEventConverter.Data>
+{
+    public string Name => "group_whole_mute";
+    public bool CanConvert(BotGroupWholeMuteEvent @event) => true;
+    public ValueTask<Data> ConvertAsync(BotGroupWholeMuteEvent @event, CancellationToken ct) => ValueTask.FromResult(new Data
+    {
+        GroupId = @event.GroupUin, OperatorId = @event.OperatorUin, IsMute = @event.Duration != 0,
+    });
+
+    public sealed class Data
+    {
+        [JsonPropertyName("group_id")] public required long GroupId { get; init; }
+        [JsonPropertyName("operator_id")] public required long OperatorId { get; init; }
+        [JsonPropertyName("is_mute")] public required bool IsMute { get; init; }
+    }
+}

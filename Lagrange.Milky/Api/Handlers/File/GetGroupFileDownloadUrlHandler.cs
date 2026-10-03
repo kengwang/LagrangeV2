@@ -14,7 +14,7 @@ public sealed class GetGroupFileDownloadUrlHandler(BotContext lagrange) : IApiHa
 
     public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
     {
-        string url = await _lagrange.GroupFSDownload(request.GroupId, request.FileId).WaitAsync(ct);
+        string url = await _lagrange.GroupFSDownload(request.GroupId, request.FileId, ct);
         return new MilkyApiResponse<Result>(new Result
         {
             DownloadUrl = url,

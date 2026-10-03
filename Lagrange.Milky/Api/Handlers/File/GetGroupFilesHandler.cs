@@ -19,7 +19,7 @@ public sealed class GetGroupFilesHandler(BotContext lagrange, MilkyConverter con
 
     public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
     {
-        var entries = await _lagrange.FetchGroupFSList(request.GroupId, request.ParentFolderId).WaitAsync(ct);
+        var entries = await _lagrange.FetchGroupFSList(request.GroupId, request.ParentFolderId, ct);
 
         List<GroupFile> files = [];
         List<GroupFolder> folders = [];

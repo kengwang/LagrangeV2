@@ -24,8 +24,8 @@ public sealed class GetHistoryMessagesHandler(BotContext lagrange, MilkyConverte
     {
         long endSequence = request.StartMessageSeq ?? request.MessageScene switch
         {
-            "friend" => throw new NotSupportedException(), // TODO: core will be unable to retrieve the latest sequence of friend.
-            "group" => (await _lagrange.FetchGroupExtra(request.PeerId).WaitAsync(ct)).LatestMessageSequence,
+            "friend" => checked((long)await _lagrange.GetLatestPrivateMessageSequence(request.PeerId, ct).WaitAsync(ct)),
+            "group" => (await _lagrange.FetchGroupExtra(request.PeerId, ct).WaitAsync(ct)).LatestMessageSequence,
             _ => throw new NotSupportedException(),
         };
 
@@ -34,13 +34,15 @@ public sealed class GetHistoryMessagesHandler(BotContext lagrange, MilkyConverte
             "friend" => await _lagrange.GetC2CMessage(
                 request.PeerId,
                 (ulong)Math.Max(0, endSequence - request.Limit),
-                (ulong)endSequence
-            ).WaitAsync(ct),
+                (ulong)endSequence,
+                ct
+            ),
             "group" => await _lagrange.GetGroupMessage(
                 request.PeerId,
                 (ulong)Math.Max(0, endSequence - request.Limit),
-                (ulong)endSequence
-            ).WaitAsync(ct),
+                (ulong)endSequence,
+                ct
+            ),
             _ => throw new NotSupportedException(),
         };
 

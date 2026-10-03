@@ -14,7 +14,7 @@ public sealed class DeleteGroupFolderHandler(BotContext lagrange) : INoResultApi
 
     public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
     {
-        await _lagrange.GroupFSDeleteFolder(request.GroupId, request.FolderId).WaitAsync(ct);
+        await _lagrange.GroupFSDeleteFolder(request.GroupId, request.FolderId, ct);
         return new MilkyApiResponse();
     }
 

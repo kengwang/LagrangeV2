@@ -170,7 +170,7 @@ internal class GroupFSCreateFolderService : OidbService<GroupFSCreateFolderEvent
         var create = response.CreateFolderRsp;
         if (create.Int32RetCode != 0) throw new OperationException((int)create.Int32RetCode, create.StrRetMsg);
 
-        return Task.FromResult(new GroupFSCreateFolderEventResp());
+        return Task.FromResult(new GroupFSCreateFolderEventResp(create.FolderInfo?.FolderId ?? string.Empty));
     }
 }
 

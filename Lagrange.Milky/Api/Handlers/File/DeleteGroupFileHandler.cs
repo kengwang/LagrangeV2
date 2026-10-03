@@ -14,7 +14,7 @@ public sealed class DeleteGroupFileHandler(BotContext lagrange) : INoResultApiHa
 
     public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
     {
-        await _lagrange.GroupFSDelete(request.GroupId, request.FileId).WaitAsync(ct);
+        await _lagrange.GroupFSDelete(request.GroupId, request.FileId, ct);
         return new MilkyApiResponse();
     }
 

@@ -6,7 +6,7 @@ using Lagrange.Core.Utility.Extension;
 
 namespace Lagrange.Core.Internal.Context;
 
-public class FlashTransferContext
+public sealed class FlashTransferContext : IDisposable
 {
     private const string Tag = nameof(FlashTransferContext);
     private readonly BotContext _botContext;
@@ -22,8 +22,12 @@ public class FlashTransferContext
         _url = "https://multimedia.qfile.qq.com/sliceupload";
     }
 
-    public async Task<bool> UploadFile(string uKey, uint appId, Stream bodyStream)
+    public async Task<bool> UploadFile(string uKey, uint appId, Stream bodyStream, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(uKey);
+        ArgumentNullException.ThrowIfNull(bodyStream);
+        if (!bodyStream.CanSeek) throw new ArgumentException("Flash transfer requires a seekable stream.", nameof(bodyStream));
+        if (bodyStream.Length == 0) throw new ArgumentException("Flash transfer cannot upload an empty stream.", nameof(bodyStream));
         var sha1StateVs = new FlashTransferSha1StateV { State = [] };
         var chunkCount = (uint)((bodyStream.Length + ChunkSize - 1) / ChunkSize);
 
@@ -36,7 +40,7 @@ public class FlashTransferContext
                 var accBuffer = new byte[accLength];
             
                 bodyStream.Position = 0;
-                await bodyStream.ReadExactlyAsync(accBuffer, 0, accLength);
+                await bodyStream.ReadExactlyAsync(accBuffer, 0, accLength, cancellationToken);
             
                 var accSpan = accBuffer.AsSpan();
                 var digest = new byte[20];
@@ -59,16 +63,16 @@ public class FlashTransferContext
 
             bodyStream.Position = chunkStart;
             var uploadBuffer = new byte[chunkLength];
-            await bodyStream.ReadExactlyAsync(uploadBuffer, 0, chunkLength);
+            await bodyStream.ReadExactlyAsync(uploadBuffer, 0, chunkLength, cancellationToken);
 
-            var success = await UploadChunk(uKey, appId, (uint)chunkStart, sha1StateVs, uploadBuffer);
+            var success = await UploadChunk(uKey, appId, (uint)chunkStart, sha1StateVs, uploadBuffer, cancellationToken);
             if (!success) return false;
         }
 
         return true;
     }
 
-    private async Task<bool> UploadChunk(string uKey, uint appId, uint start, FlashTransferSha1StateV chunkSha1S, byte[] body)
+    private async Task<bool> UploadChunk(string uKey, uint appId, uint start, FlashTransferSha1StateV chunkSha1S, byte[] body, CancellationToken cancellationToken)
     {
         var req = new FlashTransferUploadReq
         {
@@ -87,7 +91,7 @@ public class FlashTransferContext
             }
         };
         var payload = ProtoHelper.Serialize(req).ToArray();
-        var request = new HttpRequestMessage(HttpMethod.Post, _url)
+        using var request = new HttpRequestMessage(HttpMethod.Post, _url)
         {
             Headers =
             {
@@ -97,8 +101,9 @@ public class FlashTransferContext
             },
             Content = new ByteArrayContent(payload)
         };
-        var response = await _client.SendAsync(request);
-        var responseBytes = await response.Content.ReadAsByteArrayAsync();
+        using var response = await _client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
         var resp = ProtoHelper.Deserialize<FlashTransferUploadResp>(responseBytes);
 
         if (resp.Status != "success")
@@ -110,4 +115,6 @@ public class FlashTransferContext
 
         return true;
     }
+
+    public void Dispose() => _client.Dispose();
 }

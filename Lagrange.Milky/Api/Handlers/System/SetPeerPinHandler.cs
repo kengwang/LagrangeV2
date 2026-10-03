@@ -17,8 +17,8 @@ public sealed class SetPeerPinHandler(BotContext lagrange) : INoResultApiHandler
     {
         await (request.MessageScene switch
         {
-            "friend" => _lagrange.SetPinFriend(request.PeerId, request.IsPinned).WaitAsync(ct),
-            "group" => _lagrange.SetPinGroup(request.PeerId, request.IsPinned).WaitAsync(ct),
+            "friend" => _lagrange.SetPinFriend(request.PeerId, request.IsPinned, ct),
+            "group" => _lagrange.SetPinGroup(request.PeerId, request.IsPinned, ct),
             _ => throw new NotSupportedException(),
         });
         return new MilkyApiResponse();

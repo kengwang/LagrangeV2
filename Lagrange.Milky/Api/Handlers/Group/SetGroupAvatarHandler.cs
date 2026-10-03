@@ -1,0 +1,27 @@
+using System;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using Lagrange.Core;
+using Lagrange.Core.Common.Interface;
+using Lagrange.Milky.Api.Attributes;
+using Lagrange.Milky.Converters;
+
+namespace Lagrange.Milky.Api.Handlers.Group;
+
+[ApiHandler("set_group_avatar")]
+public sealed class SetGroupAvatarHandler(BotContext lagrange, ResourceConverter resources) : INoResultApiHandler<SetGroupAvatarHandler.Request>
+{
+    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    {
+        if (request.GroupId <= 0) throw new ArgumentOutOfRangeException(nameof(request.GroupId));
+        using var image = await resources.UriToStreamAsync(request.ImageUri, ct);
+        await lagrange.SetGroupAvatar(request.GroupId, image, ct).WaitAsync(ct);
+        return new MilkyApiResponse();
+    }
+    public sealed class Request(long groupId, string imageUri)
+    {
+        [JsonPropertyName("group_id")] public long GroupId { get; init; } = groupId;
+        [JsonPropertyName("image_uri")] public string ImageUri { get; init; } = imageUri;
+    }
+}

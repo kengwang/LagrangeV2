@@ -17,15 +17,16 @@ public sealed class UploadGroupFileHandler(BotContext lagrange, ResourceConverte
     public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
     {
         using var stream = await _resourceConverter.UriToStreamAsync(request.FileUri, ct);
-        string url = await _lagrange.SendGroupFile(
+        string fileId = await _lagrange.SendGroupFile(
             request.GroupId,
             stream,
             request.FileName,
-            request.ParentFolderId
+            request.ParentFolderId,
+            ct
         ).WaitAsync(ct);
         return new MilkyApiResponse<Result>(new Result
         {
-            FileId = "" // TODO: core did not provide a folder id
+            FileId = fileId
         });
     }
 

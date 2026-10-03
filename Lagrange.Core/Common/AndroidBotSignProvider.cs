@@ -18,7 +18,7 @@ internal class DefaultAndroidBotSignProvider : AndroidBotSignProvider, IDisposab
 
     private readonly HttpClient _client = new();
 
-    private readonly string _url = "http://127.0.0.1:8080";
+    private readonly string _url = "http://127.0.0.1:5024";
 
     private static readonly HashSet<string> WhiteListCommand =
     [

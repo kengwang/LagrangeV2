@@ -15,27 +15,27 @@ internal class MessagingLogic(BotContext context) : ILogic
 
     public Task<CommonMessage> BuildFake(BotMessage msg) => _packer.BuildFake(msg);
 
-    public async Task<List<BotMessage>> GetGroupMessage(long groupUin, ulong startSequence, ulong endSequence)
+    public async Task<List<BotMessage>> GetGroupMessage(long groupUin, ulong startSequence, ulong endSequence, CancellationToken cancellationToken = default)
     {
-        var result = await context.EventContext.SendEvent<GetGroupMessageEventResp>(new GetGroupMessageEventReq(groupUin, startSequence, endSequence));
+        var result = await context.EventContext.SendEvent<GetGroupMessageEventResp>(new GetGroupMessageEventReq(groupUin, startSequence, endSequence), cancellationToken);
         var messages = new List<BotMessage>(result.Chains.Count);
         foreach (var chain in result.Chains) messages.Add(await Parse(chain));
         return messages;
     }
 
-    public async Task<List<BotMessage>> GetRoamMessage(long peerUin, uint time, uint count)
+    public async Task<List<BotMessage>> GetRoamMessage(long peerUin, uint time, uint count, CancellationToken cancellationToken = default)
     {
         string peerUid = context.CacheContext.ResolveCachedUid(peerUin) ?? throw new InvalidTargetException(peerUin);
-        var result = await context.EventContext.SendEvent<GetRoamMessageEventResp>(new GetRoamMessageEventReq(peerUid, time, count));
+        var result = await context.EventContext.SendEvent<GetRoamMessageEventResp>(new GetRoamMessageEventReq(peerUid, time, count), cancellationToken);
         var messages = new List<BotMessage>(result.Chains.Count);
         foreach (var chain in result.Chains) messages.Add(await Parse(chain));
         return messages;
     }
 
-    public async Task<List<BotMessage>> GetC2CMessage(long peerUin, ulong startSequence, ulong endSequence)
+    public async Task<List<BotMessage>> GetC2CMessage(long peerUin, ulong startSequence, ulong endSequence, CancellationToken cancellationToken = default)
     {
         string peerUid = context.CacheContext.ResolveCachedUid(peerUin) ?? throw new InvalidTargetException(peerUin);
-        var result = await context.EventContext.SendEvent<GetC2CMessageEventResp>(new GetC2CMessageEventReq(peerUid, startSequence, endSequence));
+        var result = await context.EventContext.SendEvent<GetC2CMessageEventResp>(new GetC2CMessageEventReq(peerUid, startSequence, endSequence), cancellationToken);
         var messages = new List<BotMessage>(result.Chains.Count);
         foreach (var chain in result.Chains) messages.Add(await Parse(chain));
         return messages;
@@ -72,49 +72,42 @@ internal class MessagingLogic(BotContext context) : ILogic
         return message;
     }
 
-    public Task RecallMessage(BotMessage message)
+    public async Task RecallMessage(BotMessage message, CancellationToken cancellationToken = default)
     {
-        return message.Contact switch
+        switch (message.Contact)
         {
-            BotGroupMember member => context.EventContext.SendEvent<GroupRecallMsgEventResp>(
-                new GroupRecallMsgEventReq(
-                    member.Group.GroupUin,
-                    message.Sequence
-                )
-            ).AsTask(),
-            BotFriend friend => context.EventContext.SendEvent<C2CRecallMsgEventResp>(new C2CRecallMsgEventReq(
-                friend.Uin == context.BotUin ? message.Receiver.Uid : friend.Uid,
-                message.Sequence,
-                message.ClientSequence,
-                message.Random,
-                (uint)message.Time
-            )).AsTask(),
-            _ => throw new NotImplementedException(),
-        };
+            case BotGroupMember member:
+                await context.EventContext.SendEvent<GroupRecallMsgEventResp>(new GroupRecallMsgEventReq(member.Group.GroupUin, message.Sequence), cancellationToken);
+                break;
+            case BotFriend friend:
+                await context.EventContext.SendEvent<C2CRecallMsgEventResp>(new C2CRecallMsgEventReq(friend.Uin == context.BotUin ? message.Receiver.Uid : friend.Uid, message.Sequence, message.ClientSequence, message.Random, (uint)message.Time), cancellationToken);
+                break;
+            default: throw new InvalidTargetException(message.Contact.Uin);
+        }
     }
 
-    public Task SetEssenceMessage(BotMessage message)
+    public Task SetEssenceMessage(BotMessage message, CancellationToken cancellationToken = default)
     {
         if (message.Contact is not BotGroupMember member) throw new ArgumentException("Only group messages can be set as essence messages.", nameof(message));
 
-        return SetEssenceMessage(member.Group.GroupUin, message.Sequence, message.Random);
+        return SetEssenceMessage(member.Group.GroupUin, message.Sequence, message.Random, cancellationToken);
     }
 
-    public Task RemoveEssenceMessage(BotMessage message)
+    public Task RemoveEssenceMessage(BotMessage message, CancellationToken cancellationToken = default)
     {
         if (message.Contact is not BotGroupMember member) throw new ArgumentException("Only group messages can be removed from essence messages.", nameof(message));
 
-        return RemoveEssenceMessage(member.Group.GroupUin, message.Sequence, message.Random);
+        return RemoveEssenceMessage(member.Group.GroupUin, message.Sequence, message.Random, cancellationToken);
     }
 
-    public Task SetEssenceMessage(long groupUin, ulong sequence, uint random)
+    public async Task SetEssenceMessage(long groupUin, ulong sequence, uint random, CancellationToken cancellationToken = default)
     {
-        return context.EventContext.SendEvent<SetEssenceMessageEventResp>(new SetEssenceMessageEventReq(groupUin, sequence, random)).AsTask();
+        await context.EventContext.SendEvent<SetEssenceMessageEventResp>(new SetEssenceMessageEventReq(groupUin, sequence, random), cancellationToken);
     }
 
-    public Task RemoveEssenceMessage(long groupUin, ulong sequence, uint random)
+    public async Task RemoveEssenceMessage(long groupUin, ulong sequence, uint random, CancellationToken cancellationToken = default)
     {
-        return context.EventContext.SendEvent<RemoveEssenceMessageEventResp>(new RemoveEssenceMessageEventReq(groupUin, sequence, random)).AsTask();
+        await context.EventContext.SendEvent<RemoveEssenceMessageEventResp>(new RemoveEssenceMessageEventReq(groupUin, sequence, random), cancellationToken);
     }
 
     private async Task<BotMessage> BuildMessage(MessageChain chain, BotContact contact, BotContact receiver)

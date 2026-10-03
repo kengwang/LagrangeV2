@@ -23,6 +23,7 @@ public class BotContext : IDisposable
         EventContext = new EventContext(this);
         HighwayContext = new HighwayContext(this);
         FlashTransferContext = new FlashTransferContext(this);
+        HttpSessionContext = new HttpSessionContext(this);
     }
 
     public BotConfig Config { get; }
@@ -48,6 +49,7 @@ public class BotContext : IDisposable
     
     internal HighwayContext HighwayContext { get; }
     internal FlashTransferContext FlashTransferContext { get; }
+    internal HttpSessionContext HttpSessionContext { get; }
 
     #region Shortcut Methods
     
@@ -96,6 +98,8 @@ public class BotContext : IDisposable
     public void Dispose()
     {
         EventInvoker.Dispose();
+        HttpSessionContext.Dispose();
+        FlashTransferContext.Dispose();
         SocketContext.Dispose();
         EventContext.Dispose();
     }

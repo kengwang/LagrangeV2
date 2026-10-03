@@ -14,10 +14,10 @@ public sealed class CreateGroupFolderHandler(BotContext lagrange) : IApiHandler<
 
     public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
     {
-        await _lagrange.GroupFSCreateFolder(request.GroupId, request.FolderName);
+        var folderId = await _lagrange.GroupFSCreateFolder(request.GroupId, request.FolderName, cancellationToken: ct);
         return new MilkyApiResponse<Result>(new Result
         {
-            FolderId = "" // TODO: core did not provide a folder id
+            FolderId = folderId
         });
     }
 

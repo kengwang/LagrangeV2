@@ -14,7 +14,7 @@ public sealed class RenameGroupFolderHandler(BotContext lagrange) : INoResultApi
 
     public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
     {
-        await _lagrange.GroupFSRenameFolder(request.GroupId, request.FolderId, request.NewFolderName).WaitAsync(ct);
+        await _lagrange.GroupFSRenameFolder(request.GroupId, request.FolderId, request.NewFolderName, ct);
         return new MilkyApiResponse();
     }
 

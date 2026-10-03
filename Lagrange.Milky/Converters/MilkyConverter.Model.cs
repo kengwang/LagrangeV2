@@ -144,6 +144,7 @@ public partial class MilkyConverter
         ParentFolderId = entry.ParentDirectory,
         FileSize = (long)entry.FileSize,
         UploadedTime = entry.UploadedTime,
+        ModifyTime = entry.ModifiedTime,
         ExpireTime = entry.ExpireTime,
         UploaderId = entry.UploaderUin,
         DownloadedTimes = (int)entry.DownloadedTimes,

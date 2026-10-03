@@ -39,7 +39,14 @@ public partial class MilkyConverter
                     Name = mention.Display ?? string.Empty,
                 }
             },
-        // TODO: face is not implemented in core
+        FaceEntity face => new FaceIncomingSegment
+        {
+            Data = new FaceIncomingSegmentData { FaceId = face.FaceId, Raw = face.Raw }
+        },
+        XmlEntity xml => new XmlIncomingSegment
+        {
+            Data = new XmlIncomingSegmentData { Xml = xml.Xml }
+        },
         ReplyEntity reply => await ToReplyIncomingSegmentAsync(reply, type, ownerPeerUin, ct),
         ImageEntity image => new ImageIncomingSegment
         {
@@ -77,18 +84,35 @@ public partial class MilkyConverter
                 Duration = (int)video.VideoLength,
             }
         },
-        // TODO: file is not implemented in core
+        GroupFileEntity file => new FileIncomingSegment
+        {
+            Data = new FileIncomingSegmentData
+            {
+                FileId = file.FileId,
+                FileName = file.FileName,
+                FileSize = file.FileSize,
+                FileHash = string.IsNullOrWhiteSpace(file.FileMd5) ? null : file.FileMd5,
+                Url = string.IsNullOrWhiteSpace(file.FileUrl) ? null : file.FileUrl,
+                Title = file.FileName,
+                Preview = file.ToPreviewString(),
+                Summary = file.ToPreviewString(),
+            }
+        },
         MultiMsgEntity forward => new ForwardIncomingSegment
         {
             Data = new ForwardIncomingSegmentData
             {
                 ForwardId = forward.ResId ?? throw new Exception(""),
-                Title = string.Empty,   // TODO: field is not implemented in core
-                Preview = [],           // TODO: field is not implemented in core
-                Summary = string.Empty, // TODO: field is not implemented in core
+                Title = forward.Title ?? $"{forward.Messages.Count}条转发消息",
+                Preview = forward.Preview ?? forward.Messages.Take(4).Select(x => $"{x.Contact.Nickname}: {x.Entities.Count}个消息段").ToArray(),
+                Summary = forward.Summary ?? $"查看{forward.Messages.Count}条转发消息",
+                Prompt = forward.Prompt,
             }
         },
-        // TODO: market_face is not implemented in core
+        MarketFaceEntity marketFace => new MarketFaceIncomingSegment
+        {
+            Data = new MarketFaceIncomingSegmentData { FaceId = marketFace.FaceId, Name = marketFace.Name, Url = marketFace.Url, Summary = marketFace.Summary }
+        },
         LightAppEntity lightApp => new LightAppIncomingSegment
         {
             Data = new LightAppIncomingSegmentData
@@ -97,7 +121,6 @@ public partial class MilkyConverter
                 JsonPayload = lightApp.Payload,
             }
         },
-        // TODO: xml is not implemented in core
         _ => null,
     };
 
@@ -180,8 +203,17 @@ public partial class MilkyConverter
         ForwardOutgoingSegment forward => new MultiMsgEntity(await FromOutgoingForwardedMessagesAsync(
             forward.Data.Messages,
             ct
-        )), // TODO: The core does not provide methods for setting title, preview, summary, prompt
+        )),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
+        FaceOutgoingSegment face => new FaceEntity { FaceId = face.Data.FaceId, Raw = face.Data.Raw ?? string.Empty },
+        MarketFaceOutgoingSegment marketFace => new MarketFaceEntity
+        {
+            FaceId = marketFace.Data.FaceId,
+            Name = marketFace.Data.Name ?? string.Empty,
+            Url = marketFace.Data.Url ?? string.Empty,
+            Summary = marketFace.Data.Summary ?? string.Empty,
+        },
+        XmlOutgoingSegment xml => new XmlEntity { Xml = xml.Data.Xml },
         _ => throw new NotSupportedException(),
     };
 
@@ -258,11 +290,29 @@ public partial class MilkyConverter
             video.Data.ThumbUri == null ? null : await _resourceConverter.UriToStreamAsync(video.Data.ThumbUri, ct),
             disposeOnCompletion: true
         ), // TODO: Unable to upload due to a bug in the core.
-        ForwardOutgoingSegment forward => new MultiMsgEntity(await FromOutgoingForwardedMessagesAsync(
-            forward.Data.Messages,
-            ct
-        )), // TODO: Unable to upload due to a bug in the core.
+        ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
+        FaceOutgoingSegment face => new FaceEntity { FaceId = face.Data.FaceId, Raw = face.Data.Raw ?? string.Empty },
+        MarketFaceOutgoingSegment marketFace => new MarketFaceEntity
+        {
+            FaceId = marketFace.Data.FaceId,
+            Name = marketFace.Data.Name ?? string.Empty,
+            Url = marketFace.Data.Url ?? string.Empty,
+            Summary = marketFace.Data.Summary ?? string.Empty,
+        },
+        XmlOutgoingSegment xml => new XmlEntity { Xml = xml.Data.Xml },
         _ => throw new NotSupportedException(),
     };
+
+    private async Task<MultiMsgEntity> FromForwardOutgoingSegmentAsync(ForwardOutgoingSegment segment, CancellationToken ct)
+    {
+        var entity = new MultiMsgEntity(await FromOutgoingForwardedMessagesAsync(segment.Data.Messages, ct))
+        {
+            Title = segment.Data.Title,
+            Preview = segment.Data.Preview,
+            Summary = segment.Data.Summary,
+            Prompt = segment.Data.Prompt,
+        };
+        return entity;
+    }
 }

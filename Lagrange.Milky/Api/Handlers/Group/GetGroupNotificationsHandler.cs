@@ -23,11 +23,13 @@ public sealed class GetGroupNotificationsHandler(BotContext lagrange, MilkyConve
         {
             true => _lagrange.FetchFilteredGroupNotifications(
                 (ulong)request.Limit,
-                (ulong?)request.StartNotificationSeq ?? 0
+                (ulong?)request.StartNotificationSeq ?? 0,
+                ct
             ).WaitAsync(ct),
             false => _lagrange.FetchGroupNotifications(
                 (ulong)request.Limit,
-                (ulong?)request.StartNotificationSeq ?? 0
+                (ulong?)request.StartNotificationSeq ?? 0,
+                ct
             ).WaitAsync(ct),
         });
 

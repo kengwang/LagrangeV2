@@ -41,7 +41,7 @@ internal class FetchGroupNotificationsService : OidbService<FetchGroupNotificati
                 ? context.CacheContext.ResolveUin(request.Inviter.Uid)
                 : null;
 
-            var notification = request.Type switch
+            BotGroupNotificationBase? notification = request.Type switch
             {
                 1 => new BotGroupJoinNotification(
                     request.Group.GroupUin,
@@ -96,16 +96,11 @@ internal class FetchGroupNotificationsService : OidbService<FetchGroupNotificati
                     request.Inviter?.Uid ?? string.Empty,
                     false
                 ),
-                _ => LogUnknownNotificationType(context, request.Type),
+                _ => new BotGroupUnknownNotification(request.Group.GroupUin, request.Sequence, request.Type, targetUin, request.Target.Uid, request.Comment),
             };
             if (notification != null) notifications.Add(notification);
         }
         return Task.FromResult(new FetchGroupNotificationsEventResp(notifications));
     }
 
-    private BotGroupNotificationBase? LogUnknownNotificationType(BotContext context, ulong type)
-    {
-        context.LogDebug(nameof(FetchGroupNotificationsService), "Unknown notification type: {0}", null, type);
-        return null;
-    }
 }

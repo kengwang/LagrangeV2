@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Events;
+using Lagrange.Core.Events.EventArgs;
 using Lagrange.Milky.Configurations;
 using Lagrange.Milky.Events.Converters;
 using Lagrange.Milky.Events.Extensions;
@@ -23,6 +24,7 @@ public class WebHookEventHandler(IServiceScopeFactory scopeFactory, ILogger<WebH
     private readonly BotContext _lagrange = lagrange;
 
     private readonly string? _token = configuration.AccessToken;
+    private readonly bool _suppressSelfMessageEvents = configuration.Event.SuppressSelfMessageEvents;
 
     private readonly string[] _targetUrls = webHookConfiguration.TargetUrls;
 
@@ -44,6 +46,8 @@ public class WebHookEventHandler(IServiceScopeFactory scopeFactory, ILogger<WebH
 
     public async Task OnEvent<TEvent>(BotContext lagrange, TEvent @event) where TEvent : EventBase
     {
+        if (_suppressSelfMessageEvents && @event is BotMessageEvent message && message.Message.Contact.Uin == _lagrange.BotUin) return;
+        
         await using var scope = _scopeFactory.CreateAsyncScope();
         var converter = scope.ServiceProvider.GetRequiredService<IEventConverter<TEvent>>();
         byte[] bytes = Serializer.JsonSerializeToUtf8Bytes(new MilkyEvent

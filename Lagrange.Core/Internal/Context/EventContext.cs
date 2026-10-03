@@ -3,6 +3,7 @@ using Lagrange.Core.Common.Entity;
 using Lagrange.Core.Events;
 using Lagrange.Core.Exceptions;
 using Lagrange.Core.Internal.Logic;
+using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Context;
 
@@ -15,18 +16,28 @@ internal class EventContext : IDisposable
     private readonly FrozenDictionary<Type, List<ILogic>> _events;
 
     private readonly FrozenDictionary<Type, ILogic> _logics;
+    private readonly IReadOnlyDictionary<Type, IHttpService> _httpServices;
 
     public EventContext(BotContext context)
     {
         _context = context;
         (_events, _logics) = EventLogicRegistry.Create(context);
+        _httpServices = HttpServiceRegistry.Create(context);
     }
 
-    public async ValueTask<T> SendEvent<T>(ProtocolEvent @event) where T : ProtocolEvent
+    public ValueTask<T> SendEvent<T>(ProtocolEvent @event) where T : ProtocolEvent => SendEvent<T>(@event, CancellationToken.None);
+
+    public async ValueTask<T> SendEvent<T>(ProtocolEvent @event, CancellationToken cancellationToken) where T : ProtocolEvent
     {
         try
         {
             await HandleOutgoingEvent(@event);
+            if (_httpServices.TryGetValue(@event.GetType(), out var httpService))
+            {
+                var httpResult = await httpService.ExecuteAsync(_context, @event, cancellationToken);
+                await HandleIncomingEvent(httpResult);
+                return httpResult as T ?? throw new LagrangeException($"The HTTP event type is not the expected type. Expected: {typeof(T)}, Actual: {httpResult.GetType()}");
+            }
             var (frame, attribute) = await _context.ServiceContext.Resolve(@event);
             var @return = await _context.PacketContext.SendPacket(frame, attribute);
             var resolved = await _context.ServiceContext.Resolve(@return);
@@ -36,7 +47,7 @@ internal class EventContext : IDisposable
             await HandleIncomingEvent(result);
             return result;
         }
-        catch (Exception e) when (e is not LagrangeException)
+        catch (Exception e) when (e is not LagrangeException && e is not HttpServiceException)
         {
             throw new LagrangeException("An error occurred while sending the event", e);
         }

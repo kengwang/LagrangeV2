@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Events;
+using Lagrange.Core.Events.EventArgs;
 using Lagrange.Milky.Configurations;
 using Lagrange.Milky.Events.Converters;
 using Lagrange.Milky.Events.Extensions;
@@ -15,6 +16,7 @@ using Lagrange.Milky.Http;
 using Lagrange.Milky.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Lagrange.Milky.Events;
 
@@ -33,6 +35,7 @@ public sealed class SSEEventHandler : IHttpHandler, IGenericEventHandler, IDispo
     private readonly string? _token;
     private readonly string? _allowCorsOrigins;
     private readonly ulong _heartbeatIntervalSeconds;
+    private readonly bool _suppressSelfMessageEvents;
 
     private readonly ConcurrentDictionary<Guid, (HttpListenerResponse Response, SemaphoreSlim SendLock)> _connections = new();
     private readonly CancellationTokenSource _cts = new();
@@ -49,6 +52,7 @@ public sealed class SSEEventHandler : IHttpHandler, IGenericEventHandler, IDispo
         _token = configuration.AccessToken;
         _allowCorsOrigins = sseConfiguration.AllowCorsOrigins;
         _heartbeatIntervalSeconds = sseConfiguration.HeartbeatIntervalSeconds;
+        _suppressSelfMessageEvents = configuration.Event.SuppressSelfMessageEvents;
 
         _lagrange.RegisterConvertibleEvents(this);
     }
@@ -179,6 +183,8 @@ public sealed class SSEEventHandler : IHttpHandler, IGenericEventHandler, IDispo
 
     public async Task OnEvent<TEvent>(BotContext lagrange, TEvent @event) where TEvent : EventBase
     {
+        if (_suppressSelfMessageEvents && @event is BotMessageEvent message && message.Message.Contact.Uin == _lagrange.BotUin) return;
+
         await using var scope = _scopeFactory.CreateAsyncScope();
         var converter = scope.ServiceProvider.GetRequiredService<IEventConverter<TEvent>>();
         byte[] bytes = Serializer.JsonSerializeToUtf8Bytes(new MilkyEvent

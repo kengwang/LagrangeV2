@@ -20,11 +20,12 @@ public sealed class UploadPrivateFileHandler(BotContext lagrange, ResourceConver
         (ulong sequence, var time) = await _lagrange.SendFriendFile(
             request.UserId,
             stream,
-            request.FileName
+            request.FileName,
+            ct
         ).WaitAsync(ct);
         return new MilkyApiResponse<Result>(new Result
         {
-            FileId = "" // TODO: Perhaps it should be a combination of sequence and time?
+            FileId = $"{sequence}_{time}"
         });
     }
 

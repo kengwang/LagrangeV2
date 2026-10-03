@@ -2,6 +2,7 @@ namespace Lagrange.Core.Common.Entity;
 
 public enum BotGroupNotificationType
 {
+    Unknown = 0,
     Join = 1,
     SetAdmin = 3,
     KickOther = 6,

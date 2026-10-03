@@ -71,11 +71,12 @@ internal class HighwayContext
             _url = $"{address.Server}:{address.Port}";
     }
 
-    public async Task<bool> UploadFile(Stream stream, int commandId, ReadOnlyMemory<byte> extendInfo)
+    public async Task<bool> UploadFile(Stream stream, int commandId, ReadOnlyMemory<byte> extendInfo, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (_ticket == null || _url == null || DateTime.Now - _ticket.Value.Item2 > TimeSpan.FromDays(0.5))
         {
-            var resp = await _context.EventContext.SendEvent<HighwaySessionEventResp>(new HighwaySessionEventReq());
+            var resp = await _context.EventContext.SendEvent<HighwaySessionEventResp>(new HighwaySessionEventReq(), cancellationToken);
             _ticket = (resp.SigSession, DateTime.Now);
             _url = resp.HighwayUrls[1][0];
         }
@@ -89,11 +90,12 @@ internal class HighwayContext
         while (offset < fileSize)
         {
             var buffer = ArrayPool<byte>.Shared.Rent((int)_chunkSize);
-            ulong payload = (ulong)await stream.ReadAsync(buffer.AsMemory(0, (int)_chunkSize));
+            ulong payload = (ulong)await stream.ReadAsync(buffer.AsMemory(0, (int)_chunkSize), cancellationToken);
 
             ulong currentBlockOffset = offset;
             var task = Task.Run(async () => // closure
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var bufferSpan = buffer.AsSpan(0, (int)payload);
                 int sequence = GetNewSequence();
 
@@ -150,8 +152,8 @@ internal class HighwayContext
 
                 try
                 {
-                    var response = await _client.SendAsync(request);
-                    var reader = new BinaryPacket((await response.Content.ReadAsByteArrayAsync()).AsSpan());
+                    var response = await _client.SendAsync(request, cancellationToken);
+                    var reader = new BinaryPacket((await response.Content.ReadAsByteArrayAsync(cancellationToken)).AsSpan());
 
                     if (reader.Read<byte>() == 0x28)
                     {
@@ -168,6 +170,10 @@ internal class HighwayContext
                             return obj.ErrorCode == 0;
                         }
                     }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception e)
                 {
@@ -203,6 +209,43 @@ internal class HighwayContext
         }
 
         return result;
+    }
+
+    internal async Task<bool> UploadCustomFace(Stream stream, string emojiId, byte[] serviceTicket, CancellationToken cancellationToken = default)
+    {
+        if (!stream.CanSeek) throw new ArgumentException("Custom face upload requires a seekable stream.", nameof(stream));
+        if (serviceTicket.Length == 0) throw new ArgumentException("Upload ticket is empty.", nameof(serviceTicket));
+        if (_url is null)
+        {
+            var session = await _context.EventContext.SendEvent<HighwaySessionEventResp>(new HighwaySessionEventReq(), cancellationToken);
+            _url = session.HighwayUrls[1][0];
+        }
+        stream.Position = 0;
+        var bytes = new byte[checked((int)stream.Length)];
+        await stream.ReadExactlyAsync(bytes, cancellationToken);
+        var md5 = MD5.HashData(bytes);
+        var head = new FavEmojiHighwayHead
+        {
+            BaseHead = new FavEmojiHighwayBaseHead { Version = 1, Uin = _context.Keystore.Uin.ToString(), Command = "PicUp.DataUp", Sequence = (uint)GetNewSequence(), FileSize = (ulong)bytes.Length, DataFlag = 16, CommandId = 9 },
+            SegHead = new FavEmojiHighwaySegHead { FileSize = (ulong)bytes.Length, DataLength = (ulong)bytes.Length, ServiceTicket = serviceTicket, Md5 = md5, FileMd5 = md5 },
+            EmojiIdWrap = new FavEmojiIdWrap { EmojiId = emojiId }, Field8 = 9
+        };
+        var headBytes = ProtoHelper.Serialize(head);
+        var payload = new byte[1 + 4 + 4 + headBytes.Length + bytes.Length + 1];
+        payload[0] = 0x28;
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(1), (uint)headBytes.Length);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(5), (uint)bytes.Length);
+        headBytes.Span.CopyTo(payload.AsSpan(9)); bytes.CopyTo(payload.AsSpan(9 + headBytes.Length)); payload[^1] = 0x29;
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"http://{_url}") { Content = new ByteArrayContent(payload) };
+        using var response = await _client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var reader = new BinaryPacket(responseBytes.AsSpan());
+        if (reader.Read<byte>() != 0x28) return false;
+        var headLength = reader.Read<int>(); var bodyLength = reader.Read<int>();
+        var responseHead = reader.CreateSpan(headLength); reader.ReadBytes(new byte[bodyLength]);
+        if (reader.Read<byte>() != 0x29) return false;
+        return ProtoHelper.Deserialize<RespDataHighwayHead>(responseHead).ErrorCode == 0;
     }
 
     private int GetNewSequence()

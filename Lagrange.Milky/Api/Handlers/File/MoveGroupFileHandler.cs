@@ -17,9 +17,10 @@ public sealed class MoveGroupFileHandler(BotContext lagrange) : INoResultApiHand
         await _lagrange.GroupFSMove(
             request.GroupId,
             request.FileId,
+            request.ParentFolderId,
             request.TargetFolderId,
-            request.ParentFolderId
-        ).WaitAsync(ct);
+            ct
+        );
         return new MilkyApiResponse();
     }
 

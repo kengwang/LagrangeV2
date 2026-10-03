@@ -12,8 +12,9 @@ public class MilkyConfiguration(MilkyHttpServerConfiguration httpServer, string?
     public MilkyEventConfiguration Event => Event_;
 }
 
-public class MilkyEventConfiguration(MilkyWebSocketEventConfiguration? webSocket = null, MilkySSEEventConfiguration? sse = null, MilkyWebHookEventConfiguration? webHook = null)
+public class MilkyEventConfiguration(bool suppressSelfMessageEvents = false, MilkyWebSocketEventConfiguration? webSocket = null, MilkySSEEventConfiguration? sse = null, MilkyWebHookEventConfiguration? webHook = null)
 {
+    public bool SuppressSelfMessageEvents { get; } = suppressSelfMessageEvents;
     public MilkyWebSocketEventConfiguration? WebSocket { get; } = webSocket;
     public MilkySSEEventConfiguration? SSE { get; } = sse;
     public MilkyWebHookEventConfiguration? WebHook { get; } = webHook;
