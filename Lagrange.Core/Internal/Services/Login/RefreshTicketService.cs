@@ -13,7 +13,11 @@ internal class RefreshTicketService : BaseService<RefreshTicketEventReq, Refresh
     {
         if (context.Keystore.WLoginSigs.A1 is not { Length: > 0 } a1) throw new InvalidOperationException("A1 is not set");
 
-        var reqBody = new NTLoginRefreshTicketReqBody { A1 = a1 };
+        var reqBody = new NTLoginRefreshTicketReqBody
+        {
+            A1 = a1,
+            Nopicsig = context.Keystore.WLoginSigs.NoPicSig is { Length: > 0 } noPicSig ? noPicSig : []
+        };
         return ValueTask.FromResult(NTLoginCommon.EncodeAndroid(context, reqBody));
     }
 

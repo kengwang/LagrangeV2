@@ -51,6 +51,7 @@ public static class HostApplicationBuilderExtension
                 UseIPv6Network = configuration.Server.UseIPv6Network,
                 GetOptimumServer = configuration.Server.GetOptimumServer,
                 AutoReLogin = configuration.Login.AutoReLogin,
+                UseNTLogin = configuration.Login.UseNTLogin,
                 SignProvider = sp.GetRequiredService<BotSignProvider>(),
             };
 

@@ -175,6 +175,11 @@ internal class WtExchangeLogic : ILogic, IDisposable
         {
             _context.LogInfo(Tag, "Password is filled, try to login");
 
+            if (_context.Config.Protocol.IsAndroid() && _context.Config.UseNTLogin)
+            {
+                return await ManualNtLogin(uin, password);
+            }
+
             if (_context.Config.Protocol.IsAndroid())
             {
                 _context.Keystore.Uin = uin;
@@ -325,6 +330,145 @@ internal class WtExchangeLogic : ILogic, IDisposable
         }
 
         return false;
+    }
+
+    private async Task<bool> ManualNtLogin(long uin, string password)
+    {
+        _context.Keystore.Uin = uin;
+        if (_context.Keystore.State.KeyExchangeSession is null && !await KeyExchange()) return false;
+
+        await PrepareNtLoginCandidates();
+
+        var result = await _context.EventContext.SendEvent<PasswordLoginEventResp>(new PasswordLoginEventReq(password, null));
+        while (true)
+        {
+            _token?.ThrowIfCancellationRequested();
+
+            switch (result.State)
+            {
+                case NTLoginRetCode.LOGIN_SUCCESS:
+                    _context.EventInvoker.PostEvent(new BotLoginEvent(0, null));
+                    _context.EventInvoker.PostEvent(new BotRefreshKeystoreEvent(_context.Keystore));
+                    return await Online();
+                case NTLoginRetCode.LOGIN_ERROR_PROOF_WATER:
+                {
+                    _context.LogInfo(Tag, "NTLogin captcha required, URL: {0}", result.JumpingUrl);
+                    _context.EventInvoker.PostEvent(new BotCaptchaEvent(result.JumpingUrl));
+                    _captchaSource = new TaskCompletionSource<(string, string)>();
+
+                    string sid = ExtractCaptchaSid(result.JumpingUrl);
+                    var (ticket, randStr) = await _captchaSource.Task;
+                    result = await _context.EventContext.SendEvent<PasswordLoginEventResp>(
+                        new PasswordLoginEventReq(password, (ticket, randStr, sid)));
+                    break;
+                }
+                case var state when result.RequiresSms:
+                {
+                    _context.LogInfo(Tag, "NTLogin SMS verification required");
+                    var sms = await _context.EventContext.SendEvent<GetSmsEventResp>(new GetSmsEventReq());
+                    if (sms.State != NTLoginRetCode.LOGIN_SUCCESS || sms.Info is null)
+                    {
+                        _context.LogError(Tag, "NTLogin GetSms failed: {0} | {1}", null, sms.State, sms.Tips);
+                        _context.EventInvoker.PostEvent(new BotLoginEvent((int)sms.State, sms.Tips));
+                        return false;
+                    }
+
+                    string phone = sms.Info.MsgDetail?.CheckUpSms?.Value ?? string.Empty;
+                    _context.EventInvoker.PostEvent(new BotSMSEvent(sms.Info.JumpUrl, phone));
+                    _smsSource = new TaskCompletionSource<string>();
+                    string nonce = await _smsSource.Task;
+
+                    var checkSms = await _context.EventContext.SendEvent<CheckSmsEventResp>(
+                        new CheckSmsEventReq(uin.ToString(), nonce));
+                    var smsA1 = checkSms.BindUinInfo?.UinInfoList?.FirstOrDefault()?.A1Sig;
+                    result = checkSms.State == NTLoginRetCode.LOGIN_SUCCESS && smsA1 is { Length: > 0 }
+                        ? await _context.EventContext.SendEvent<PasswordLoginEventResp>(new PasswordLoginEventReq(password, null, smsA1))
+                        : new PasswordLoginEventResp(checkSms.State, checkSms.Tips, null);
+                    break;
+                }
+                case NTLoginRetCode.LOGIN_ERROR_NEW_DEVICE when result.SecProtect?.NewDeviceCheckSig is { Length: > 0 } checkSig:
+                {
+                    _context.LogInfo(Tag, "NTLogin new device verification required");
+                    var authResult = await _context.EventContext.SendEvent<AuthNewDeviceEventResp>(
+                        new AuthNewDeviceEventReq(password, checkSig));
+                    if (authResult.State != NTLoginRetCode.LOGIN_SUCCESS || authResult.Sig is not { Length: > 0 } succeedSig)
+                    {
+                        _context.LogError(Tag, "NTLogin new device verification failed: {0} | {1}", null, authResult.State, authResult.Tips);
+                        _context.EventInvoker.PostEvent(new BotLoginEvent((int)authResult.State, authResult.Tips));
+                        return false;
+                    }
+
+                    result = await _context.EventContext.SendEvent<PasswordLoginEventResp>(
+                        new PasswordLoginEventReq(password, null, succeedSig));
+                    break;
+                }
+                case NTLoginRetCode.LOGIN_ERROR_NEW_DEVICE
+                    when result.AllowGatewayVerify && result.SecProtect?.UinToken is { Length: > 0 } phoneToken:
+                {
+                    _context.LogInfo(Tag, "NTLogin gateway verification required");
+                    var gateway = await _context.EventContext.SendEvent<CheckGatewayCodeEventResp>(
+                        new CheckGatewayCodeEventReq(phoneToken));
+                    if (gateway.State != NTLoginRetCode.LOGIN_SUCCESS)
+                    {
+                        _context.LogError(Tag, "NTLogin gateway verification failed: {0} | {1}", null, gateway.State, gateway.Tips);
+                        _context.EventInvoker.PostEvent(new BotLoginEvent((int)gateway.State, gateway.Tips));
+                        return false;
+                    }
+
+                    var gatewayA1 = gateway.BindUinInfo?.UinInfoList?.FirstOrDefault()?.A1Sig;
+                    result = gatewayA1 is { Length: > 0 }
+                        ? await _context.EventContext.SendEvent<PasswordLoginEventResp>(new PasswordLoginEventReq(password, null, gatewayA1))
+                        : new PasswordLoginEventResp(NTLoginRetCode.LOGIN_ERROR_DEFAULT, gateway.Tips, null);
+                    break;
+                }
+                default:
+                    _context.LogError(Tag, "NTLogin failed: {0} | Message: {1}", null, result.State, result.Tips);
+                    _context.EventInvoker.PostEvent(new BotLoginEvent((int)result.State, result.Tips));
+                    return false;
+            }
+        }
+    }
+
+    private async Task PrepareNtLoginCandidates()
+    {
+        try
+        {
+            var saltResult = await _context.EventContext.SendEvent<GetSaltListEventResp>(new GetSaltListEventReq(null, null));
+            if (saltResult.State != NTLoginRetCode.LOGIN_SUCCESS || saltResult.Entries is not { Count: > 0 }) return;
+
+            // A cached A1 is the only locally verifiable candidate. The server still
+            // needs the salt echoed back before it can bind that candidate to a UIN.
+            if (_context.Keystore.WLoginSigs.A1 is not { Length: > 0 } a1) return;
+
+            var candidates = saltResult.Entries
+                .Where(entry => entry.Salt is { Length: > 0 })
+                .Select(entry => new NTLoginA1Candidate
+                {
+                    Salt = Encoding.UTF8.GetString(entry.Salt),
+                    A1 = a1
+                })
+                .ToList();
+            if (candidates.Count == 0) return;
+
+            var checkResult = await _context.EventContext.SendEvent<CheckA1ListEventResp>(new CheckA1ListEventReq(candidates));
+            if (checkResult.State == NTLoginRetCode.LOGIN_SUCCESS && checkResult.BindUinInfo?.UinInfoList is { Count: > 0 } infos)
+            {
+                var matched = infos.FirstOrDefault(info => ulong.TryParse(info.MaskUin, out var value) && value == (ulong)_context.Keystore.Uin);
+                if (matched?.A1Sig is { Length: > 0 }) _context.Keystore.WLoginSigs.A1 = matched.A1Sig;
+            }
+        }
+        catch (Exception e)
+        {
+            _context.LogWarning(Tag, "NTLogin A1 candidate preparation failed; continuing with password login", e);
+        }
+    }
+
+    private static string ExtractCaptchaSid(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return string.Empty;
+
+        var query = HttpUtility.ParseQueryString(url.Contains('?') ? url[(url.IndexOf('?') + 1)..] : url);
+        return query["sid"] ?? string.Empty;
     }
 
     public async Task<long> ResolveUinByQid(string qid)
@@ -490,6 +634,12 @@ internal class WtExchangeLogic : ILogic, IDisposable
     {
         try
         {
+            if (_context.Config.Protocol.IsAndroid() && _context.Config.UseNTLogin)
+            {
+                await RefreshNtLoginTickets();
+                return;
+            }
+
             var result = await _context.EventContext.SendEvent<ExchangeEmpEventResp>(new ExchangeEmpEventReq(ExchangeEmpEventReq.Command.RefreshByA1));
             if (result.RetCode == 0)
             {
@@ -503,6 +653,40 @@ internal class WtExchangeLogic : ILogic, IDisposable
             _context.LogWarning(Tag, "refresh by a1 failed", e);
         }
     });
+
+    private async Task RefreshNtLoginTickets()
+    {
+        try
+        {
+            RefreshTicketEventResp result;
+            if (_context.Keystore.WLoginSigs.A1 is { Length: > 0 })
+            {
+                result = await _context.EventContext.SendEvent<RefreshTicketEventResp>(new RefreshTicketEventReq());
+            }
+            else
+            {
+                var a2Result = await _context.EventContext.SendEvent<RefreshA2EventResp>(new RefreshA2EventReq());
+                if (a2Result.State != NTLoginRetCode.LOGIN_SUCCESS)
+                {
+                    _context.LogWarning(Tag, "NTLogin RefreshA2 failed: {0} | {1}", null, a2Result.State, a2Result.Tips);
+                }
+                return;
+            }
+
+            if (result.State != NTLoginRetCode.LOGIN_SUCCESS)
+            {
+                _context.LogWarning(Tag, "NTLogin RefreshTicket failed: {0} | {1}", null, result.State, result.Tips);
+            }
+            else
+            {
+                _context.EventInvoker.PostEvent(new BotRefreshKeystoreEvent(_context.Keystore));
+            }
+        }
+        catch (Exception e)
+        {
+            _context.LogWarning(Tag, "NTLogin ticket refresh failed", e);
+        }
+    }
 
     private void OnNewDevice(object? state) => Task.Run(async () =>
     {

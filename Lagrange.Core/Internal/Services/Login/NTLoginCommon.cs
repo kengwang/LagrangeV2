@@ -1,4 +1,5 @@
-﻿using Lagrange.Core.Common;
+using System.Text;
+using Lagrange.Core.Common;
 using Lagrange.Core.Internal.Packets.Login;
 using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Cryptography;
@@ -50,6 +51,54 @@ internal static class NTLoginCommon
         };
 
         return ProtoHelper.Serialize(forward);
+    }
+
+    /// <summary>
+    /// Encodes a message whose root already contains the head inline (flat layout,
+    /// e.g. SsoQRLogin*): the serialized message goes into field 2 of
+    /// <see cref="NTLoginAndroidCommonRaw"/> instead of an NTLoginCommon envelope.
+    /// </summary>
+    public static ReadOnlyMemory<byte> EncodeAndroidRaw<T>(BotContext context, T fullMsg) where T : IProtoSerializable<T>
+    {
+        if (context.Keystore.State.KeyExchangeSession is not { } session)
+        {
+            context.LogError(Tag, "Key exchange session is not initialized.");
+            throw new InvalidOperationException("Key exchange session is not initialized.");
+        }
+
+        var login = new NTLoginAndroidCommonRaw
+        {
+            Common = ProtoHelper.Serialize(fullMsg),
+            Ext = new NTLoginAndroidExt { Field1 = 0, Uin = context.Keystore.Uin.ToString() }
+        };
+        var forward = new NTLoginForwardRequest
+        {
+            SessionTicket = session.SessionTicket,
+            Type = 1,
+            SecBuffer = AesGcmProvider.Encrypt(ProtoHelper.Serialize(login).Span, session.SessionKey),
+        };
+
+        return ProtoHelper.Serialize(forward);
+    }
+
+    /// <summary>
+    /// Decrypts a forward response whose inner payload is a flat message
+    /// (see <see cref="EncodeAndroidRaw{T}"/>). Cookie write-back, if any, lives in
+    /// the response shell and is left to the caller.
+    /// </summary>
+    public static T DecodeAndroidRaw<T>(BotContext context, ReadOnlyMemory<byte> payload) where T : IProtoSerializable<T>
+    {
+        if (context.Keystore.State.KeyExchangeSession is not { } session)
+        {
+            context.LogError(Tag, "Key exchange session is not initialized.");
+            throw new InvalidOperationException("Key exchange session is not initialized.");
+        }
+
+        var forward = ProtoHelper.Deserialize<NTLoginForwardRequest>(payload.Span);
+        var buffer = AesGcmProvider.Decrypt(forward.SecBuffer, session.SessionKey);
+        var login = ProtoHelper.Deserialize<NTLoginAndroidCommonRaw>(buffer);
+
+        return ProtoHelper.Deserialize<T>(login.Common.Span);
     }
 
     public static NTLoginRetCode Decode<T>(BotContext context, ReadOnlyMemory<byte> payload, out NTLoginErrorInfo? info, out T resp) where T : IProtoSerializable<T>
@@ -104,8 +153,12 @@ internal static class NTLoginCommon
     
     private static Packets.Login.NTLoginCommon BuildCommon<T>(BotContext context, T body) where T : IProtoSerializable<T> => new()
     {
-        Head = new NTLoginHead
-        {
+        Head = BuildHead(context),
+        Body = ProtoHelper.Serialize(body)
+    };
+
+    public static NTLoginHead BuildHead(BotContext context) => new()
+    {
             UserInfo = new NTLoginUserInfo { Account = context.Keystore.Uin.ToString() },
             ClientInfo = new NTLoginClientInfo
             {
@@ -130,10 +183,14 @@ internal static class NTLoginCommon
             },
             SdkInfo = new NTLoginSdkInfo { Version = 1 },
             Cookie = context.Keystore.State.Cookie is { } cookie ? new NTLoginCookie { CookieContent = cookie } : new NTLoginCookie(),
-        },
-        Body = ProtoHelper.Serialize(body)
     };
     
+    /// <summary>Writes back the long-cookie carried by an Android response shell, if present.</summary>
+    public static void SaveShellCookie(BotContext context, NTLoginRspShell? shell)
+    {
+        if (shell?.Cookie is { } cookie) context.Keystore.State.Cookie = Encoding.UTF8.GetString(cookie.Data);
+    }
+
     public static void SaveTicket(BotContext context, NTLoginTickets tickets)
     {
         var sigs = context.Keystore.WLoginSigs;

@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using Lagrange.Core.Common;
 using Lagrange.Core.Common.Entity;
@@ -10,11 +10,11 @@ using Lagrange.Core.Utility.Cryptography;
 
 namespace Lagrange.Core.Internal.Services.Login;
 
-file static class PasswordLoginCommon
+internal static class PasswordLoginCommon
 {
-    internal static byte[] GenerateClientA1(PasswordLoginEventReq input, BotContext context)
+    internal static byte[] GenerateClientA1(string password, BotContext context)
     {
-        var md5 = MD5.HashData(Encoding.UTF8.GetBytes(input.Password));
+        var md5 = MD5.HashData(Encoding.UTF8.GetBytes(password));
         
         var keyWriter = new BinaryPacket(stackalloc byte[16 + 4 + 4]);
         keyWriter.Write(md5);
@@ -53,7 +53,7 @@ internal class PasswordLoginService : BaseService<PasswordLoginEventReq, Passwor
     {
         var reqBody = new NTLoginPasswordLoginReqBody
         {
-            A1 = PasswordLoginCommon.GenerateClientA1(input, context),
+            A1 = PasswordLoginCommon.GenerateClientA1(input.Password, context),
             Iframe = input.Captcha is { } value ? new NTLoginIframe
             {
                 IframeSig = value.Item1,
@@ -74,7 +74,12 @@ internal class PasswordLoginService : BaseService<PasswordLoginEventReq, Passwor
         {
             NTLoginRetCode.LOGIN_SUCCESS => new PasswordLoginEventResp(state, null, null),
             NTLoginRetCode.LOGIN_ERROR_PROOF_WATER => new PasswordLoginEventResp(state, null, resp.SecCheck.IframeUrl),
-            _ when info is not null => new PasswordLoginEventResp(state, (info.StrTipsTitle, info.StrTipsContent), info.StrJumpUrl),
+            _ when info is not null => new PasswordLoginEventResp(
+                state,
+                (info.StrTipsTitle, info.StrTipsContent),
+                info.StrJumpUrl,
+                null,
+                info.MsgDetail?.MsgNeedVerifyNewDevice?.AllowGateWayVerify ?? false),
             _ => new PasswordLoginEventResp(state, null, null)
         });
     }
@@ -88,13 +93,14 @@ internal class PasswordLoginAndroidService : BaseService<PasswordLoginEventReq, 
     {
         var reqBody = new NTLoginPasswordLoginReqBody
         {
-            A1 = PasswordLoginCommon.GenerateClientA1(input, context),
+            A1 = PasswordLoginCommon.GenerateClientA1(input.Password, context),
             Iframe = input.Captcha is { } value ? new NTLoginIframe
             {
                 IframeSig = value.Item1,
                 IframeRandstr = value.Item2,
                 IframeSid = value.Item3
             } : null,
+            NewDeviceCheckSucceedSig = input.NewDeviceSig!,
             LoginProcessReq = new NTLoginLoginProcessReqBody
             {
                 NeedRemindCancellatedStatus = true
@@ -113,8 +119,14 @@ internal class PasswordLoginAndroidService : BaseService<PasswordLoginEventReq, 
         {
             NTLoginRetCode.LOGIN_SUCCESS => new PasswordLoginEventResp(state, null, null),
             NTLoginRetCode.LOGIN_ERROR_PROOF_WATER when info is not null => new PasswordLoginEventResp(state, null, info.ErrorInfo.StrJumpUrl),
-            _ when info is not null => new PasswordLoginEventResp(state, (info.ErrorInfo.StrTipsTitle, info.ErrorInfo.StrTipsContent), info.ErrorInfo.StrJumpUrl),
-            _ => new PasswordLoginEventResp(state, null, null)
+            _ when info is not null => new PasswordLoginEventResp(
+                state,
+                (info.ErrorInfo.StrTipsTitle, info.ErrorInfo.StrTipsContent),
+                info.ErrorInfo.StrJumpUrl,
+                resp.SecProtect,
+                info.ErrorInfo.MsgDetail?.MsgNeedVerifyNewDevice?.AllowGateWayVerify ?? false,
+                info.ErrorInfo.MsgDetail?.CheckUpSms is not null),
+            _ => new PasswordLoginEventResp(state, null, null, resp.SecProtect)
         });
     }
 }

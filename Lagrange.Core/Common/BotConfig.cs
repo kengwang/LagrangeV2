@@ -14,6 +14,12 @@ public class BotConfig
     /// The protocol for the client, default is Linux
     /// </summary>
     public Protocols Protocol { get; set; } = Protocols.Linux;
+
+    /// <summary>
+    /// Selects the Android login implementation. When enabled, Android uses the
+    /// NTLogin ECDH flow; when disabled, it keeps the legacy TGT/TLV flow.
+    /// </summary>
+    public bool UseNTLogin { get; set; } = false;
     
     public LogLevel LogLevel { get; set; } = LogLevel.Information;
 
