@@ -4,9 +4,11 @@ namespace Lagrange.Core.Internal.Events.System;
 
 internal class FetchClientKeyEventReq : ProtocolEvent;
 
-internal class FetchClientKeyEventResp(string clientKey, uint expiration) : ProtocolEvent
+internal class FetchClientKeyEventResp(string clientKey, uint expiration, int keyType = 0) : ProtocolEvent
 {
     public string ClientKey { get; } = clientKey;
 
     public uint Expiration { get; } = expiration;
+
+    public int KeyType { get; } = keyType;
 }

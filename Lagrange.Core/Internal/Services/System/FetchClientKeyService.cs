@@ -20,6 +20,6 @@ internal class FetchClientKeyService : OidbService<FetchClientKeyEventReq, Fetch
 
     protected override Task<FetchClientKeyEventResp> ProcessResponse(D102ARspBody response, BotContext context)
     {
-        return Task.FromResult(new FetchClientKeyEventResp(response.ClientKey, response.Expiration));
+        return Task.FromResult(new FetchClientKeyEventResp(response.ClientKey, response.Expiration, response.KeyType));
     }
 }

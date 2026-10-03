@@ -45,7 +45,7 @@ internal sealed class HttpSessionContext : IDisposable
     internal async Task PrepareRequestAsync(HttpRequestMessage message, IReadOnlyList<string> domains, CancellationToken cancellationToken)
     {
         if (domains.Count == 0) return;
-        var pSkeys = await Task.WhenAll(domains.Select(domain => GetPSkeyAsync(domain, cancellationToken)));
+        var pSkeys = await Task.WhenAll(domains.Select(CookieSourceDomain).Distinct(StringComparer.OrdinalIgnoreCase).Select(domain => GetPSkeyAsync(domain, cancellationToken)));
         var cookies = new List<string>();
         foreach (var pskey in pSkeys) cookies.Add($"p_skey={pskey}");
         if (_context.Keystore.WLoginSigs.SKey is { Length: > 0 } skey) cookies.Add($"skey={System.Text.Encoding.UTF8.GetString(skey)}");
@@ -64,13 +64,34 @@ internal sealed class HttpSessionContext : IDisposable
         }
     }
 
+    private static string CookieSourceDomain(string domain) => domain switch
+    {
+        "web.qun.qq.com" => "qun.qq.com",
+        "h5.qzone.qq.com" => "qzone.qq.com",
+        "up.qzone.qq.com" => "qzone.qq.com",
+        "u.photo.qzone.qq.com" => "qzone.qq.com",
+        "ic2.qzone.qq.com" => "qzone.qq.com",
+        "taotao.qzone.qq.com" => "qzone.qq.com",
+        "w.qzone.qq.com" => "qzone.qq.com",
+        _ => domain,
+    };
+
     internal void InvalidateCookies(string domain) => _pSkeyCache.TryRemove(domain, out _);
 
     private async Task<string> FetchPSkeyAsync(string domain, CancellationToken cancellationToken)
     {
         var response = await _context.EventContext.SendEvent<FetchCookiesEventResp>(new FetchCookiesEventReq([domain]), cancellationToken);
-        if (!response.Cookies.TryGetValue(domain, out var pskey) || string.IsNullOrWhiteSpace(pskey)) throw new Lagrange.Core.Exceptions.HttpServiceException(domain, "Required p_skey is unavailable.");
-        return pskey;
+        if (response.Cookies.TryGetValue(domain, out var pskey) && !string.IsNullOrWhiteSpace(pskey)) return pskey;
+
+        var clientKey = await _context.EventContext.SendEvent<FetchClientKeyEventResp>(new FetchClientKeyEventReq(), cancellationToken);
+        if (string.IsNullOrWhiteSpace(clientKey.ClientKey)) throw new Lagrange.Core.Exceptions.HttpServiceException(domain, "Required p_skey and client key are unavailable.");
+        var target = Uri.EscapeDataString($"https://{domain}/{_context.BotUin}/infocenter");
+        var jump = new Uri($"https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin={_context.BotUin}&clientkey={Uri.EscapeDataString(clientKey.ClientKey)}&u1={target}&keyindex={clientKey.KeyType}");
+        using var request = new HttpRequestMessage(HttpMethod.Get, jump);
+        using var httpResponse = await SendAsync(request, cancellationToken);
+        _ = await ReadResponseAsync(httpResponse, cancellationToken);
+        if (_cookies.GetCookies(new Uri($"https://{domain}/"))["p_skey"] is { Value.Length: > 0 } cookie) return cookie.Value;
+        throw new Lagrange.Core.Exceptions.HttpServiceException(domain, "Cookie exchange did not return p_skey.");
     }
 
     internal async Task<ReadOnlyMemory<byte>> ReadResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
