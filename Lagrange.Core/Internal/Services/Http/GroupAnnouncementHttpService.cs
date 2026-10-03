@@ -18,7 +18,7 @@ internal sealed class GetGroupAnnouncementsHttpService : HttpService<GetGroupAnn
     {
         if (request.GroupUin <= 0 || request.Count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
         var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken);
-        var skey = context.Keystore.WLoginSigs.SKey is { Length: > 0 } value ? Encoding.UTF8.GetString(value) : string.Empty;
+        var skey = await context.HttpSessionContext.GetSkeyAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.get_announcements", "Group web skey is unavailable.");
         var bodyBkn = ComputeBkn(skey); var urlBkn = ComputeBkn(pskey); var body = $"qid={request.GroupUin}&bkn={bodyBkn}&ft=23&s={request.Start}&n={request.Count}&i=1&ni=1";
         return new HttpRequestMessage(HttpMethod.Post, $"https://web.qun.qq.com/cgi-bin/announce/list_announce?bkn={urlBkn}") { Content = new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded") };
@@ -42,7 +42,7 @@ internal sealed class DeleteGroupAnnouncementHttpService : HttpService<DeleteGro
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, DeleteGroupAnnouncementEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || string.IsNullOrWhiteSpace(request.AnnouncementId)) throw new ArgumentException("Group and announcement id are required.");
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken); var skey = context.Keystore.WLoginSigs.SKey is { Length: > 0 } value ? Encoding.UTF8.GetString(value) : string.Empty; if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.delete_announcement", "Group web skey is unavailable.");
+        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken); var skey = await context.HttpSessionContext.GetSkeyAsync(cancellationToken); if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.delete_announcement", "Group web skey is unavailable.");
         var bodyBkn = ComputeBkn(skey); var urlBkn = ComputeBkn(pskey); var body = $"bkn={bodyBkn}&fid={Uri.EscapeDataString(request.AnnouncementId)}&qid={request.GroupUin}";
         return new HttpRequestMessage(HttpMethod.Post, $"https://web.qun.qq.com/cgi-bin/announce/del_feed?bkn={urlBkn}") { Content = new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded") };
     }

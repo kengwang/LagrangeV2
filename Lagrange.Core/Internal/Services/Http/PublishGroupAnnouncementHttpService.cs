@@ -17,7 +17,7 @@ internal sealed class PublishGroupAnnouncementHttpService : HttpService<PublishG
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, PublishGroupAnnouncementEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || string.IsNullOrWhiteSpace(request.Content)) throw new ArgumentException("Group and announcement content are required.");
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken); var skey = context.Keystore.WLoginSigs.SKey is { Length: > 0 } value ? Encoding.UTF8.GetString(value) : string.Empty; if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.publish_announcement", "Group web skey is unavailable.");
+        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken); var skey = await context.HttpSessionContext.GetSkeyAsync(cancellationToken); if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.publish_announcement", "Group web skey is unavailable.");
         var bkn = ComputeBkn(skey); var urlToken = ComputeBkn(pskey); var o = request.Options; if (o.ImageWidth <= 0 || o.ImageHeight <= 0) throw new ArgumentOutOfRangeException(nameof(request.Options));
         var settings = $"{{\"is_show_edit_card\":{(o.ShowEditCard ? 1 : 0)},\"tip_window_type\":{(o.ShowPopup ? 0 : 1)},\"confirm_required\":{(o.ConfirmRequired ? 1 : 0)}}}";
         var fields = new Dictionary<string, string> { ["qid"] = request.GroupUin.ToString(), ["bkn"] = bkn, ["text"] = request.Content, ["pinned"] = o.Pinned ? "1" : "0", ["type"] = o.SendToNewMembers ? "20" : "1", ["settings"] = settings };

@@ -34,7 +34,8 @@ internal sealed class UploadGroupAlbumImageHttpService : HttpService<UploadGroup
         if (bytes.Length == 0) throw new ArgumentException("Image cannot be empty.", nameof(image));
 
         var pskey = await context.HttpSessionContext.GetPSkeyAsync("qzone.qq.com", cancellationToken);
-        var skey = Encoding.UTF8.GetString(context.Keystore.WLoginSigs.SKey);
+        var skey = await context.HttpSessionContext.GetSkeyAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.upload_album_image", "Group web skey is unavailable.");
         var bkn = ComputeBkn(skey);
 
         var md5 = Convert.ToHexString(MD5.HashData(bytes)).ToLowerInvariant();

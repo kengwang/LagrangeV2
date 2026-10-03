@@ -13,6 +13,7 @@ internal sealed class HttpSessionContext : IDisposable
     private readonly CookieContainer _cookies = new();
     private const int MaxResponseBytes = 16 * 1024 * 1024;
     private readonly ConcurrentDictionary<string, Lazy<Task<string>>> _pSkeyCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<Task<string>>> _skeyCache = new(StringComparer.Ordinal);
 
     public HttpSessionContext(BotContext context, HttpMessageHandler? handler = null)
     {
@@ -47,8 +48,12 @@ internal sealed class HttpSessionContext : IDisposable
         if (domains.Count == 0) return;
         var pSkeys = await Task.WhenAll(domains.Select(CookieSourceDomain).Distinct(StringComparer.OrdinalIgnoreCase).Select(domain => GetPSkeyAsync(domain, cancellationToken)));
         var cookies = new List<string>();
-        foreach (var pskey in pSkeys) cookies.Add($"p_skey={pskey}");
-        if (_context.Keystore.WLoginSigs.SKey is { Length: > 0 } skey) cookies.Add($"skey={System.Text.Encoding.UTF8.GetString(skey)}");
+        foreach (var domain in domains.Select(CookieSourceDomain).Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (Cookie cookie in _cookies.GetCookies(new Uri($"https://{domain}/"))) cookies.Add($"{cookie.Name}={cookie.Value}");
+        foreach (var pskey in pSkeys) if (!cookies.Any(x => x.StartsWith("p_skey=", StringComparison.Ordinal))) cookies.Add($"p_skey={pskey}");
+        var skey = await GetSkeyAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(skey) && !cookies.Any(x => x.StartsWith("skey=", StringComparison.Ordinal))) cookies.Add($"skey={skey}");
+        cookies.Add($"p_uin=o{_context.BotUin}");
         cookies.Add($"uin=o{_context.BotUin}");
         message.Headers.TryAddWithoutValidation("Cookie", string.Join("; ", cookies));
     }
@@ -62,6 +67,31 @@ internal sealed class HttpSessionContext : IDisposable
             _pSkeyCache.TryRemove(new KeyValuePair<string, Lazy<Task<string>>>(domain, entry));
             throw;
         }
+    }
+
+    internal async Task<string> GetSkeyAsync(CancellationToken cancellationToken)
+    {
+        var entry = _skeyCache.GetOrAdd("skey", _ => new Lazy<Task<string>>(() => FetchSkeyAsync(cancellationToken), LazyThreadSafetyMode.ExecutionAndPublication));
+        try { return await entry.Value.WaitAsync(cancellationToken); }
+        catch { _skeyCache.TryRemove(new KeyValuePair<string, Lazy<Task<string>>>("skey", entry)); throw; }
+    }
+
+    private async Task<string> FetchSkeyAsync(CancellationToken cancellationToken)
+    {
+        var clientKey = await _context.EventContext.SendEvent<FetchClientKeyEventResp>(new FetchClientKeyEventReq(), cancellationToken);
+        if (string.IsNullOrWhiteSpace(clientKey.ClientKey)) return string.Empty;
+        const string jumpTarget = "https%3A%2F%2Fh5.qzone.qq.com%2Fqqnt%2Fqzoneinpcqq%2Ffriend%3Frefresh%3D0%26clientuin%3D0%26darkMode%3D0&keyindex=19&random=2599";
+        var url = $"https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin={_context.BotUin}&clientkey={clientKey.ClientKey}&u1={jumpTarget}";
+        using var response = await _client.GetAsync(url, cancellationToken);
+        // ptlogin2 may answer with a redirect or a non-success status while
+        // still setting the cookie jar. The cookie, not the body status, is
+        // the result of this exchange.
+        foreach (var domain in new[] { "ssl.ptlogin2.qq.com", "qq.com", "qzone.qq.com", "qun.qq.com" })
+        {
+            var cookie = _cookies.GetCookies(new Uri($"https://{domain}/"))["skey"];
+            if (cookie is not null && !string.IsNullOrWhiteSpace(cookie.Value)) return cookie.Value;
+        }
+        return string.Empty;
     }
 
     private static string CookieSourceDomain(string domain) => domain switch
@@ -82,16 +112,8 @@ internal sealed class HttpSessionContext : IDisposable
     {
         var response = await _context.EventContext.SendEvent<FetchCookiesEventResp>(new FetchCookiesEventReq([domain]), cancellationToken);
         if (response.Cookies.TryGetValue(domain, out var pskey) && !string.IsNullOrWhiteSpace(pskey)) return pskey;
-
-        var clientKey = await _context.EventContext.SendEvent<FetchClientKeyEventResp>(new FetchClientKeyEventReq(), cancellationToken);
-        if (string.IsNullOrWhiteSpace(clientKey.ClientKey)) throw new Lagrange.Core.Exceptions.HttpServiceException(domain, "Required p_skey and client key are unavailable.");
-        var target = Uri.EscapeDataString($"https://{domain}/{_context.BotUin}/infocenter");
-        var jump = new Uri($"https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin={_context.BotUin}&clientkey={Uri.EscapeDataString(clientKey.ClientKey)}&u1={target}&keyindex={clientKey.KeyType}");
-        using var request = new HttpRequestMessage(HttpMethod.Get, jump);
-        using var httpResponse = await SendAsync(request, cancellationToken);
-        _ = await ReadResponseAsync(httpResponse, cancellationToken);
         if (_cookies.GetCookies(new Uri($"https://{domain}/"))["p_skey"] is { Value.Length: > 0 } cookie) return cookie.Value;
-        throw new Lagrange.Core.Exceptions.HttpServiceException(domain, "Cookie exchange did not return p_skey.");
+        throw new Lagrange.Core.Exceptions.HttpServiceException(domain, "Cookie service did not return p_skey.");
     }
 
     internal async Task<ReadOnlyMemory<byte>> ReadResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
