@@ -9,7 +9,7 @@ using Lagrange.Core.Internal.Events.System;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
- [HttpServiceAttribute("qzone.get_message_list", "GET", "/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_msglist_v6", "qzone.qq.com")]
+ [HttpServiceAttribute("qzone.get_message_list", "GET", "/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_msglist_v6", "qzone.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey)]
 [EventSubscribe<GetQzoneMessageListEventReq>(Protocols.All)]
 internal sealed class QzoneMessageListHttpService : HttpService<GetQzoneMessageListEventReq, GetQzoneMessageListEventResp>
 {
@@ -17,11 +17,8 @@ internal sealed class QzoneMessageListHttpService : HttpService<GetQzoneMessageL
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetQzoneMessageListEventReq request, CancellationToken cancellationToken)
     {
         if (request.UserUin <= 0 || request.Position < 0 || request.Count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
-        var cookies = await context.FetchCookies(cancellationToken, "qzone.qq.com");
-        var pskey = cookies.GetValueOrDefault("qzone.qq.com");
-        if (string.IsNullOrWhiteSpace(pskey)) throw new HttpServiceException("qzone.get_message_list", "QZone p_skey is unavailable.");
-        var query = $"uin={request.UserUin}&ftype=0&sort=0&pos={request.Position}&num={request.Count}&replynum=100&g_tk={ComputeBkn(pskey)}&callback=_preloadCallback&code_version=1&format=jsonp&need_private_comment=1";
-        return new HttpRequestMessage(HttpMethod.Get, $"https://h5.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_msglist_v6?{query}");
+        var query = $"uin={request.UserUin}&ftype=0&sort=0&pos={request.Position}&num={request.Count}&replynum=100&callback=_preloadCallback&code_version=1&format=jsonp&need_private_comment=1";
+        return await CreateGetRequestAsync(context, new Uri($"https://h5.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_msglist_v6?{query}"), cancellationToken);
     }
 
     protected override Task<GetQzoneMessageListEventResp> ParseResponseAsync(BotContext context, GetQzoneMessageListEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
@@ -46,5 +43,4 @@ internal sealed class QzoneMessageListHttpService : HttpService<GetQzoneMessageL
 
     private static string Text(JsonElement value, string name) => value.TryGetProperty(name, out var item) ? item.ToString() : string.Empty;
     private static long Number(JsonElement value, string name) => value.TryGetProperty(name, out var item) && item.TryGetInt64(out var number) ? number : 0;
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }

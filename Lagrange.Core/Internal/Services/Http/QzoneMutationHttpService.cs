@@ -8,7 +8,7 @@ using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpServiceAttribute("qzone.mutation", "POST", "/proxy/domain", "qzone.qq.com")]
+[HttpServiceAttribute("qzone.mutation", "POST", "/proxy/domain", "qzone.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey)]
 [EventSubscribe<QzoneMutationEventReq>(Protocols.All)]
 internal sealed class QzoneMutationHttpService : HttpService<QzoneMutationEventReq, QzoneMutationEventResp>
 {
@@ -20,8 +20,6 @@ internal sealed class QzoneMutationHttpService : HttpService<QzoneMutationEventR
         if (request.Kind == QzoneMutationKind.Delete && string.IsNullOrWhiteSpace(request.MessageId)) throw new ArgumentException("Message id is required.");
         if (request.Kind == QzoneMutationKind.Publish && string.IsNullOrWhiteSpace(request.Content)) throw new ArgumentException("Message content is required.");
         if (request.Kind == QzoneMutationKind.Black && request.TargetUin <= 0) throw new ArgumentOutOfRangeException(nameof(request.TargetUin));
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qzone.qq.com", cancellationToken);
-        var bkn = ComputeBkn(pskey);
         Dictionary<string, string> fields; string endpoint;
         switch (request.Kind)
         {
@@ -42,7 +40,7 @@ internal sealed class QzoneMutationHttpService : HttpService<QzoneMutationEventR
                 fields = new() { ["uin"] = context.BotUin.ToString(), ["act_uin"] = request.TargetUin.ToString(), ["action"] = request.Ban ? "1" : "2", ["fupdate"] = "1", ["qzreferrer"] = $"https://user.qzone.qq.com/{context.BotUin}/main" };
                 break;
         }
-        return new HttpRequestMessage(HttpMethod.Post, $"{endpoint}?g_tk={bkn}") { Content = new FormUrlEncodedContent(fields) };
+        return await CreateFormRequestAsync(context, HttpMethod.Post, new Uri(endpoint), fields.Select(pair => new KeyValuePair<string, string?>(pair.Key, pair.Value)), cancellationToken);
     }
 
     protected override Task<QzoneMutationEventResp> ParseResponseAsync(BotContext context, QzoneMutationEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
@@ -56,5 +54,4 @@ internal sealed class QzoneMutationHttpService : HttpService<QzoneMutationEventR
         if (request.Kind == QzoneMutationKind.Publish) { var id = root.TryGetProperty("t1_tid", out var tid) ? tid.ToString() : root.TryGetProperty("tid", out tid) ? tid.ToString() : string.Empty; if (string.IsNullOrWhiteSpace(id)) throw new HttpServiceException("qzone.mutation", "QZone publish response is missing tid."); var time = root.TryGetProperty("t1_time", out var timeValue) && timeValue.TryGetInt64(out var parsed) ? parsed : 0; return Task.FromResult(new QzoneMutationEventResp(null, new BotQzonePublishResult { MessageId = id, Time = time })); }
         return Task.FromResult(new QzoneMutationEventResp(null, null));
     }
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }

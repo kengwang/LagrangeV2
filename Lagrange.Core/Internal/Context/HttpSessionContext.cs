@@ -69,6 +69,18 @@ internal sealed class HttpSessionContext : IDisposable
         }
     }
 
+    internal async Task<string> GetBknFromPSkeyAsync(string domain, CancellationToken cancellationToken) =>
+        ComputeBkn(await GetPSkeyAsync(domain, cancellationToken));
+
+    internal async Task<string> GetBknFromSkeyAsync(CancellationToken cancellationToken) => ComputeBkn(await GetSkeyAsync(cancellationToken));
+
+    private static string ComputeBkn(string value)
+    {
+        uint hash = 5381;
+        foreach (var c in value) hash += (hash << 5) + c;
+        return (hash & 0x7FFFFFFF).ToString();
+    }
+
     internal async Task<string> GetSkeyAsync(CancellationToken cancellationToken)
     {
         var entry = _skeyCache.GetOrAdd("skey", _ => new Lazy<Task<string>>(() => FetchSkeyAsync(cancellationToken), LazyThreadSafetyMode.ExecutionAndPublication));

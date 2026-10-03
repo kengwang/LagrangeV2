@@ -10,7 +10,7 @@ using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpServiceAttribute("group.get_honor", "GET", "/interactive/honorlist", "qun.qq.com")]
+[HttpServiceAttribute("group.get_honor", "GET", "/interactive/honorlist", "qun.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey, UrlTokenName = "bkn")]
 [EventSubscribe<GetGroupHonorEventReq>(Protocols.All)]
 internal sealed class GroupHonorHttpService : HttpService<GetGroupHonorEventReq, GetGroupHonorEventResp>
 {
@@ -20,8 +20,7 @@ internal sealed class GroupHonorHttpService : HttpService<GetGroupHonorEventReq,
         if (request.GroupUin <= 0 || string.IsNullOrWhiteSpace(request.HonorType)) throw new ArgumentException("Group and honor type are required.");
         if (request.HonorType is not ("all" or "talkative" or "performer" or "legend" or "emotion")) throw new ArgumentException("Unknown honor type.");
         var type = request.HonorType == "all" ? 1 : request.HonorType switch { "talkative" => 1, "performer" => 2, "legend" => 3, _ => 6 };
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken);
-        return new HttpRequestMessage(HttpMethod.Get, $"https://qun.qq.com/interactive/honorlist?gc={request.GroupUin}&type={type}&bkn={ComputeBkn(pskey)}");
+        return await CreateGetRequestAsync(context, new Uri($"https://qun.qq.com/interactive/honorlist?gc={request.GroupUin}&type={type}"), cancellationToken);
     }
     protected override Task<GetGroupHonorEventResp> ParseResponseAsync(BotContext context, GetGroupHonorEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
@@ -31,5 +30,4 @@ internal sealed class GroupHonorHttpService : HttpService<GetGroupHonorEventReq,
         return Task.FromResult(new GetGroupHonorEventResp(new BotGroupHonorResult { HonorType = request.HonorType, Items = items }));
     }
     private static string Text(JsonElement value, string name) => value.TryGetProperty(name, out var item) ? item.ToString() : string.Empty;
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }

@@ -21,7 +21,7 @@ internal sealed class FriendDressHttpService : HttpService<GetFriendDressEventRe
         const string trace = "base64-eyJhcHBpZCI6InRvYWlvIiwicGFnZV9pZCI6IjM3IiwiaXRlbV9pZCI6IiIsIml0ZW1fdHlwZSI6IjIifQ%3D%3D";
         var inner = $"https://zb.vip.qq.com/v2/pages/aioDressPage?fromPage=1&targetUin={request.TargetUin}&widgetId=0&fontEffectId=0&bgId=custom&chatId={request.TargetUin}&isGroup=0&traceDetail={trace}";
         var url = $"https://zb.vip.qq.com/v2/pages/aioDressPage?fromPage=1&enteranceId=aio&url={Uri.EscapeDataString(inner)}&fontEffectId=0&chatId={request.TargetUin}&widgetId=0&targetUin={request.TargetUin}&isGroup=0&bgId=custom&traceDetail={trace}";
-        return Task.FromResult(new HttpRequestMessage(HttpMethod.Get, url));
+        return CreateGetRequestAsync(context, new Uri(url), cancellationToken);
     }
     protected override Task<GetFriendDressEventResp> ParseResponseAsync(BotContext context, GetFriendDressEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {

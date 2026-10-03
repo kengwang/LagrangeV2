@@ -10,6 +10,7 @@ namespace Lagrange.Core.Internal.Services.Http;
 [HttpService("http.refresh_cookies", "INTERNAL", "/")]
 internal sealed class RefreshHttpCookiesService : IHttpService
 {
+    public void Configure(HttpServiceAttribute metadata) { }
     public Type RequestType => typeof(RefreshHttpCookiesEventReq);
 
     public async ValueTask<ProtocolEvent> ExecuteAsync(BotContext context, ProtocolEvent request, CancellationToken cancellationToken)

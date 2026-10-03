@@ -9,7 +9,7 @@ using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpServiceAttribute("group.get_sign_in", "POST", "/v2/signin/trpc/GetDaySignedList", "qun.qq.com")]
+[HttpServiceAttribute("group.get_sign_in", "POST", "/v2/signin/trpc/GetDaySignedList", "qun.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey)]
 [EventSubscribe<GetGroupSignInEventReq>(Protocols.All)]
 internal sealed class GroupSignHttpService : HttpService<GetGroupSignInEventReq, GetGroupSignInEventResp>
 {
@@ -17,10 +17,9 @@ internal sealed class GroupSignHttpService : HttpService<GetGroupSignInEventReq,
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetGroupSignInEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0) throw new ArgumentOutOfRangeException(nameof(request.GroupUin));
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken);
         var date = (request.Day ?? DateTime.Now).ToString("yyyyMMdd");
         var payload = $"{{\"dayYmd\":\"{date}\",\"offset\":0,\"limit\":100,\"uid\":\"{context.BotUin}\",\"groupId\":\"{request.GroupUin}\"}}";
-        return new HttpRequestMessage(HttpMethod.Post, $"https://qun.qq.com/v2/signin/trpc/GetDaySignedList?g_tk={ComputeBkn(pskey)}") { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
+        return await CreateJsonRequestAsync(context, HttpMethod.Post, new Uri("https://qun.qq.com/v2/signin/trpc/GetDaySignedList"), Encoding.UTF8.GetBytes(payload), cancellationToken);
     }
     protected override Task<GetGroupSignInEventResp> ParseResponseAsync(BotContext context, GetGroupSignInEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
@@ -33,5 +32,4 @@ internal sealed class GroupSignHttpService : HttpService<GetGroupSignInEventReq,
     }
     private static string Text(JsonElement value, string name) => value.TryGetProperty(name, out var item) ? item.ToString() : string.Empty;
     private static ulong Number(JsonElement value, string name) => value.TryGetProperty(name, out var item) && item.TryGetUInt64(out var number) ? number : 0;
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }

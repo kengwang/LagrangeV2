@@ -7,7 +7,7 @@ using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpServiceAttribute("qzone.set_like", "POST", "/proxy/domain/w.qzone.qq.com/cgi-bin/likes", "qzone.qq.com")]
+[HttpServiceAttribute("qzone.set_like", "POST", "/proxy/domain/w.qzone.qq.com/cgi-bin/likes", "qzone.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey)]
 [EventSubscribe<SetQzoneLikeEventReq>(Protocols.All)]
 internal sealed class QzoneLikeHttpService : HttpService<SetQzoneLikeEventReq, SetQzoneLikeEventResp>
 {
@@ -24,9 +24,7 @@ internal sealed class QzoneLikeHttpService : HttpService<SetQzoneLikeEventReq, S
             ["appid"] = "311", ["typeid"] = "0", ["abstime"] = request.AbsTime.ToString(), ["fid"] = request.MessageId, ["from"] = "1", ["active"] = "0", ["fupdate"] = "1", ["format"] = "json"
         });
         var cgi = request.Like ? "internal_dolike_app" : "internal_unlike_app";
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qzone.qq.com", cancellationToken);
-        var bkn = ComputeBkn(pskey);
-        return new HttpRequestMessage(HttpMethod.Post, $"https://h5.qzone.qq.com/proxy/domain/w.qzone.qq.com/cgi-bin/likes/{cgi}?g_tk={bkn}") { Content = body };
+        return await CreateRequestAsync(context, HttpMethod.Post, new Uri($"https://h5.qzone.qq.com/proxy/domain/w.qzone.qq.com/cgi-bin/likes/{cgi}"), body, cancellationToken);
     }
 
     protected override Task<SetQzoneLikeEventResp> ParseResponseAsync(BotContext context, SetQzoneLikeEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
@@ -38,6 +36,4 @@ internal sealed class QzoneLikeHttpService : HttpService<SetQzoneLikeEventReq, S
         if (code != 0 || subcode != 0) throw new HttpServiceException("qzone.set_like", root.TryGetProperty("message", out var message) ? message.ToString() : "QZone like request failed.", businessCode: code != 0 ? code : subcode);
         return Task.FromResult(SetQzoneLikeEventResp.Instance);
     }
-
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }

@@ -50,15 +50,30 @@ public sealed class ServiceSourceGenerator : IIncrementalGenerator
         foreach (var attribute in typeSymbol.GetAttributes()) if (TryGetEventSubscription(attribute, out var subscription)) events.Add(subscription);
         if (events.Count == 0) return null;
         var location = typeSymbol.Locations.FirstOrDefault(static location => location.IsInSource);
-        return new HttpServiceInfo(typeSymbol.ToDisplayString(TypeDisplayFormat), events.ToImmutable(), location?.SourceTree?.FilePath ?? string.Empty, location?.SourceSpan.Start ?? 0);
+        var metadata = context.Attributes[0];
+        var args = metadata.ConstructorArguments;
+        var expression = new StringBuilder("new global::Lagrange.Core.Services.HttpServiceAttribute(");
+        expression.Append(ToLiteral((string)args[0].Value!)).Append(", ").Append(ToLiteral((string)args[1].Value!)).Append(", ").Append(ToLiteral((string)args[2].Value!));
+        if (args.Length > 3) foreach (var domain in args[3].Values) expression.Append(", ").Append(ToLiteral((string)domain.Value!));
+        expression.Append(") { ");
+        foreach (var pair in metadata.NamedArguments)
+        {
+            expression.Append(pair.Key).Append(" = ");
+            if (pair.Value.Value is string text) expression.Append(ToLiteral(text));
+            else expression.Append("(global::Lagrange.Core.Services.HttpAuthInjection)").Append(ToInt64(pair.Value.Value, 0));
+            expression.Append(", ");
+        }
+        expression.Append("}");
+        return new HttpServiceInfo(typeSymbol.ToDisplayString(TypeDisplayFormat), events.ToImmutable(), location?.SourceTree?.FilePath ?? string.Empty, location?.SourceSpan.Start ?? 0, expression.ToString());
     }
 
     private static void OutputHttp(SourceProductionContext context, ImmutableArray<HttpServiceInfo> services)
     {
         var ordered = services.OrderBy(static x => x.SortPath, StringComparer.Ordinal).ThenBy(static x => x.SortStart).ThenBy(static x => x.ServiceType).ToList();
         var source = new StringBuilder("#nullable enable\n\nnamespace Lagrange.Core.Internal.Context;\n\ninternal static class HttpServiceRegistry\n{\n    internal static global::System.Collections.Generic.IReadOnlyDictionary<global::System.Type, global::Lagrange.Core.Services.IHttpService> Create(global::Lagrange.Core.BotContext context)\n    {\n        return new global::System.Collections.Generic.Dictionary<global::System.Type, global::Lagrange.Core.Services.IHttpService>\n        {\n");
-        foreach (var service in ordered) foreach (var subscription in service.Subscriptions) source.Append("            [typeof(").Append(subscription.EventType).Append(")] = new ").Append(service.ServiceType).AppendLine("(),");
-        source.AppendLine("        };\n    }\n}");
+        foreach (var service in ordered) foreach (var subscription in service.Subscriptions) source.Append("            [typeof(").Append(subscription.EventType).Append(")] = Configure(new ").Append(service.ServiceType).Append("(), ").Append(service.Metadata).AppendLine("),");
+        source.AppendLine("        };\n    }");
+        source.AppendLine("    private static global::Lagrange.Core.Services.IHttpService Configure(global::Lagrange.Core.Services.IHttpService service, global::Lagrange.Core.Services.HttpServiceAttribute metadata)\n    {\n        service.Configure(metadata);\n        return service;\n    }\n}");
         context.AddSource("Lagrange.Core.Internal.Context.HttpServiceRegistry.g.cs", source.ToString());
     }
 
@@ -294,5 +309,5 @@ public sealed class ServiceSourceGenerator : IIncrementalGenerator
 
     private readonly record struct EventSubscriptionInfo(string EventType, long Protocol);
 
-    private readonly record struct HttpServiceInfo(string ServiceType, ImmutableArray<EventSubscriptionInfo> Subscriptions, string SortPath, int SortStart);
+    private readonly record struct HttpServiceInfo(string ServiceType, ImmutableArray<EventSubscriptionInfo> Subscriptions, string SortPath, int SortStart, string Metadata);
 }

@@ -11,7 +11,7 @@ using Lagrange.Core.Internal.Http;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpService("group.upload_album_image", "POST", "/webapp/json/sliceUpload", "qzone.qq.com")]
+[HttpService("group.upload_album_image", "POST", "/webapp/json/sliceUpload", "qzone.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromSkey, BodyPSkeyPath = "control_req.0.token.data")]
 [EventSubscribe<UploadGroupAlbumImageEventReq>(Protocols.All)]
 internal sealed class UploadGroupAlbumImageHttpService : HttpService<UploadGroupAlbumImageEventReq, UploadGroupAlbumImageEventResp>
 {
@@ -33,15 +33,10 @@ internal sealed class UploadGroupAlbumImageHttpService : HttpService<UploadGroup
         var bytes = buffer.ToArray();
         if (bytes.Length == 0) throw new ArgumentException("Image cannot be empty.", nameof(image));
 
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qzone.qq.com", cancellationToken);
-        var skey = await context.HttpSessionContext.GetSkeyAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.upload_album_image", "Group web skey is unavailable.");
-        var bkn = ComputeBkn(skey);
-
         var md5 = Convert.ToHexString(MD5.HashData(bytes)).ToLowerInvariant();
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var requestEntry = new JsonObject {
-            ["uin"] = context.BotUin.ToString(), ["token"] = new JsonObject { ["type"] = 4, ["data"] = pskey, ["appid"] = 5 }, ["appid"] = "qun", ["checksum"] = md5,
+            ["uin"] = context.BotUin.ToString(), ["token"] = new JsonObject { ["type"] = 4, ["data"] = "", ["appid"] = 5 }, ["appid"] = "qun", ["checksum"] = md5,
             ["check_type"] = 0, ["file_len"] = bytes.Length, ["env"] = new JsonObject { ["refer"] = "qzone", ["deviceInfo"] = "h5" }, ["model"] = 0,
             ["biz_req"] = new JsonObject { ["sPicTitle"] = fileName, ["sPicDesc"] = "", ["sAlbumName"] = albumName ?? "", ["sAlbumID"] = albumId, ["iAlbumTypeID"] = 0,
                 ["iBitmap"] = 0, ["iUploadType"] = 0, ["iUpPicType"] = 0, ["iBatchID"] = timestamp, ["sPicPath"] = "", ["iPicWidth"] = 0, ["iPicHight"] = 0,
@@ -50,7 +45,7 @@ internal sealed class UploadGroupAlbumImageHttpService : HttpService<UploadGroup
             ["session"] = "", ["asy_upload"] = 0, ["cmd"] = "FileUpload" };
         var control = new JsonObject { ["control_req"] = new JsonArray(requestEntry) };
         using var controlContent = new StringContent(control.ToJsonString(), Encoding.UTF8, "application/json");
-        using var controlResponse = await SendJsonAsync(context, new Uri($"https://h5.qzone.qq.com/webapp/json/sliceUpload/FileBatchControl/{md5}?g_tk={bkn}"), controlContent, cancellationToken);
+        using var controlResponse = await SendJsonAsync(context, new Uri($"https://h5.qzone.qq.com/webapp/json/sliceUpload/FileBatchControl/{md5}"), controlContent, cancellationToken);
         var root = controlResponse.RootElement;
         if (root.TryGetProperty("ret", out var ret) && ret.TryGetInt32(out var code) && code != 0)
             throw new OperationException(code, root.TryGetProperty("msg", out var msg) ? msg.GetString() : "Album upload session failed.");
@@ -69,7 +64,7 @@ internal sealed class UploadGroupAlbumImageHttpService : HttpService<UploadGroup
             form.Add(new StringContent("0"), "retry"); form.Add(new StringContent((offset / sliceSize).ToString()), "seq");
             form.Add(new StringContent((offset + length).ToString()), "end"); form.Add(new StringContent("FileUpload"), "cmd");
             form.Add(new StringContent(sliceSize.ToString()), "slice_size");
-            using var response = await SendJsonAsync(context, new Uri($"https://h5.qzone.qq.com/webapp/json/sliceUpload/FileUpload?seq={offset / sliceSize}&retry=0&offset={offset}&end={offset + length}&total={bytes.Length}&type=form&g_tk={bkn}"), form, cancellationToken);
+            using var response = await SendJsonAsync(context, new Uri($"https://h5.qzone.qq.com/webapp/json/sliceUpload/FileUpload?seq={offset / sliceSize}&retry=0&offset={offset}&end={offset + length}&total={bytes.Length}&type=form"), form, cancellationToken);
             if (response.RootElement.TryGetProperty("ret", out var sliceRet) && sliceRet.TryGetInt32(out var sliceCode) && sliceCode != 0)
                 throw new OperationException(sliceCode, response.RootElement.TryGetProperty("msg", out var sliceMsg) ? sliceMsg.GetString() : "Album upload failed.");
         }
@@ -78,7 +73,7 @@ internal sealed class UploadGroupAlbumImageHttpService : HttpService<UploadGroup
     }
     private async Task<JsonDocument> SendJsonAsync(BotContext context, Uri uri, HttpContent content, CancellationToken cancellationToken)
     {
-        using var message = new HttpRequestMessage(HttpMethod.Post, uri) { Content = content };
+        using var message = CreateRequest(HttpMethod.Post, uri, content);
         var bytes = await SendRequestAsync(context, message, cancellationToken);
         return HttpResponseParser.ParseJson(bytes, "group.upload_album_image");
     }
@@ -87,11 +82,5 @@ internal sealed class UploadGroupAlbumImageHttpService : HttpService<UploadGroup
         throw new InvalidOperationException("Album uploads use a control request followed by slices.");
     protected override Task<UploadGroupAlbumImageEventResp> ParseResponseAsync(BotContext context, UploadGroupAlbumImageEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken) =>
         throw new InvalidOperationException("Album uploads parse each slice response individually.");
-    private static string ComputeBkn(string skey)
-    {
-        uint hash = 5381;
-        foreach (var c in skey) hash += (hash << 5) + c;
-        return (hash & 0x7FFFFFFF).ToString();
-    }
 
 }

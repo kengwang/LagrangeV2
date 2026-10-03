@@ -10,7 +10,7 @@ using Lagrange.Core.Utility;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpService("collection.get_list", "POST", "/collector.fcg", "collector.weiyun.com")]
+[HttpService("collection.get_list", "POST", "https://collector.weiyun.com/collector.fcg")]
 [EventSubscribe<GetCollectionEventReq>(Protocols.All)]
 internal sealed class CollectionHttpService : HttpService<GetCollectionEventReq, GetCollectionEventResp>
 {
@@ -19,7 +19,7 @@ internal sealed class CollectionHttpService : HttpService<GetCollectionEventReq,
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetCollectionEventReq request, CancellationToken cancellationToken)
     {
         if (request.Count is 0 or > 500) throw new ArgumentOutOfRangeException(nameof(request.Count));
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("collector.weiyun.com", cancellationToken);
+        var pskey = await GetTicketAsync(context, cancellationToken);
         var head = ProtoHelper.Serialize(new CollectionHeadReq { Uin = checked((ulong)context.BotUin), Sequence = 1, CommandType = 1, OperationId = 20000, ClientVersion = 0x6105F5E164, Platform = 4, TicketType = 27, Ticket = pskey, Field14 = 8, Field15 = 9 });
         var body = ProtoHelper.Serialize(new CollectionRequestBody { Operation = new CollectionRequestOperation { GetCollectionList = new CollectionListReq { Timestamp = ulong.MaxValue, OrderType = 2, Count = request.Count, SearchDown = 1 } } });
         var envelope = new byte[16 + head.Length + body.Length];

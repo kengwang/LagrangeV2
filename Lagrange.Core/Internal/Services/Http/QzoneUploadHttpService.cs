@@ -8,7 +8,7 @@ using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpServiceAttribute("qzone.upload_image", "POST", "/cgi-bin/upload/cgi_upload_image", "qzone.qq.com")]
+[HttpServiceAttribute("qzone.upload_image", "POST", "https://up.qzone.qq.com/cgi-bin/upload/cgi_upload_image", "qzone.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey | HttpAuthInjection.FormCredentials)]
 [EventSubscribe<UploadQzoneImageEventReq>(Protocols.All)]
 internal sealed class QzoneUploadHttpService : HttpService<UploadQzoneImageEventReq, UploadQzoneImageEventResp>
 {
@@ -18,10 +18,8 @@ internal sealed class QzoneUploadHttpService : HttpService<UploadQzoneImageEvent
         if (!request.Image.CanRead) throw new ArgumentException("Image stream is not readable.");
         using var data = new MemoryStream(); await request.Image.CopyToAsync(data, cancellationToken);
         var base64 = Convert.ToBase64String(data.ToArray()); if (base64.Length == 0) throw new ArgumentException("Image cannot be empty.");
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qzone.qq.com", cancellationToken);
-        var bkn = ComputeBkn(pskey);
         var form = new Dictionary<string, string> { ["filename"] = "filename", ["uin"] = context.BotUin.ToString(), ["zzpaneluin"] = context.BotUin.ToString(), ["p_uin"] = context.BotUin.ToString(), ["uploadtype"] = "1", ["albumtype"] = "7", ["exttype"] = "0", ["refer"] = "shuoshuo", ["output_type"] = "jsonhtml", ["charset"] = "utf-8", ["output_charset"] = "utf-8", ["upload_hd"] = "1", ["hd_width"] = "2048", ["hd_height"] = "10000", ["hd_quality"] = "96", ["base64"] = "1", ["jsonhtml_callback"] = "callback", ["picfile"] = base64, ["qzreferrer"] = $"https://user.qzone.qq.com/{context.BotUin}" };
-        return new HttpRequestMessage(HttpMethod.Post, $"https://up.qzone.qq.com/cgi-bin/upload/cgi_upload_image?g_tk={bkn}") { Content = new FormUrlEncodedContent(form) };
+        return await CreateFormRequestAsync(context, HttpMethod.Post, new Uri("https://up.qzone.qq.com/cgi-bin/upload/cgi_upload_image"), form.Select(x => new KeyValuePair<string, string?>(x.Key, x.Value)), cancellationToken);
     }
     protected override Task<UploadQzoneImageEventResp> ParseResponseAsync(BotContext context, UploadQzoneImageEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
@@ -34,5 +32,4 @@ internal sealed class QzoneUploadHttpService : HttpService<UploadQzoneImageEvent
     }
     private static string Text(JsonElement value, string name) => value.TryGetProperty(name, out var item) ? item.ToString() : string.Empty;
     private static int Number(JsonElement value, string name) => value.TryGetProperty(name, out var item) && item.TryGetInt32(out var number) ? number : 0;
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }

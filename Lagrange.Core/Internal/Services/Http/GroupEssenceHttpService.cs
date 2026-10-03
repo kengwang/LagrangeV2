@@ -8,7 +8,7 @@ using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpServiceAttribute("group.get_essence", "GET", "/cgi-bin/group_digest/digest_list", "qun.qq.com")]
+[HttpServiceAttribute("group.get_essence", "GET", "/cgi-bin/group_digest/digest_list", "qun.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey, UrlTokenName = "bkn")]
 [EventSubscribe<GetGroupEssenceEventReq>(Protocols.All)]
 internal sealed class GroupEssenceHttpService : HttpService<GetGroupEssenceEventReq, GetGroupEssenceEventResp>
 {
@@ -16,9 +16,8 @@ internal sealed class GroupEssenceHttpService : HttpService<GetGroupEssenceEvent
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetGroupEssenceEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || request.PageStart < 0 || request.PageLimit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken);
-        var query = $"bkn={ComputeBkn(pskey)}&page_start={request.PageStart}&page_limit={request.PageLimit}&group_code={request.GroupUin}";
-        return new HttpRequestMessage(HttpMethod.Get, $"https://qun.qq.com/cgi-bin/group_digest/digest_list?{query}");
+        var query = $"page_start={request.PageStart}&page_limit={request.PageLimit}&group_code={request.GroupUin}";
+        return await CreateGetRequestAsync(context, new Uri($"https://qun.qq.com/cgi-bin/group_digest/digest_list?{query}"), cancellationToken);
     }
     protected override Task<GetGroupEssenceEventResp> ParseResponseAsync(BotContext context, GetGroupEssenceEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
@@ -33,5 +32,4 @@ internal sealed class GroupEssenceHttpService : HttpService<GetGroupEssenceEvent
     }
     private static string Text(JsonElement value, string name) => value.TryGetProperty(name, out var item) ? item.ToString() : string.Empty;
     private static ulong Number(JsonElement value, string name) => value.TryGetProperty(name, out var item) && item.TryGetUInt64(out var number) ? number : 0;
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }

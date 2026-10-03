@@ -9,7 +9,7 @@ using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpServiceAttribute("group.get_announcements", "POST", "/cgi-bin/announce/list_announce", "qun.qq.com", "web.qun.qq.com")]
+[HttpServiceAttribute("group.get_announcements", "POST", "https://web.qun.qq.com/cgi-bin/announce/list_announce", "qun.qq.com", "web.qun.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey | HttpAuthInjection.FormBknFromSkey, UrlTokenName = "bkn")]
 [EventSubscribe<GetGroupAnnouncementsEventReq>(Protocols.All)]
 internal sealed class GetGroupAnnouncementsHttpService : HttpService<GetGroupAnnouncementsEventReq, GetGroupAnnouncementsEventResp>
 {
@@ -17,11 +17,11 @@ internal sealed class GetGroupAnnouncementsHttpService : HttpService<GetGroupAnn
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetGroupAnnouncementsEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || request.Count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken);
-        var skey = await context.HttpSessionContext.GetSkeyAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.get_announcements", "Group web skey is unavailable.");
-        var bodyBkn = ComputeBkn(skey); var urlBkn = ComputeBkn(pskey); var body = $"qid={request.GroupUin}&bkn={bodyBkn}&ft=23&s={request.Start}&n={request.Count}&i=1&ni=1";
-        return new HttpRequestMessage(HttpMethod.Post, $"https://web.qun.qq.com/cgi-bin/announce/list_announce?bkn={urlBkn}") { Content = new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded") };
+        return await CreateFormRequestAsync(context, HttpMethod.Post, new Uri("https://web.qun.qq.com/cgi-bin/announce/list_announce"), new Dictionary<string, string?>
+        {
+            ["qid"] = request.GroupUin.ToString(), ["ft"] = "23", ["s"] = request.Start.ToString(),
+            ["n"] = request.Count.ToString(), ["i"] = "1", ["ni"] = "1"
+        }, cancellationToken);
     }
     protected override Task<GetGroupAnnouncementsEventResp> ParseResponseAsync(BotContext context, GetGroupAnnouncementsEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
@@ -31,10 +31,9 @@ internal sealed class GetGroupAnnouncementsHttpService : HttpService<GetGroupAnn
     }
     private static string Text(JsonElement value, string name) => value.TryGetProperty(name, out var item) ? item.ToString() : string.Empty;
     private static long Number(JsonElement value, string name) => value.TryGetProperty(name, out var item) && item.TryGetInt64(out var number) ? number : 0;
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }
 
-[HttpServiceAttribute("group.delete_announcement", "POST", "/cgi-bin/announce/del_feed", "qun.qq.com", "web.qun.qq.com")]
+[HttpServiceAttribute("group.delete_announcement", "POST", "https://web.qun.qq.com/cgi-bin/announce/del_feed", "qun.qq.com", "web.qun.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey | HttpAuthInjection.FormBknFromSkey, UrlTokenName = "bkn")]
 [EventSubscribe<DeleteGroupAnnouncementEventReq>(Protocols.All)]
 internal sealed class DeleteGroupAnnouncementHttpService : HttpService<DeleteGroupAnnouncementEventReq, DeleteGroupAnnouncementEventResp>
 {
@@ -42,13 +41,13 @@ internal sealed class DeleteGroupAnnouncementHttpService : HttpService<DeleteGro
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, DeleteGroupAnnouncementEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || string.IsNullOrWhiteSpace(request.AnnouncementId)) throw new ArgumentException("Group and announcement id are required.");
-        var pskey = await context.HttpSessionContext.GetPSkeyAsync("qun.qq.com", cancellationToken); var skey = await context.HttpSessionContext.GetSkeyAsync(cancellationToken); if (string.IsNullOrWhiteSpace(skey)) throw new HttpServiceException("group.delete_announcement", "Group web skey is unavailable.");
-        var bodyBkn = ComputeBkn(skey); var urlBkn = ComputeBkn(pskey); var body = $"bkn={bodyBkn}&fid={Uri.EscapeDataString(request.AnnouncementId)}&qid={request.GroupUin}";
-        return new HttpRequestMessage(HttpMethod.Post, $"https://web.qun.qq.com/cgi-bin/announce/del_feed?bkn={urlBkn}") { Content = new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded") };
+        return await CreateFormRequestAsync(context, HttpMethod.Post, new Uri("https://web.qun.qq.com/cgi-bin/announce/del_feed"), new Dictionary<string, string?>
+        {
+            ["fid"] = request.AnnouncementId, ["qid"] = request.GroupUin.ToString()
+        }, cancellationToken);
     }
     protected override Task<DeleteGroupAnnouncementEventResp> ParseResponseAsync(BotContext context, DeleteGroupAnnouncementEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
         using var document = HttpResponseParser.ParseJson(payload, "group.delete_announcement"); var root = document.RootElement; var code = root.TryGetProperty("ec", out var ec) && ec.TryGetInt32(out var parsed) ? parsed : -1; if (code != 0) throw new HttpServiceException("group.delete_announcement", root.TryGetProperty("em", out var message) ? message.ToString() : "Group announcement deletion failed.", businessCode: code); return Task.FromResult(DeleteGroupAnnouncementEventResp.Instance);
     }
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }

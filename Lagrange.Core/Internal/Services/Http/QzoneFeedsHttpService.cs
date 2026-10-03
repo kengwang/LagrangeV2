@@ -11,7 +11,7 @@ using Lagrange.Core.Internal.Events.System;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
- [HttpServiceAttribute("qzone.get_feeds", "GET", "/proxy/domain/ic2.qzone.qq.com/cgi-bin/feeds/feeds3_html_more", "qzone.qq.com")]
+ [HttpServiceAttribute("qzone.get_feeds", "GET", "/proxy/domain/ic2.qzone.qq.com/cgi-bin/feeds/feeds3_html_more", "qzone.qq.com", AuthInjection = HttpAuthInjection.UrlBknFromPSkey)]
 [EventSubscribe<GetQzoneFeedsEventReq>(Protocols.All)]
 internal sealed class QzoneFeedsHttpService : HttpService<GetQzoneFeedsEventReq, GetQzoneFeedsEventResp>
 {
@@ -19,12 +19,8 @@ internal sealed class QzoneFeedsHttpService : HttpService<GetQzoneFeedsEventReq,
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetQzoneFeedsEventReq request, CancellationToken cancellationToken)
     {
         if (request.UserUin <= 0 || request.Page < 1 || request.Count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
-        var cookies = await context.FetchCookies(cancellationToken, "qzone.qq.com");
-        var pskey = cookies.GetValueOrDefault("qzone.qq.com");
-        if (string.IsNullOrWhiteSpace(pskey)) throw new HttpServiceException("qzone.get_feeds", "QZone p_skey is unavailable.");
-        var bkn = ComputeBkn(pskey);
-        var query = $"uin={request.UserUin}&scope=0&view=1&filter=all&flag=1&applist=all&pagenum={request.Page}&count={request.Count}&aisortEndTime=0&aisortOffset=0&aisortBeginTime=0&begintime=0&g_tk={bkn}&callback=_preloadCallback&format=jsonp&useutf8=1&outputhtmlfeed=1";
-        return new HttpRequestMessage(HttpMethod.Get, $"https://h5.qzone.qq.com/proxy/domain/ic2.qzone.qq.com/cgi-bin/feeds/feeds3_html_more?{query}");
+        var query = $"uin={request.UserUin}&scope=0&view=1&filter=all&flag=1&applist=all&pagenum={request.Page}&count={request.Count}&aisortEndTime=0&aisortOffset=0&aisortBeginTime=0&begintime=0&callback=_preloadCallback&format=jsonp&useutf8=1&outputhtmlfeed=1";
+        return await CreateGetRequestAsync(context, new Uri($"https://h5.qzone.qq.com/proxy/domain/ic2.qzone.qq.com/cgi-bin/feeds/feeds3_html_more?{query}"), cancellationToken);
     }
 
     protected override async Task<GetQzoneFeedsEventResp> ParseResponseAsync(BotContext context, GetQzoneFeedsEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
@@ -50,5 +46,4 @@ internal sealed class QzoneFeedsHttpService : HttpService<GetQzoneFeedsEventReq,
 
     private static uint Number(Dictionary<string, object?> value, string key) => value.GetValueOrDefault(key) switch { double d => (uint)d, long l => (uint)l, int i => (uint)i, string s when uint.TryParse(s, out var n) => n, _ => 0 };
     private static string String(Dictionary<string, object?> value, string key, string? fallback = null) => value.GetValueOrDefault(key)?.ToString() ?? (fallback is not null ? value.GetValueOrDefault(fallback)?.ToString() : null) ?? string.Empty;
-    private static string ComputeBkn(string skey) { uint hash = 5381; foreach (var c in skey) hash += (hash << 5) + c; return (hash & 0x7FFFFFFF).ToString(); }
 }
