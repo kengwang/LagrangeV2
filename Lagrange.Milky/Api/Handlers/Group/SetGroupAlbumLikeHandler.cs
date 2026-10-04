@@ -1,16 +1,21 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("set_group_album_like")]
-public sealed class SetGroupAlbumLikeHandler(BotContext lagrange) : INoResultApiHandler<SetGroupAlbumLikeHandler.Request>
+public sealed class SetGroupAlbumLikeHandler(BotContext lagrange) : Endpoint<SetGroupAlbumLikeHandler.Request, MilkyApiResponse>
 {
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/set_group_album_like");
+    }
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await lagrange.SetGroupAlbumLike(request.GroupId, request.AlbumId, request.BatchId, request.MediaId, request.IsLike, ct).WaitAsync(ct);
         return new MilkyApiResponse();

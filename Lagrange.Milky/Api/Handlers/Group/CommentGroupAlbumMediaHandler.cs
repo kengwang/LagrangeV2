@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("comment_group_album_media")]
-public sealed class CommentGroupAlbumMediaHandler(BotContext lagrange) : IApiHandler<CommentGroupAlbumMediaHandler.Request, CommentGroupAlbumMediaHandler.Result>
+public sealed class CommentGroupAlbumMediaHandler(BotContext lagrange) : Endpoint<CommentGroupAlbumMediaHandler.Request, MilkyApiResponse<CommentGroupAlbumMediaHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
     {
-        var id = await lagrange.CommentGroupAlbumMedia(request.GroupId, request.AlbumId, request.MediaId, request.Content, ct).WaitAsync(ct);
+        AuthSchemes("Milky");
+        Post("/api/comment_group_album_media");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
+    {
+        string id = await lagrange.CommentGroupAlbumMedia(request.GroupId, request.AlbumId, request.MediaId, request.Content, ct).WaitAsync(ct);
         return new(new Result { CommentId = id });
     }
     public sealed class Request(long groupId, string albumId, string mediaId, string content)

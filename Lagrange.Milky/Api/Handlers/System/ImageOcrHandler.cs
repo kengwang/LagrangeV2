@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,14 +7,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("image_ocr")]
-public sealed class ImageOcrHandler(BotContext lagrange) : IApiHandler<ImageOcrHandler.Request, ImageOcrHandler.Result>
+public sealed class ImageOcrHandler(BotContext lagrange) : Endpoint<ImageOcrHandler.Request, MilkyApiResponse<ImageOcrHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/image_ocr");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.ImageUrl);
         var result = await lagrange.ImageOcr(request.ImageUrl, ct).WaitAsync(ct);

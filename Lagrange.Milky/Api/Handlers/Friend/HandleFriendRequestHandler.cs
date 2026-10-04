@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Friend;
 
-[ApiHandler("handle_friend_request")]
-public sealed class HandleFriendRequestHandler(BotContext lagrange) : INoResultApiHandler<HandleFriendRequestHandler.Request>
+public sealed class HandleFriendRequestHandler(BotContext lagrange) : Endpoint<HandleFriendRequestHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/handle_friend_request");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await _lagrange.HandleFriendRequest(request.Flag, request.Approve).WaitAsync(ct);
         return new MilkyApiResponse();

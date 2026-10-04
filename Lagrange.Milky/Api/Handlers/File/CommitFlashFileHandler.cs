@@ -1,16 +1,21 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.File;
 
-[ApiHandler("commit_flash_file")]
-public sealed class CommitFlashFileHandler(BotContext lagrange) : INoResultApiHandler<CommitFlashFileHandler.Request>
+public sealed class CommitFlashFileHandler(BotContext lagrange) : Endpoint<CommitFlashFileHandler.Request, MilkyApiResponse>
 {
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/commit_flash_file");
+    }
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await lagrange.CommitFlashFile(request.FilesetUuid, request.UploadKey, request.FileUuid, request.FileName, request.FileSize, request.Index, request.FormatCode, ct).WaitAsync(ct);
         return new MilkyApiResponse();

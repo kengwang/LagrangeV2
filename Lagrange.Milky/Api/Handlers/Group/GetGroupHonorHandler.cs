@@ -1,17 +1,22 @@
+using FastEndpoints;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("get_group_honor")]
-public sealed class GetGroupHonorHandler(BotContext lagrange) : IApiHandler<GetGroupHonorHandler.Request, GetGroupHonorHandler.Result>
+public sealed class GetGroupHonorHandler(BotContext lagrange) : Endpoint<GetGroupHonorHandler.Request, MilkyApiResponse<GetGroupHonorHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_honor");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.GetGroupHonor(request.GroupId, request.HonorType, ct).WaitAsync(ct);
         return new(new Result(result));

@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,21 +7,25 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 using Lagrange.Milky.Models;
 using Lagrange.Milky.Models.Messages;
 
 namespace Lagrange.Milky.Api.Handlers.Message;
 
-[ApiHandler("get_history_messages")]
-public sealed class GetHistoryMessagesHandler(BotContext lagrange, MilkyConverter converter) : IApiHandler<GetHistoryMessagesHandler.Request, GetHistoryMessagesHandler.Result>
+public sealed class GetHistoryMessagesHandler(BotContext lagrange, MilkyConverter converter) : Endpoint<GetHistoryMessagesHandler.Request, MilkyApiResponse<GetHistoryMessagesHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_history_messages");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly MilkyConverter _converter = converter;
 
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         long endSequence = request.StartMessageSeq ?? request.MessageScene switch
         {

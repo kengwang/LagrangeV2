@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -5,7 +6,6 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Message;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 using Lagrange.Milky.Extensions;
 using Lagrange.Milky.Models;
@@ -13,13 +13,18 @@ using Lagrange.Milky.Models.Segments;
 
 namespace Lagrange.Milky.Api.Handlers.Message;
 
-[ApiHandler("send_private_message")]
-public sealed class SendPrivateMessageHandler(BotContext lagrange, MilkyConverter converter) : IApiHandler<SendPrivateMessageHandler.Request, SendPrivateMessageHandler.Result>
+public sealed class SendPrivateMessageHandler(BotContext lagrange, MilkyConverter converter) : Endpoint<SendPrivateMessageHandler.Request, MilkyApiResponse<SendPrivateMessageHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/send_private_message");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly MilkyConverter _converter = converter;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var chain = await _converter.FromOutgoingSegmentsAsync(request.Message, MessageType.Private, request.UserId, ct);
         var message = await _lagrange.SendFriendMessage(request.UserId, chain).WaitAsync(ct);

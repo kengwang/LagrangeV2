@@ -1,20 +1,25 @@
+using FastEndpoints;
 using System;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.File;
 
-[ApiHandler("get_private_file_download_url")]
-public sealed class GetPrivateFileDownloadUrlHandler(BotContext lagrange) : IApiHandler<GetPrivateFileDownloadUrlHandler.Request, GetPrivateFileDownloadUrlHandler.Result>
+public sealed class GetPrivateFileDownloadUrlHandler(BotContext lagrange) : Endpoint<GetPrivateFileDownloadUrlHandler.Request, MilkyApiResponse<GetPrivateFileDownloadUrlHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_private_file_download_url");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.FileId);
-        var url = await lagrange.GetNTV2RichMediaUrl(request.FileId).WaitAsync(ct);
+        string url = await lagrange.GetNTV2RichMediaUrl(request.FileId).WaitAsync(ct);
         return new(new Result { DownloadUrl = url });
     }
     public sealed class Request(string fileId) { [JsonPropertyName("file_id")] public required string FileId { get; init; } = fileId; }

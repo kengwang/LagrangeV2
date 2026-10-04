@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("transfer_group")]
-public sealed class TransferGroupHandler(BotContext lagrange) : INoResultApiHandler<TransferGroupHandler.Request>
+public sealed class TransferGroupHandler(BotContext lagrange) : Endpoint<TransferGroupHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/transfer_group");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await _lagrange.GroupTransfer(request.GroupId, request.UserId).WaitAsync(ct);
         return new MilkyApiResponse();

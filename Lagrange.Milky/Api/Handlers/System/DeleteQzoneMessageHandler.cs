@@ -1,16 +1,21 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("delete_qzone_message")]
-public sealed class DeleteQzoneMessageHandler(BotContext lagrange) : INoResultApiHandler<DeleteQzoneMessageHandler.Request>
+public sealed class DeleteQzoneMessageHandler(BotContext lagrange) : Endpoint<DeleteQzoneMessageHandler.Request, MilkyApiResponse>
 {
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/delete_qzone_message");
+    }
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await lagrange.DeleteQzoneMessage(request.MessageId, ct).WaitAsync(ct);
         return new MilkyApiResponse();

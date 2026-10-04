@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -5,19 +6,23 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Entity;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 using Lagrange.Milky.Models;
 
 namespace Lagrange.Milky.Api.Handlers.File;
 
-[ApiHandler("get_group_files")]
-public sealed class GetGroupFilesHandler(BotContext lagrange, MilkyConverter converter) : IApiHandler<GetGroupFilesHandler.Request, GetGroupFilesHandler.Result>
+public sealed class GetGroupFilesHandler(BotContext lagrange, MilkyConverter converter) : Endpoint<GetGroupFilesHandler.Request, MilkyApiResponse<GetGroupFilesHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_files");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly MilkyConverter _converter = converter;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var entries = await _lagrange.FetchGroupFSList(request.GroupId, request.ParentFolderId, ct);
 

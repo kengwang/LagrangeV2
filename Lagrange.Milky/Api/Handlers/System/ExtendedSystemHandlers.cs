@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,16 +8,20 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Milky.Api;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 using Lagrange.Milky.Models;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_group_system_msg")]
-public sealed class GetGroupSystemMessageHandler(BotContext lagrange, MilkyConverter converter) : IApiHandler<GetGroupSystemMessageHandler.Request, GetGroupSystemMessageHandler.Result>
+public sealed class GetGroupSystemMessageHandler(BotContext lagrange, MilkyConverter converter) : Endpoint<GetGroupSystemMessageHandler.Request, MilkyApiResponse<GetGroupSystemMessageHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_system_msg");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (request.GroupId <= 0) throw new ArgumentOutOfRangeException(nameof(request.GroupId));
         var notifications = await lagrange.FetchGroupNotifications(100, 0, ct);
@@ -35,10 +40,15 @@ public sealed class GetGroupSystemMessageHandler(BotContext lagrange, MilkyConve
     }
 }
 
-[ApiHandler("get_group_shut_list")]
-public sealed class GetGroupShutListHandler(BotContext lagrange) : IApiHandler<GetGroupShutListHandler.Request, GetGroupShutListHandler.Result>
+public sealed class GetGroupShutListHandler(BotContext lagrange) : Endpoint<GetGroupShutListHandler.Request, MilkyApiResponse<GetGroupShutListHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_shut_list");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var members = await lagrange.FetchMembers(request.GroupId, true);
         return new(new Result { Members = [.. members.Where(x => x.ShutUpTimestamp > DateTimeOffset.UtcNow.ToUnixTimeSeconds()).Select(x => new Member { UserId = x.Uin, ShutUpTimestamp = x.ShutUpTimestamp })] });
@@ -56,10 +66,15 @@ public sealed class GetGroupShutListHandler(BotContext lagrange) : IApiHandler<G
     public sealed class Member { [JsonPropertyName("user_id")] public long UserId { get; init; } [JsonPropertyName("shut_up_timestamp")] public long ShutUpTimestamp { get; init; } }
 }
 
-[ApiHandler("get_doubt_friends_add_request")]
-public sealed class GetDoubtFriendRequestsHandler(BotContext lagrange) : INoRequestApiHandler<GetDoubtFriendRequestsHandler.Result>
+public sealed class GetDoubtFriendRequestsHandler(BotContext lagrange) : EndpointWithoutRequest<MilkyApiResponse<GetDoubtFriendRequestsHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_doubt_friends_add_request");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(CancellationToken ct)
     {
         var requests = await lagrange.FetchDoubtFriendRequests(ct);
         return new(new Result { Requests = [.. requests.Select(x => new Item { Uid = x.Uid, UserId = x.UserId, Nick = x.Nick, Source = x.Source, Reason = x.Reason, Message = x.Message, GroupCode = x.GroupCode, RequestTime = x.RequestTime })] });
@@ -72,10 +87,15 @@ public sealed class GetDoubtFriendRequestsHandler(BotContext lagrange) : INoRequ
     public sealed class Item { [JsonPropertyName("uid")] public required string Uid { get; init; } [JsonPropertyName("user_id")] public long UserId { get; init; } [JsonPropertyName("nick")] public string Nick { get; init; } = string.Empty; [JsonPropertyName("source")] public string Source { get; init; } = string.Empty; [JsonPropertyName("reason")] public string Reason { get; init; } = string.Empty; [JsonPropertyName("message")] public string Message { get; init; } = string.Empty; [JsonPropertyName("group_code")] public string GroupCode { get; init; } = string.Empty; [JsonPropertyName("request_time")] public long RequestTime { get; init; } }
 }
 
-[ApiHandler("set_doubt_friends_add_request")]
-public sealed class SetDoubtFriendRequestHandler(BotContext lagrange) : INoResultApiHandler<SetDoubtFriendRequestHandler.Request>
+public sealed class SetDoubtFriendRequestHandler(BotContext lagrange) : Endpoint<SetDoubtFriendRequestHandler.Request, MilkyApiResponse>
 {
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/set_doubt_friends_add_request");
+    }
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.RequestId)) throw new ArgumentException("request_id is required.", nameof(request.RequestId));
         await lagrange.HandleDoubtFriendRequest(request.RequestId, request.Approve, ct);
@@ -89,10 +109,15 @@ public sealed class SetDoubtFriendRequestHandler(BotContext lagrange) : INoResul
     }
 }
 
-[ApiHandler("get_qidian_corp_info")]
-public sealed class GetQidianCorpInfoHandler(BotContext lagrange) : IApiHandler<GetQidianCorpInfoHandler.Request, GetQidianCorpInfoHandler.Result>
+public sealed class GetQidianCorpInfoHandler(BotContext lagrange) : Endpoint<GetQidianCorpInfoHandler.Request, MilkyApiResponse<GetQidianCorpInfoHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_qidian_corp_info");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (request.UserId <= 0) throw new ArgumentOutOfRangeException(nameof(request.UserId));
         var info = await lagrange.FetchQidianCorp(request.UserId, ct);
@@ -111,13 +136,18 @@ public sealed class GetQidianCorpInfoHandler(BotContext lagrange) : IApiHandler<
     public sealed class Corp { [JsonPropertyName("name")] public string Name { get; init; } = string.Empty; [JsonPropertyName("intro")] public string Intro { get; init; } = string.Empty; [JsonPropertyName("website")] public string Website { get; init; } = string.Empty; [JsonPropertyName("slogan")] public string Slogan { get; init; } = string.Empty; [JsonPropertyName("address")] public string Address { get; init; } = string.Empty; [JsonPropertyName("phone")] public string Phone { get; init; } = string.Empty; [JsonPropertyName("email")] public string Email { get; init; } = string.Empty; }
 }
 
-[ApiHandler("send_ark_share")]
-public sealed class SendArkShareHandler(BotContext lagrange) : IApiHandler<SendArkShareHandler.Request, SendArkShareHandler.Result>
+public sealed class SendArkShareHandler(BotContext lagrange) : Endpoint<SendArkShareHandler.Request, MilkyApiResponse<SendArkShareHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/send_ark_share");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (request.UserId <= 0 && (!request.GroupId.HasValue || request.GroupId <= 0)) throw new ArgumentException("A valid user_id or group_id is required.");
-        var ark = request.GroupId is > 0 ? await lagrange.FetchGroupArk(request.GroupId.Value, ct) : await lagrange.FetchBuddyArk(request.UserId, ct);
+        string ark = request.GroupId is > 0 ? await lagrange.FetchGroupArk(request.GroupId.Value, ct) : await lagrange.FetchBuddyArk(request.UserId, ct);
         return new(new Result { Ark = ark });
     }
 
@@ -133,10 +163,15 @@ public sealed class SendArkShareHandler(BotContext lagrange) : IApiHandler<SendA
     }
 }
 
-[ApiHandler("send_tuwen_ark")]
-public sealed class SendTuwenArkHandler(BotContext lagrange) : IApiHandler<SendTuwenArkHandler.Request, SendTuwenArkHandler.Result>
+public sealed class SendTuwenArkHandler(BotContext lagrange) : Endpoint<SendTuwenArkHandler.Request, MilkyApiResponse<SendTuwenArkHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/send_tuwen_ark");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (request.PeerId <= 0) throw new ArgumentOutOfRangeException(nameof(request.PeerId));
         await lagrange.SendTuwenArk(request.PeerId, request.GroupId.HasValue, request.Title, request.Description, request.Summary, request.Url, request.PreviewUrl, ct);

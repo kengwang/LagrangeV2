@@ -1,21 +1,26 @@
+using FastEndpoints;
 using System;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_impl_info")]
-public sealed class GetImplInfoHandler(BotContext lagrange) : INoRequestApiHandler<GetImplInfoHandler.Result>
+public sealed class GetImplInfoHandler(BotContext lagrange) : EndpointWithoutRequest<MilkyApiResponse<GetImplInfoHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_impl_info");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public ValueTask<MilkyApiResponse<Result>> HandleAsync(CancellationToken ct)
+    public override Task<MilkyApiResponse<Result>> ExecuteAsync(CancellationToken ct)
     {
-        return ValueTask.FromResult(new MilkyApiResponse<Result>(new Result
+        return Task.FromResult(new MilkyApiResponse<Result>(new Result
         {
             ImplName = "Lagrange.Core",
             ImplVersion = Constants.GitHash,

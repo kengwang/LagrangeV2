@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("upload_group_album_image")]
-public sealed class UploadGroupAlbumImageHandler(BotContext lagrange, ResourceConverter resources) : IApiHandler<UploadGroupAlbumImageHandler.Request, UploadGroupAlbumImageHandler.Result>
+public sealed class UploadGroupAlbumImageHandler(BotContext lagrange, ResourceConverter resources) : Endpoint<UploadGroupAlbumImageHandler.Request, MilkyApiResponse<UploadGroupAlbumImageHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/upload_group_album_image");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (request.GroupId <= 0) throw new ArgumentOutOfRangeException(nameof(request.GroupId));
         if (string.IsNullOrWhiteSpace(request.AlbumId)) throw new ArgumentException("Album id is required.", nameof(request.AlbumId));

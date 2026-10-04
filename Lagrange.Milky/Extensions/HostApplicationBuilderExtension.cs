@@ -11,7 +11,6 @@ using Lagrange.Milky.Configurations;
 using Lagrange.Milky.Converters;
 using Lagrange.Milky.Events;
 using Lagrange.Milky.Events.Extensions;
-using Lagrange.Milky.Http;
 using Lagrange.Milky.Logging;
 using Lagrange.Milky.Login;
 using Lagrange.Milky.Serialization;
@@ -19,13 +18,15 @@ using Lagrange.Milky.Signing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 
 namespace Lagrange.Milky.Extensions;
 
 public static class HostApplicationBuilderExtension
 {
-    public static HostApplicationBuilder ConfigureLagrange(this HostApplicationBuilder builder)
+    public static WebApplicationBuilder ConfigureLagrange(this WebApplicationBuilder builder)
     {
         var configuration = builder.Configuration.GetRequiredSection("Lagrange").Get<LagrangeConfiguration>()
             ?? throw new Exception("Failed to load 'Lagrange' configuration");
@@ -80,11 +81,12 @@ public static class HostApplicationBuilderExtension
         return builder;
     }
 
-    public static HostApplicationBuilder ConfigureMilky(this HostApplicationBuilder builder)
+    public static WebApplicationBuilder ConfigureMilky(this WebApplicationBuilder builder)
     {
         var configuration = builder.Configuration.GetRequiredSection("Milky").Get<MilkyConfiguration>()
             ?? throw new Exception("Failed to load 'Milky' configuration");
         builder.Services.AddSingleton(configuration);
+        builder.WebHost.UseUrls($"http://{configuration.HttpServer.Host}:{configuration.HttpServer.Port}");
 
         builder.Services.AddSingleton<MessageCache>();
         builder.Services.AddHostedService<CacheService>();
@@ -92,37 +94,12 @@ public static class HostApplicationBuilderExtension
         builder.Services.AddSingleton<MilkyConverter>();
         builder.Services.AddSingleton<ResourceConverter>();
 
-        builder.Services.AddApiHandlers();
         builder.Services.AddEventConverters();
-
-        builder.Services.AddHostedService<HttpService>();
-
-        if (configuration.Api.Http != null)
-        {
-            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IHttpHandler, HttpApiHandler>(sp
-                => ActivatorUtilities.CreateInstance<HttpApiHandler>(sp, configuration.Api.Http)
-            ));
-        }
-
-        if (configuration.Event.WebSocket?.Enabled ?? false)
-        {
-            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IHttpHandler, WebSocketEventHandler>(sp
-                => ActivatorUtilities.CreateInstance<WebSocketEventHandler>(sp, configuration.Event.WebSocket)
-            ));
-        }
-        if (configuration.Event.SSE?.Enabled ?? false)
-        {
-            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IHttpHandler, SSEEventHandler>(sp
-                => ActivatorUtilities.CreateInstance<SSEEventHandler>(sp, configuration.Event.SSE)
-            ));
-        }
-        if (configuration.Event.WebHook?.Enabled ?? false)
-        {
-            builder.Services.AddHostedService(sp
-                => ActivatorUtilities.CreateInstance<WebHookEventHandler>(sp, configuration.Event.WebHook)
-            );
-        }
-
+        builder.Services.AddSingleton<MilkyEventHub>();
+        builder.Services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<MilkyEventHub>());
+        builder.Services.AddHttpClient(nameof(WebHookEventHandler), client => client.Timeout = TimeSpan.FromSeconds(10));
+        if (configuration.Event.WebHook?.Enabled == true)
+            builder.Services.AddHostedService<WebHookEventHandler>();
         return builder;
     }
 }

@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("modify_custom_face")]
-public sealed class ModifyCustomFaceHandler(BotContext lagrange) : INoResultApiHandler<ModifyCustomFaceHandler.Request>
+public sealed class ModifyCustomFaceHandler(BotContext lagrange) : Endpoint<ModifyCustomFaceHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/modify_custom_face");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await _lagrange.ModifyCustomFace(request.FaceId, request.Md5, request.Description, ct);
         return new MilkyApiResponse();

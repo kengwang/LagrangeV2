@@ -1,19 +1,24 @@
+using FastEndpoints;
 using System;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Interaction;
 
-[ApiHandler("send_poke")]
-public sealed class SendPokeHandler(BotContext lagrange) : INoResultApiHandler<SendPokeHandler.Request>
+public sealed class SendPokeHandler(BotContext lagrange) : Endpoint<SendPokeHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/send_poke");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         switch (request.MessageScene)
         {

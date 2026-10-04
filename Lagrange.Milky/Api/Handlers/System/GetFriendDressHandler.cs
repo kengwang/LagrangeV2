@@ -1,17 +1,22 @@
+using FastEndpoints;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_friend_dress")]
-public sealed class GetFriendDressHandler(BotContext lagrange) : IApiHandler<GetFriendDressHandler.Request, GetFriendDressHandler.Result>
+public sealed class GetFriendDressHandler(BotContext lagrange) : Endpoint<GetFriendDressHandler.Request, MilkyApiResponse<GetFriendDressHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_friend_dress");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.GetFriendDress(request.TargetUin, ct).WaitAsync(ct);
         return new(new Result(result));

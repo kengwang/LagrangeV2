@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("kick_group_member")]
-public sealed class KickGroupMemberHandler(BotContext lagrange) : INoResultApiHandler<KickGroupMemberHandler.Request>
+public sealed class KickGroupMemberHandler(BotContext lagrange) : Endpoint<KickGroupMemberHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/kick_group_member");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         return await _lagrange.KickGroupMember(request.GroupId, request.UserId, request.RejectAddRequest).WaitAsync(ct)
             ? new MilkyApiResponse(-500, "unknown error")

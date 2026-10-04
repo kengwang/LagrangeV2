@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -5,15 +6,19 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Common.Response;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("upload_group_announcement_image")]
-public sealed class UploadGroupAnnouncementImageHandler(BotContext lagrange, ResourceConverter resources) : IApiHandler<UploadGroupAnnouncementImageHandler.Request, UploadGroupAnnouncementImageHandler.Result>
+public sealed class UploadGroupAnnouncementImageHandler(BotContext lagrange, ResourceConverter resources) : Endpoint<UploadGroupAnnouncementImageHandler.Request, MilkyApiResponse<UploadGroupAnnouncementImageHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/upload_group_announcement_image");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.ImageUri)) throw new ArgumentException("Image URI is required.", nameof(request));
         using var image = await resources.UriToStreamAsync(request.ImageUri, ct);

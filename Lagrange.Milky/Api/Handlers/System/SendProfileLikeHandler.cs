@@ -1,16 +1,21 @@
+using FastEndpoints;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Serialization;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("send_profile_like")]
-public sealed class SendProfileLikeHandler(BotContext lagrange) : INoResultApiHandler<SendProfileLikeHandler.Request>
+public sealed class SendProfileLikeHandler(BotContext lagrange) : Endpoint<SendProfileLikeHandler.Request, MilkyApiResponse>
 {
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/send_profile_like");
+    }
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await lagrange.SendLike(request.UserId, request.Count, ct);
         return new();

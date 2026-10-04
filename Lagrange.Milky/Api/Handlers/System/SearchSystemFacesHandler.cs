@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Collections.Generic;
 using System;
 using System.Linq;
@@ -6,15 +7,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("search_system_faces")]
-public sealed class SearchSystemFacesHandler(BotContext lagrange) : IApiHandler<SearchSystemFacesHandler.Request, SearchSystemFacesHandler.Result>
+public sealed class SearchSystemFacesHandler(BotContext lagrange) : Endpoint<SearchSystemFacesHandler.Request, MilkyApiResponse<SearchSystemFacesHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/search_system_faces");
+    }
     private readonly BotContext _lagrange = lagrange;
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var packs = await _lagrange.GetSystemFaces(request.Refresh, ct);
         var faces = packs.SelectMany(pack => pack.Faces).Where(face => face.Sid.Contains(request.Query, StringComparison.OrdinalIgnoreCase) || face.Description.Contains(request.Query, StringComparison.OrdinalIgnoreCase) || face.Aliases.Any(alias => alias.Contains(request.Query, StringComparison.OrdinalIgnoreCase))).Select(face => new SearchFace { Sid = face.Sid, Description = face.Description, EmCode = face.EmCode, Url = face.Url }).ToList();

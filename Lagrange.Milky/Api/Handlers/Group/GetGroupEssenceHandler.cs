@@ -1,17 +1,22 @@
+using FastEndpoints;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("get_group_essence")]
-public sealed class GetGroupEssenceHandler(BotContext lagrange) : IApiHandler<GetGroupEssenceHandler.Request, GetGroupEssenceHandler.Result>
+public sealed class GetGroupEssenceHandler(BotContext lagrange) : Endpoint<GetGroupEssenceHandler.Request, MilkyApiResponse<GetGroupEssenceHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_essence");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.GetGroupEssence(request.GroupId, request.PageStart, request.PageLimit, ct).WaitAsync(ct);
         return new(new Result(result));

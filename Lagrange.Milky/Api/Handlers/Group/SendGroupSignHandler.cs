@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("send_group_sign")]
-public sealed class SendGroupSignHandler(BotContext lagrange) : IApiHandler<SendGroupSignHandler.Request, SendGroupSignHandler.Result>
+public sealed class SendGroupSignHandler(BotContext lagrange) : Endpoint<SendGroupSignHandler.Request, MilkyApiResponse<SendGroupSignHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/send_group_sign");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await _lagrange.GroupClockIn(request.GroupId).WaitAsync(ct);
         return new MilkyApiResponse<Result>(new Result

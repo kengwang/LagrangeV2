@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,23 +7,27 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Interaction;
 
-[ApiHandler("get_emoji_likes")]
-public sealed class GetEmojiLikesHandler(BotContext lagrange) : IApiHandler<GetEmojiLikesHandler.Request, GetEmojiLikesHandler.Result>
+public sealed class GetEmojiLikesHandler(BotContext lagrange) : Endpoint<GetEmojiLikesHandler.Request, MilkyApiResponse<GetEmojiLikesHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_emoji_likes");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Code);
         if (request.Count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request.Count));
         var result = await _lagrange.GetEmojiLikes(request.GroupId, checked((ulong)request.MessageSeq), request.Code, request.Cookie, checked((uint)request.Count), ct).WaitAsync(ct);
         return new MilkyApiResponse<Result>(new Result
         {
-            Users = [.. result.Users.Select(user => new User { UserId = user.Uin, Nickname = user.Nickname, HeadUrl = user.HeadUrl })],
+            Users = [.. result.Users.Select(user => new LikeUser { UserId = user.Uin, Nickname = user.Nickname, HeadUrl = user.HeadUrl })],
             Cookie = result.Cookie,
             IsLast = result.IsLast,
         });
@@ -39,12 +44,12 @@ public sealed class GetEmojiLikesHandler(BotContext lagrange) : IApiHandler<GetE
 
     public sealed class Result
     {
-        [JsonPropertyName("users")] public required IReadOnlyList<User> Users { get; init; }
+        [JsonPropertyName("users")] public required IReadOnlyList<LikeUser> Users { get; init; }
         [JsonPropertyName("cookie")] public required string Cookie { get; init; }
         [JsonPropertyName("is_last")] public required bool IsLast { get; init; }
     }
 
-    public sealed class User
+    public sealed class LikeUser
     {
         [JsonPropertyName("user_id")] public required long UserId { get; init; }
         [JsonPropertyName("nickname")] public required string Nickname { get; init; }

@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -5,16 +6,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Friend;
 
-[ApiHandler("get_friend_requests")]
-public sealed class GetFriendRequestsHandler(BotContext lagrange) : INoRequestApiHandler<GetFriendRequestsHandler.Result>
+public sealed class GetFriendRequestsHandler(BotContext lagrange) : EndpointWithoutRequest<MilkyApiResponse<GetFriendRequestsHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_friend_requests");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(CancellationToken ct)
     {
         var requests = await _lagrange.FetchFriendRequests(ct);
         return new MilkyApiResponse<Result>(new Result

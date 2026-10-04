@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,14 +7,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_like")]
-public sealed class GetProfileLikeHandler(BotContext lagrange) : IApiHandler<GetProfileLikeHandler.Request, GetProfileLikeHandler.Result>
+public sealed class GetProfileLikeHandler(BotContext lagrange) : Endpoint<GetProfileLikeHandler.Request, MilkyApiResponse<GetProfileLikeHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_like");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (request.UserId is <= 0) throw new ArgumentOutOfRangeException(nameof(request.UserId));
         var result = await lagrange.GetProfileLike(request.UserId, request.Start, request.Limit, ct).WaitAsync(ct);

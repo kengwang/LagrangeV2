@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -6,16 +7,20 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Internal.Events.System;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("move_custom_face")]
-public sealed class MoveCustomFaceHandler(BotContext lagrange) : INoResultApiHandler<MoveCustomFaceHandler.Request>
+public sealed class MoveCustomFaceHandler(BotContext lagrange) : Endpoint<MoveCustomFaceHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/move_custom_face");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await _lagrange.MoveCustomFace(request.FaceId, checked((uint)request.Position), request.Entries.Select(entry => new CustomFaceLookup(entry.FaceId, entry.Md5)).ToArray(), ct);
         return new MilkyApiResponse();

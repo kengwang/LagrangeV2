@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("get_group_todo")]
-public sealed class GetGroupTodoHandler(BotContext lagrange) : IApiHandler<GetGroupTodoHandler.Request, GetGroupTodoHandler.Result>
+public sealed class GetGroupTodoHandler(BotContext lagrange) : Endpoint<GetGroupTodoHandler.Request, MilkyApiResponse<GetGroupTodoHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_todo");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var todo = await _lagrange.GetGroupTodo(request.GroupId).WaitAsync(ct);
         return new MilkyApiResponse<Result>(new Result

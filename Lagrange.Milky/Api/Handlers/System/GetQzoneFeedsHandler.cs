@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
@@ -5,14 +6,18 @@ using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_qzone_feeds")]
-public sealed class GetQzoneFeedsHandler(BotContext lagrange) : IApiHandler<GetQzoneFeedsHandler.Request, GetQzoneFeedsHandler.Result>
+public sealed class GetQzoneFeedsHandler(BotContext lagrange) : Endpoint<GetQzoneFeedsHandler.Request, MilkyApiResponse<GetQzoneFeedsHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_qzone_feeds");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.GetQzoneFeeds(request.UserId, request.Position + 1, request.Count, ct).WaitAsync(ct);
         return new(new Result(result));

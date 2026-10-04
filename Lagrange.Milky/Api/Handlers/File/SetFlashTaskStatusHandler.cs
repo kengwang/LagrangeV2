@@ -1,16 +1,21 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.File;
 
-[ApiHandler("set_flash_task_status")]
-public sealed class SetFlashTaskStatusHandler(BotContext lagrange) : INoResultApiHandler<SetFlashTaskStatusHandler.Request>
+public sealed class SetFlashTaskStatusHandler(BotContext lagrange) : Endpoint<SetFlashTaskStatusHandler.Request, MilkyApiResponse>
 {
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/set_flash_task_status");
+    }
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await lagrange.SetFlashTaskStatus(request.FilesetUuid, request.Status, ct).WaitAsync(ct);
         return new MilkyApiResponse();

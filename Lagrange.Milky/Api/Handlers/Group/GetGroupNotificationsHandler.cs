@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -5,19 +6,23 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 using Lagrange.Milky.Models;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("get_group_notifications")]
-public sealed class GetGroupNotificationsHandler(BotContext lagrange, MilkyConverter converter) : IApiHandler<GetGroupNotificationsHandler.Request, GetGroupNotificationsHandler.Result>
+public sealed class GetGroupNotificationsHandler(BotContext lagrange, MilkyConverter converter) : Endpoint<GetGroupNotificationsHandler.Request, MilkyApiResponse<GetGroupNotificationsHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_notifications");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly MilkyConverter _converter = converter;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var notifications = await (request.IsFiltered switch
         {

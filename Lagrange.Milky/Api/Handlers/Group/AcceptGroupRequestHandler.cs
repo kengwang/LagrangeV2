@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -5,16 +6,20 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Entity;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("accept_group_request")]
-public sealed class AcceptGroupRequestHandler(BotContext lagrange) : INoResultApiHandler<AcceptGroupRequestHandler.Request>
+public sealed class AcceptGroupRequestHandler(BotContext lagrange) : Endpoint<AcceptGroupRequestHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/accept_group_request");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await _lagrange.SetGroupNotification(
             request.GroupId,

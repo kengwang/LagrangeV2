@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("upload_qzone_image")]
-public sealed class UploadQzoneImageHandler(BotContext lagrange, ResourceConverter resources) : IApiHandler<UploadQzoneImageHandler.Request, UploadQzoneImageHandler.Result>
+public sealed class UploadQzoneImageHandler(BotContext lagrange, ResourceConverter resources) : Endpoint<UploadQzoneImageHandler.Request, MilkyApiResponse<UploadQzoneImageHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/upload_qzone_image");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.ImageUri)) throw new ArgumentException("Image URI is required.", nameof(request));
         using var image = await resources.UriToStreamAsync(request.ImageUri, ct);

@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Linq;
 using System.Threading;
@@ -5,14 +6,18 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Common.Response;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Message;
 
-[ApiHandler("get_collection")]
-public sealed class GetCollectionHandler(BotContext lagrange) : IApiHandler<GetCollectionHandler.Request, GetCollectionHandler.Result>
+public sealed class GetCollectionHandler(BotContext lagrange) : Endpoint<GetCollectionHandler.Request, MilkyApiResponse<GetCollectionHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_collection");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.GetCollection(request.Count, ct).WaitAsync(ct);
         return new(new Result(result));

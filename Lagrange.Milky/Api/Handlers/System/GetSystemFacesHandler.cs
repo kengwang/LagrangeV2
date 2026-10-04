@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -5,15 +6,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_system_faces")]
-public sealed class GetSystemFacesHandler(BotContext lagrange) : IApiHandler<GetSystemFacesHandler.Request, GetSystemFacesHandler.Result>
+public sealed class GetSystemFacesHandler(BotContext lagrange) : Endpoint<GetSystemFacesHandler.Request, MilkyApiResponse<GetSystemFacesHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_system_faces");
+    }
     private readonly BotContext _lagrange = lagrange;
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var packs = await _lagrange.GetSystemFaces(request.Refresh, ct);
         return new MilkyApiResponse<Result>(new Result { Packs = [.. packs.Select(pack => new Pack { PackName = pack.PackName, Faces = [.. pack.Faces.Select(face => new SystemFace { Sid = face.Sid, Description = face.Description, EmCode = face.EmCode, CategoryId = face.CategoryId, Url = face.Url, Aliases = face.Aliases })] })] });

@@ -1,19 +1,24 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_login_info")]
-public sealed class GetLoginInfoHandler(BotContext lagrange) : INoRequestApiHandler<GetLoginInfoHandler.Result>
+public sealed class GetLoginInfoHandler(BotContext lagrange) : EndpointWithoutRequest<MilkyApiResponse<GetLoginInfoHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_login_info");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public ValueTask<MilkyApiResponse<Result>> HandleAsync(CancellationToken ct)
+    public override Task<MilkyApiResponse<Result>> ExecuteAsync(CancellationToken ct)
     {
-        return ValueTask.FromResult(new MilkyApiResponse<Result>(new Result
+        return Task.FromResult(new MilkyApiResponse<Result>(new Result
         {
             Uin = _lagrange.BotUin,
             Nickname = _lagrange.BotInfo?.Name ?? string.Empty,

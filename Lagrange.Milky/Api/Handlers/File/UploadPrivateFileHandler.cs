@@ -1,23 +1,28 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 
 namespace Lagrange.Milky.Api.Handlers.File;
 
-[ApiHandler("upload_private_file")]
-public sealed class UploadPrivateFileHandler(BotContext lagrange, ResourceConverter resourceConverter) : IApiHandler<UploadPrivateFileHandler.Request, UploadPrivateFileHandler.Result>
+public sealed class UploadPrivateFileHandler(BotContext lagrange, ResourceConverter resourceConverter) : Endpoint<UploadPrivateFileHandler.Request, MilkyApiResponse<UploadPrivateFileHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/upload_private_file");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly ResourceConverter _resourceConverter = resourceConverter;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         using var stream = await _resourceConverter.UriToStreamAsync(request.FileUri, ct);
-        (ulong sequence, var time) = await _lagrange.SendFriendFile(
+        (ulong sequence, long time) = await _lagrange.SendFriendFile(
             request.UserId,
             stream,
             request.FileName,

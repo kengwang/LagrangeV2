@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -6,14 +7,18 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Common.Response;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.File;
 
-[ApiHandler("list_flash_filesets")]
-public sealed class ListFlashFilesetsHandler(BotContext lagrange) : IApiHandler<ListFlashFilesetsHandler.Request, ListFlashFilesetsHandler.Result>
+public sealed class ListFlashFilesetsHandler(BotContext lagrange) : Endpoint<ListFlashFilesetsHandler.Request, MilkyApiResponse<ListFlashFilesetsHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/list_flash_filesets");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.ListFlashFilesets(request.Limit, ct).WaitAsync(ct);
         return new(new Result(result));

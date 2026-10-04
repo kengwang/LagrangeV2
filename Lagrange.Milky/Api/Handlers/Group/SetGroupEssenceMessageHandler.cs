@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -5,18 +6,22 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Message;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Caching;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("set_group_essence_message")]
-public sealed class SetGroupEssenceMessageHandler(BotContext lagrange, MessageCache cache) : INoResultApiHandler<SetGroupEssenceMessageHandler.Request>
+public sealed class SetGroupEssenceMessageHandler(BotContext lagrange, MessageCache cache) : Endpoint<SetGroupEssenceMessageHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/set_group_essence_message");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly MessageCache _cache = cache;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         var message = _cache.Get(MessageType.Group, request.GroupId, (ulong)request.MessageSeq)
             ?? (await _lagrange.GetGroupMessage(request.GroupId, (ulong)request.MessageSeq, (ulong)request.MessageSeq)

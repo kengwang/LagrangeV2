@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.File;
 
-[ApiHandler("get_flash_file_url")]
-public sealed class GetFlashFileUrlHandler(BotContext lagrange) : IApiHandler<GetFlashFileUrlHandler.Request, GetFlashFileUrlHandler.Result>
+public sealed class GetFlashFileUrlHandler(BotContext lagrange) : Endpoint<GetFlashFileUrlHandler.Request, MilkyApiResponse<GetFlashFileUrlHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
     {
-        var url = await lagrange.GetFlashFileUrl(request.FilesetUuid, request.FileId, ct).WaitAsync(ct);
+        AuthSchemes("Milky");
+        Post("/api/get_flash_file_url");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
+    {
+        string url = await lagrange.GetFlashFileUrl(request.FilesetUuid, request.FileId, ct).WaitAsync(ct);
         return new(new Result { DownloadUrl = url });
     }
     public sealed class Request(string filesetUuid, string? fileId)

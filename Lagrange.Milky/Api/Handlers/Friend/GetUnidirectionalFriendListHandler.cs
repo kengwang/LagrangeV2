@@ -1,19 +1,24 @@
+using FastEndpoints;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Friend;
 
-[ApiHandler("get_unidirectional_friend_list")]
-public sealed class GetUnidirectionalFriendListHandler(BotContext lagrange) : INoRequestApiHandler<GetUnidirectionalFriendListHandler.Result>
+public sealed class GetUnidirectionalFriendListHandler(BotContext lagrange) : EndpointWithoutRequest<MilkyApiResponse<GetUnidirectionalFriendListHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_unidirectional_friend_list");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(CancellationToken ct)
     {
         var result = await _lagrange.GetUnidirectionalFriendList(ct).WaitAsync(ct);
         return new MilkyApiResponse<Result>(new Result { Entries = result.Entries });

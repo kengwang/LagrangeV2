@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -5,14 +6,18 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("get_group_sign_in")]
-public sealed class GetGroupSignInHandler(BotContext lagrange) : IApiHandler<GetGroupSignInHandler.Request, GetGroupSignInHandler.Result>
+public sealed class GetGroupSignInHandler(BotContext lagrange) : Endpoint<GetGroupSignInHandler.Request, MilkyApiResponse<GetGroupSignInHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_sign_in");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.GetGroupSignIn(request.GroupId, request.Day, ct).WaitAsync(ct);
         return new(new Result(result));

@@ -1,17 +1,22 @@
+using FastEndpoints;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Text.Json.Serialization;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("get_group_announcements")]
-public sealed class GetGroupAnnouncementsHandler(BotContext lagrange) : IApiHandler<GetGroupAnnouncementsHandler.Request, GetGroupAnnouncementsHandler.Result>
+public sealed class GetGroupAnnouncementsHandler(BotContext lagrange) : Endpoint<GetGroupAnnouncementsHandler.Request, MilkyApiResponse<GetGroupAnnouncementsHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_announcements");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.GetGroupAnnouncements(request.GroupId, request.Start, request.Count, ct).WaitAsync(ct);
         return new(new Result(result));

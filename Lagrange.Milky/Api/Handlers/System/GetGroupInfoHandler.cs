@@ -1,21 +1,26 @@
+using FastEndpoints;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_group_info")]
-public sealed class GetGroupInfoHandler(BotContext lagrange, MilkyConverter converter) : IApiHandler<GetGroupInfoHandler.Request, GetGroupInfoHandler.Result>
+public sealed class GetGroupInfoHandler(BotContext lagrange, MilkyConverter converter) : Endpoint<GetGroupInfoHandler.Request, MilkyApiResponse<GetGroupInfoHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_info");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly MilkyConverter _converter = converter;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var group = (await _lagrange.FetchGroups(request.NoCache).WaitAsync(ct))
             .FirstOrDefault(g => g.Uin == request.GroupId);
@@ -36,6 +41,6 @@ public sealed class GetGroupInfoHandler(BotContext lagrange, MilkyConverter conv
 
     public sealed class Result
     {
-        [JsonPropertyName("group")] public required Models.Group Group { get; init; }
+        [JsonPropertyName("group")] public required Lagrange.Milky.Models.Group Group { get; init; }
     }
 }

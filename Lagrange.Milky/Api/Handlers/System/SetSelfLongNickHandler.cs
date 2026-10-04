@@ -1,18 +1,23 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("set_self_long_nick")]
-public sealed class SetSelfLongNickHandler(BotContext lagrange) : INoResultApiHandler<SetSelfLongNickHandler.Request>
+public sealed class SetSelfLongNickHandler(BotContext lagrange) : Endpoint<SetSelfLongNickHandler.Request, MilkyApiResponse>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/set_self_long_nick");
+    }
     private readonly BotContext _lagrange = lagrange;
 
-    public async ValueTask<MilkyApiResponse> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
         await _lagrange.SetSelfLongNick(request.LongNick, ct);
         return new MilkyApiResponse();

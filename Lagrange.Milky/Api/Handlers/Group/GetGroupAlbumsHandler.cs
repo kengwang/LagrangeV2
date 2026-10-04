@@ -1,17 +1,22 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.Group;
 
-[ApiHandler("get_group_album_list")]
-public sealed class GetGroupAlbumsHandler(BotContext lagrange) : IApiHandler<GetGroupAlbumsHandler.Request, GetGroupAlbumsHandler.Result>
+public sealed class GetGroupAlbumsHandler(BotContext lagrange) : Endpoint<GetGroupAlbumsHandler.Request, MilkyApiResponse<GetGroupAlbumsHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_album_list");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.GetGroupAlbums(request.GroupId, request.AttachInfo ?? string.Empty, ct).WaitAsync(ct);
         return new(new Result(result));

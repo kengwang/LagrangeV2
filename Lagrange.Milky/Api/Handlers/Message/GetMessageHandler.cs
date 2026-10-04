@@ -1,3 +1,4 @@
+using FastEndpoints;
 using System;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -6,7 +7,6 @@ using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Message;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Caching;
 using Lagrange.Milky.Converters;
 using Lagrange.Milky.Models;
@@ -14,14 +14,19 @@ using Lagrange.Milky.Models.Messages;
 
 namespace Lagrange.Milky.Api.Handlers.Message;
 
-[ApiHandler("get_message")]
-public sealed class GetMessageHandler(BotContext lagrange, MessageCache cache, MilkyConverter converter) : IApiHandler<GetMessageHandler.Request, GetMessageHandler.Result>
+public sealed class GetMessageHandler(BotContext lagrange, MessageCache cache, MilkyConverter converter) : Endpoint<GetMessageHandler.Request, MilkyApiResponse<GetMessageHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_message");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly MessageCache _cache = cache;
     private readonly MilkyConverter _converter = converter;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var messageType = request.MessageScene switch
         {

@@ -1,82 +1,45 @@
-using System;
-using System.Linq;
-using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Threading;
-using System.Threading.Tasks;
-using Lagrange.Core;
-using Lagrange.Core.Events;
-using Lagrange.Core.Events.EventArgs;
 using Lagrange.Milky.Configurations;
-using Lagrange.Milky.Events.Converters;
-using Lagrange.Milky.Events.Extensions;
-using Lagrange.Milky.Serialization;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Lagrange.Milky.Events;
 
-public class WebHookEventHandler(IServiceScopeFactory scopeFactory, ILogger<WebHookEventHandler> logger, MilkyConfiguration configuration, MilkyWebHookEventConfiguration webHookConfiguration, BotContext lagrange) : IHostedService, IGenericEventHandler
+public sealed class WebHookEventHandler(
+    MilkyEventHub hub,
+    MilkyConfiguration configuration,
+    IHttpClientFactory clients,
+    ILogger<WebHookEventHandler> logger) : BackgroundService
 {
-    private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
-    private readonly ILogger<WebHookEventHandler> _logger = logger;
-    private readonly BotContext _lagrange = lagrange;
-
-    private readonly string? _token = configuration.AccessToken;
-    private readonly bool _suppressSelfMessageEvents = configuration.Event.SuppressSelfMessageEvents;
-
-    private readonly string[] _targetUrls = webHookConfiguration.TargetUrls;
-
-    private readonly HttpClient _http = new();
-
-    private readonly CancellationTokenSource _cts = new();
-
-    public Task StartAsync(CancellationToken ct)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _lagrange.RegisterConvertibleEvents(this);
-        return Task.CompletedTask;
+        var settings = configuration.Event.WebHook;
+        if (settings is null || !settings.Enabled || settings.TargetUrls.Length == 0)
+            return;
+
+        using var subscription = hub.Subscribe();
+        while (await subscription.Reader.WaitToReadAsync(stoppingToken))
+            while (subscription.Reader.TryRead(out byte[]? payload))
+                await Task.WhenAll(settings.TargetUrls.Select(url => SendAsync(url, payload, stoppingToken)));
     }
 
-    public Task StopAsync(CancellationToken ct)
+    private async Task SendAsync(string url, byte[] payload, CancellationToken ct)
     {
-        _lagrange.UnregisterConvertibleEvents(this);
-        return Task.CompletedTask;
-    }
-
-    public async Task OnEvent<TEvent>(BotContext lagrange, TEvent @event) where TEvent : EventBase
-    {
-        if (_suppressSelfMessageEvents && @event is BotMessageEvent message && message.Message.Contact.Uin == _lagrange.BotUin) return;
-        
-        await using var scope = _scopeFactory.CreateAsyncScope();
-        var converter = scope.ServiceProvider.GetRequiredService<IEventConverter<TEvent>>();
-        byte[] bytes = Serializer.JsonSerializeToUtf8Bytes(new MilkyEvent
-        {
-            EventType = converter.Name,
-            Time = DateTimeOffset.Now.ToUnixTimeSeconds(),
-            SelfId = _lagrange.BotUin,
-            Data = await converter.ConvertAsync(@event, _cts.Token)
-        });
-
-        await Task.WhenAll(_targetUrls.Select(async url =>
+        for (int attempt = 0; attempt < 2; attempt++)
         {
             try
             {
-                using var request = new HttpRequestMessage(HttpMethod.Post, url)
-                {
-                    Content = new ByteArrayContent(bytes)
-                };
+                using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = new ByteArrayContent(payload) };
                 request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                if (_token != null)
-                {
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
-                }
-                await _http.SendAsync(request, _cts.Token);
+                if (!string.IsNullOrEmpty(configuration.AccessToken))
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", configuration.AccessToken);
+                using var response = await clients.CreateClient(nameof(WebHookEventHandler)).SendAsync(request, ct);
+                if (response.IsSuccessStatusCode) return;
             }
-            catch (Exception e)
+            catch (Exception ex) when (attempt == 1 || ex is OperationCanceledException)
             {
-                _logger.LogError(e, "Failed to send webhook to {Url}", url);
+                logger.LogWarning(ex, "Failed to send Milky WebHook to {Url}", url);
             }
-        }));
+        }
     }
 }

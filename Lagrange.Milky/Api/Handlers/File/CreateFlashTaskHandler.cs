@@ -1,17 +1,22 @@
+using FastEndpoints;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Common.Response;
-using Lagrange.Milky.Api.Attributes;
 
 namespace Lagrange.Milky.Api.Handlers.File;
 
-[ApiHandler("create_flash_task")]
-public sealed class CreateFlashTaskHandler(BotContext lagrange) : IApiHandler<CreateFlashTaskHandler.Request, CreateFlashTaskHandler.Result>
+public sealed class CreateFlashTaskHandler(BotContext lagrange) : Endpoint<CreateFlashTaskHandler.Request, MilkyApiResponse<CreateFlashTaskHandler.Result>>
 {
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/create_flash_task");
+    }
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var result = await lagrange.CreateFlashTask(request.FileName, request.FileSize, request.FileType, ct).WaitAsync(ct);
         return new(new Result(result));

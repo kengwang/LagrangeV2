@@ -3,7 +3,14 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Lagrange.Milky.Extensions;
-using Microsoft.Extensions.Hosting;
+using FastEndpoints;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Lagrange.Milky.Security;
+using Lagrange.Milky.Api;
+using Lagrange_Milky;
+using Lagrange.Milky.Serialization;
 
 namespace Lagrange.Milky;
 
@@ -34,11 +41,28 @@ public static class Program
         ShowApplicationInfo(isNoStdout);
         CheckConfigurationFile(isNoStdin, isNoStdout);
 
-        var builder = Host.CreateApplicationBuilder(args);
+        var builder = WebApplication.CreateSlimBuilder(args);
         builder.ConfigureLagrange();
         builder.ConfigureMilky();
+        builder.Services.AddAuthentication("Milky")
+            .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, MilkyAuthenticationHandler>("Milky", _ => { });
+        builder.Services.AddAuthorization();
+        builder.Services.AddFastEndpoints(DiscoveredTypes.All);
 
         var host = builder.Build();
+        host.UseWebSockets();
+        host.UseAuthentication();
+        host.UseAuthorization();
+        host.UseFastEndpoints(c =>
+        {
+            c.Serializer.Options.AddSerializerContextsFromLagrange_Milky();
+            c.Errors.ResponseBuilder = (failures, context, _) =>
+            {
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                var failure = failures.FirstOrDefault();
+                return new MilkyApiResponse(-400, failure?.ErrorMessage ?? "request validation failed");
+            };
+        });
 
         await host.RunAsync();
     }

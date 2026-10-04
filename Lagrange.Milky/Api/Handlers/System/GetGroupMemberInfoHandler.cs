@@ -1,22 +1,27 @@
+using FastEndpoints;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core;
 using Lagrange.Core.Common.Interface;
-using Lagrange.Milky.Api.Attributes;
 using Lagrange.Milky.Converters;
 using Lagrange.Milky.Models;
 
 namespace Lagrange.Milky.Api.Handlers.System;
 
-[ApiHandler("get_group_member_info")]
-public sealed class GetGroupMemberInfoHandler(BotContext lagrange, MilkyConverter converter) : IApiHandler<GetGroupMemberInfoHandler.Request, GetGroupMemberInfoHandler.Result>
+public sealed class GetGroupMemberInfoHandler(BotContext lagrange, MilkyConverter converter) : Endpoint<GetGroupMemberInfoHandler.Request, MilkyApiResponse<GetGroupMemberInfoHandler.Result>>
 {
+
+    public override void Configure()
+    {
+        AuthSchemes("Milky");
+        Post("/api/get_group_member_info");
+    }
     private readonly BotContext _lagrange = lagrange;
     private readonly MilkyConverter _converter = converter;
 
-    public async ValueTask<MilkyApiResponse<Result>> HandleAsync(Request request, CancellationToken ct)
+    public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var member = (await _lagrange.FetchMembers(request.GroupId, request.NoCache).WaitAsync(ct))
             .FirstOrDefault(m => m.Uin == request.UserId);
