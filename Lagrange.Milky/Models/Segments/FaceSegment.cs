@@ -6,7 +6,7 @@ public sealed class FaceIncomingSegment : IncomingSegmentBase<FaceIncomingSegmen
 
 public sealed class FaceIncomingSegmentData
 {
-    [JsonPropertyName("face_id")] public required int FaceId { get; init; }
+    [JsonPropertyName("face_id")] public required uint FaceId { get; init; }
     [JsonPropertyName("raw")] public required string Raw { get; init; }
 }
 
@@ -14,6 +14,6 @@ public sealed class FaceOutgoingSegment : OutgoingSegmentBase<FaceOutgoingSegmen
 
 public sealed class FaceOutgoingSegmentData
 {
-    [JsonPropertyName("face_id")] public required int FaceId { get; init; }
+    [JsonPropertyName("face_id")] public required uint FaceId { get; init; }
     [JsonPropertyName("raw")] public string? Raw { get; init; }
 }

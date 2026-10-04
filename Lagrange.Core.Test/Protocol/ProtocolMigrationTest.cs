@@ -60,11 +60,11 @@ public sealed class ProtocolMigrationTest
     }
 
     [Test]
-    public void FaceIgnoresUnsignedLegacyIdsOutsideSignedRange()
+    public void FacePreservesUnsignedLegacyIds()
     {
         var elem = new Elem { CustomFace = new CustomFace { BizType = 0, FileId = uint.MaxValue } };
         var parsed = ((IMessageEntity)new FaceEntity()).Parse([], elem);
-        Assert.That(parsed, Is.Null);
+        Assert.That(((FaceEntity)parsed!).FaceId, Is.EqualTo(uint.MaxValue));
     }
 
     [Test]

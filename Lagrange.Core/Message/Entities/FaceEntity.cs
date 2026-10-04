@@ -7,10 +7,10 @@ namespace Lagrange.Core.Message.Entities;
 /// <summary>A QQ system-face element.</summary>
 public sealed class FaceEntity : IMessageEntity
 {
-    public int FaceId { get; init; }
+    public uint FaceId { get; init; }
     public string Raw { get; init; } = string.Empty;
 
-    Elem[] IMessageEntity.Build() => FaceId >= 260
+    Elem[] IMessageEntity.Build() => FaceId >= 260 || FaceId > int.MaxValue
         ? [new Elem
         {
             CommonElem = new CommonElem
@@ -20,27 +20,23 @@ public sealed class FaceEntity : IMessageEntity
                 PbElem = ProtoHelper.Serialize(new SmallFaceExtra { FaceId = checked((uint)FaceId) })
             }
         }]
-        : [new Elem { Face = new Face { Index = FaceId } }];
+        : [new Elem { Face = new Face { Index = (int)FaceId } }];
 
     IMessageEntity? IMessageEntity.Parse(List<Elem> elements, Elem target)
     {
-        if (target.Face is { } face)
-            return new FaceEntity { FaceId = face.Index, Raw = string.IsNullOrEmpty(Raw) ? $"face{face.Index}" : Raw };
+        if (target.Face is { } face && face.Index >= 0)
+            return new FaceEntity { FaceId = (uint)face.Index, Raw = string.IsNullOrEmpty(Raw) ? $"face{face.Index}" : Raw };
 
         if (target.CommonElem is { ServiceType: 33 } small)
         {
-            try { return new FaceEntity { FaceId = checked((int)ProtoHelper.Deserialize<SmallFaceExtra>(small.PbElem.Span).FaceId) }; }
+            try { return new FaceEntity { FaceId = ProtoHelper.Deserialize<SmallFaceExtra>(small.PbElem.Span).FaceId }; }
             catch { return null; }
         }
 
         // Keep compatibility with legacy clients which still send CustomFace.
         if (target.CustomFace is { BizType: 0 } legacy)
         {
-            // QQ occasionally uses the legacy CustomFace slot for IDs outside
-            // the public signed face range. Preserve the rest of the message
-            // chain by treating those values as an unsupported face.
-            if (legacy.FileId > int.MaxValue) return null;
-            return new FaceEntity { FaceId = (int)legacy.FileId, Raw = legacy.Shortcut ?? string.Empty };
+            return new FaceEntity { FaceId = legacy.FileId, Raw = legacy.Shortcut ?? string.Empty };
         }
 
         return null;
