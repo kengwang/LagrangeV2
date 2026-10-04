@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Lagrange.Milky.Extensions;
 using FastEndpoints;
+using FastEndpoints.OpenApi;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +12,7 @@ using Lagrange.Milky.Security;
 using Lagrange.Milky.Api;
 using Lagrange_Milky;
 using Lagrange.Milky.Serialization;
+using Scalar.AspNetCore;
 
 namespace Lagrange.Milky;
 
@@ -47,7 +49,17 @@ public static class Program
         builder.Services.AddAuthentication("Milky")
             .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, MilkyAuthenticationHandler>("Milky", _ => { });
         builder.Services.AddAuthorization();
-        builder.Services.AddFastEndpoints(DiscoveredTypes.All);
+        builder.Services
+            .AddFastEndpoints(DiscoveredTypes.All)
+            .OpenApiDocument(options =>
+            {
+                options.DocumentName = "v1";
+                options.Title = "Lagrange.Milky API";
+                options.Version = "v1";
+                options.ExcludeNonFastEndpoints = true;
+                options.ShortSchemaNames = true;
+                options.EnableJWTBearerAuth = false;
+            });
 
         var host = builder.Build();
         host.UseWebSockets();
@@ -62,6 +74,12 @@ public static class Program
                 var failure = failures.FirstOrDefault();
                 return new MilkyApiResponse(-400, failure?.ErrorMessage ?? "request validation failed");
             };
+        });
+        host.MapOpenApi();
+        host.MapScalarApiReference(options =>
+        {
+            options.AddDocuments("v1");
+            options.OperationTitleSource = OperationTitleSource.Path;
         });
 
         await host.RunAsync();
