@@ -44,6 +44,7 @@ public class MessageRecallEventConverter
             SenderId = @event.AuthorUin,
             OperatorId = @event.OperatorUin,
             DisplaySuffix = @event.Tip,
+            PeerUid = string.Empty,
         });
     }
 

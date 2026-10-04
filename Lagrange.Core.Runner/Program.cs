@@ -15,10 +15,10 @@ internal static class Program
 {
     private static async Task Main()
     {
-        
+
         Console.OutputEncoding = Encoding.UTF8;
         Console.InputEncoding = Encoding.UTF8;
-        
+
         BotContext context;
 
         if (File.Exists("keystore.json"))
@@ -37,48 +37,48 @@ internal static class Program
                 LogLevel = LogLevel.Trace
             });
         }
-        
+
         AppDomain.CurrentDomain.ProcessExit += async (_, _) =>
         {
             await context.Logout();
         };
-        
+
         context.EventInvoker.RegisterEvent<BotLogEvent>((_, args) =>
         {
             Console.WriteLine(args);
         });
-        
+
         context.EventInvoker.RegisterEvent<BotQrCodeEvent>((_, args) =>
         {
             Console.WriteLine(args);
             QrCodeHelper.Output(args.Url, false);
         });
-        
+
         context.EventInvoker.RegisterEvent<BotRefreshKeystoreEvent>(async (_, args) =>
         {
             await File.WriteAllTextAsync("keystore.json", JsonSerializer.Serialize(args.Keystore));
         });
-        
+
         context.EventInvoker.RegisterEvent<BotCaptchaEvent>((_, args) =>
         {
             Console.WriteLine(args.CaptchaUrl);
             string token = Console.ReadLine()!;
             context.SubmitCaptcha(token, "");
         });
-        
+
         context.EventInvoker.RegisterEvent<BotSMSEvent>((_, args) =>
         {
             Console.WriteLine(args.Phone);
             Console.WriteLine(args.Url);
-            var sms = Console.ReadLine();
-            context.SubmitSMSCode(sms);
+            string? sms = Console.ReadLine();
+            context.SubmitSMSCode(sms ?? string.Empty);
         });
-        
+
         await context.Login(3802431153, "Qbot@KW#3802");
         await Task.Delay(5000);
         var builder = new MessageBuilder().Text("Awoo!");
         var message = await context.SendFriendMessage(1136772134, builder.Build());
-        
+
         await Task.Delay(-1);
     }
 }
