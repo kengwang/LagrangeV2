@@ -4,7 +4,7 @@ namespace Lagrange.Core.Message.Entities;
 
 public sealed class MarketFaceEntity : IMessageEntity
 {
-    public int FaceId { get; init; }
+    public uint FaceId { get; init; }
     public string Name { get; init; } = string.Empty;
     public string Url { get; init; } = string.Empty;
     public string Summary { get; init; } = string.Empty;
@@ -18,7 +18,7 @@ public sealed class MarketFaceEntity : IMessageEntity
             ItemType = 6,
             FaceId = TryDecodeFaceId(Url),
             Key = Name,
-            TabId = checked((uint)Math.Max(0, FaceId)),
+            TabId = FaceId,
             SubType = 3,
             ImageWidth = 300,
             ImageHeight = 300
@@ -37,7 +37,7 @@ public sealed class MarketFaceEntity : IMessageEntity
         if (target.MarketFace is { } face)
             return new MarketFaceEntity
             {
-                FaceId = checked((int)face.TabId),
+                FaceId = face.TabId,
                 Name = face.FaceName ?? string.Empty,
                 Url = face.FaceId.IsEmpty ? string.Empty : Convert.ToHexString(face.FaceId.Span),
                 Summary = string.Empty
@@ -46,7 +46,7 @@ public sealed class MarketFaceEntity : IMessageEntity
         if (target.CustomFace is not { BizType: not 0 } legacy) return null;
         return new MarketFaceEntity
         {
-            FaceId = checked((int)legacy.FileId),
+            FaceId = legacy.FileId,
             Name = legacy.Shortcut ?? string.Empty,
             Url = legacy.OrigUrl ?? legacy.BigUrl ?? string.Empty,
             Summary = legacy.PbReserve?.Summary ?? string.Empty,
