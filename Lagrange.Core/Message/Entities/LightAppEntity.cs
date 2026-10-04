@@ -49,6 +49,12 @@ public class LightAppEntity : IMessageEntity
 
             if (app != null)
             {
+                // Dispatch before returning the generic card: registry ordering must
+                // not hide specialised cards behind this fallback.
+                if (app == "com.tencent.multimsg" &&
+                    ((IMessageEntity)new MultiMsgEntity()).Parse(elems, target) is { } forward)
+                    return forward;
+
                 return new LightAppEntity
                 {
                     AppName = app,

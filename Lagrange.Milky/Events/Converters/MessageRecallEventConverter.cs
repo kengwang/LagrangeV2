@@ -23,6 +23,9 @@ public class MessageRecallEventConverter
             SenderId = @event.AuthorUin,
             OperatorId = @event.AuthorUin,
             DisplaySuffix = @event.Tip,
+            RecalledBySelf = @event.RecalledBySelf,
+            PeerUid = @event.PeerUid,
+            Time = @event.Time,
         });
     }
 
@@ -52,5 +55,8 @@ public class MessageRecallEventConverter
         [JsonPropertyName("sender_id")] public required long SenderId { get; init; }
         [JsonPropertyName("operator_id")] public required long OperatorId { get; init; }
         [JsonPropertyName("display_suffix")] public required string DisplaySuffix { get; init; }
+        [JsonPropertyName("recalled_by_self")] public bool RecalledBySelf { get; init; }
+        [JsonPropertyName("peer_uid")] public required string PeerUid { get; init; }
+        [JsonPropertyName("time")] public long Time { get; init; }
     }
 }

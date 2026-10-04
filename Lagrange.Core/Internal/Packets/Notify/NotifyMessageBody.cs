@@ -85,3 +85,128 @@ internal partial class FriendRecallPokeInfo
 
     [ProtoMember(5)] public ulong TipsSeqId { get; set; }
 }
+
+[ProtoPackable]
+internal partial class FriendRemarkChangedNotify
+{
+    [ProtoMember(1)] public FriendRemarkChangedValue Change { get; set; }
+    [ProtoMember(3)] public uint UpdateTime { get; set; }
+    [ProtoMember(4)] public string Nickname { get; set; }
+    [ProtoMember(5)] public uint ChangeType { get; set; }
+}
+
+[ProtoPackable]
+internal partial class FriendRemarkChangedValue
+{
+    [ProtoMember(1)] public FriendRemarkChangedTarget Target { get; set; }
+    [ProtoMember(2)] public string Remark { get; set; }
+}
+
+[ProtoPackable]
+internal partial class FriendRemarkChangedTarget
+{
+    [ProtoMember(3)] public long Uin { get; set; }
+    [ProtoMember(7)] public string Uid { get; set; }
+}
+
+[ProtoPackable]
+internal partial class InputStatusNotify
+{
+    [ProtoMember(1)] public string FromUid { get; set; }
+    [ProtoMember(2)] public string ToUid { get; set; }
+    [ProtoMember(3)] public InputStatusNotifyItem NotifyItem { get; set; }
+}
+
+[ProtoPackable]
+internal partial class InputStatusNotifyItem
+{
+    [ProtoMember(4)] public uint EventType { get; set; }
+}
+
+[ProtoPackable]
+internal partial class OnlineDeviceNotify
+{
+    [ProtoMember(1)] public uint AppId { get; set; }
+    [ProtoMember(2)] public uint InstanceId { get; set; }
+    [ProtoMember(3)] public uint ClientType { get; set; }
+    [ProtoMember(4)] public uint Platform { get; set; }
+    [ProtoMember(5)] public List<OnlineDeviceNotifyItem> Devices { get; set; } = [];
+}
+
+[ProtoPackable]
+internal partial class OnlineDeviceNotifyItem
+{
+    [ProtoMember(1)] public uint AppId { get; set; }
+    [ProtoMember(2)] public uint InstanceId { get; set; }
+    [ProtoMember(3)] public uint ClientType { get; set; }
+    [ProtoMember(4)] public uint Platform { get; set; }
+    [ProtoMember(5)] public string DeviceName { get; set; }
+}
+
+[ProtoPackable]
+internal partial class GroupSpecialTitleChange
+{
+    [ProtoMember(2)] public string TipText { get; set; }
+    [ProtoMember(5)] public long MemberUin { get; set; }
+}
+
+[ProtoPackable]
+internal partial class ProfileLikeTip
+{
+    [ProtoMember(1)] public int MsgType { get; set; }
+    [ProtoMember(2)] public int SubType { get; set; }
+    [ProtoMember(203)] public ProfileLikeSubTip Content { get; set; }
+}
+
+[ProtoPackable]
+internal partial class ProfileLikeSubTip
+{
+    [ProtoMember(14)] public ProfileLikeMsg Msg { get; set; }
+}
+
+[ProtoPackable]
+internal partial class ProfileLikeMsg
+{
+    [ProtoMember(1)] public int Times { get; set; }
+    [ProtoMember(2)] public int Time { get; set; }
+    [ProtoMember(3)] public ProfileLikeDetail Detail { get; set; }
+}
+
+[ProtoPackable]
+internal partial class ProfileLikeDetail
+{
+    [ProtoMember(1)] public string Text { get; set; }
+    [ProtoMember(3)] public long Uin { get; set; }
+    [ProtoMember(5)] public string Nickname { get; set; }
+}
+
+[ProtoPackable]
+internal partial class NewFriend
+{
+    [ProtoMember(1)] public uint Field1 { get; set; }
+    [ProtoMember(2)] public NewFriendInfo Info { get; set; }
+}
+
+[ProtoPackable]
+internal partial class NewFriendInfo
+{
+    [ProtoMember(1)] public string Uid { get; set; }
+    [ProtoMember(2)] public uint Field2 { get; set; }
+    [ProtoMember(3)] public uint Time { get; set; }
+    [ProtoMember(4)] public string Message { get; set; }
+    [ProtoMember(5)] public string Nickname { get; set; }
+    [ProtoMember(6)] public uint Field6 { get; set; }
+    [ProtoMember(7)] public uint Field7 { get; set; }
+    [ProtoMember(9)] public string ToUid { get; set; }
+}
+
+[ProtoPackable]
+internal partial class SelfJoinInGroup
+{
+    [ProtoMember(1)] public long GroupUin { get; set; }
+    [ProtoMember(2)] public uint Field2 { get; set; }
+    [ProtoMember(3)] public string OperatorUid { get; set; }
+    [ProtoMember(4)] public uint Field4 { get; set; }
+    [ProtoMember(6)] public uint Field6 { get; set; }
+    [ProtoMember(7)] public string Field7 { get; set; }
+}

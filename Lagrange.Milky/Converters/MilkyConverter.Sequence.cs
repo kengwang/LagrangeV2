@@ -39,6 +39,8 @@ public partial class MilkyConverter
                     Name = mention.Display ?? string.Empty,
                 }
             },
+        FaceEntity { FaceId: 358 } face => new DiceIncomingSegment { Data = new DiceIncomingSegmentData { FaceId = face.FaceId } },
+        FaceEntity { FaceId: 359 } face => new RpsIncomingSegment { Data = new RpsIncomingSegmentData { FaceId = face.FaceId } },
         FaceEntity face => new FaceIncomingSegment
         {
             Data = new FaceIncomingSegmentData { FaceId = face.FaceId, Raw = face.Raw }
@@ -57,6 +59,9 @@ public partial class MilkyConverter
                 Width = (int)image.ImageSize.X,
                 Height = (int)image.ImageSize.Y,
                 Summary = image.Summary,
+                FileMd5 = image.FileMd5,
+                FileSha1 = image.FileSha1,
+                FileSize = image.FileSize,
                 SubType = image.SubType switch
                 {
                     0 => "normal",
@@ -71,6 +76,9 @@ public partial class MilkyConverter
                 ResourceId = record.FileUuid,
                 TempUrl = record.FileUrl,
                 Duration = (int)record.RecordLength,
+                FileMd5 = record.FileMd5,
+                FileSha1 = record.FileSha1,
+                FileSize = record.FileSize,
             }
         },
         VideoEntity video => new VideoIncomingSegment
@@ -82,6 +90,9 @@ public partial class MilkyConverter
                 Width = (int)video.VideoSize.X,
                 Height = (int)video.VideoSize.Y,
                 Duration = (int)video.VideoLength,
+                FileMd5 = video.FileMd5,
+                FileSha1 = video.FileSha1,
+                FileSize = video.FileSize,
             }
         },
         GroupFileEntity file => new FileIncomingSegment
@@ -113,6 +124,35 @@ public partial class MilkyConverter
         {
             Data = new MarketFaceIncomingSegmentData { FaceId = marketFace.FaceId, Name = marketFace.Name, Url = marketFace.Url, Summary = marketFace.Summary }
         },
+        PokeEntity poke => new PokeIncomingSegment
+        {
+            Data = new PokeIncomingSegmentData { Type = poke.Type, Strength = poke.Strength }
+        },
+        MarkdownEntity markdown => new MarkdownIncomingSegment
+        {
+            Data = new MarkdownIncomingSegmentData { Content = markdown.Content }
+        },
+        KeyboardEntity keyboard => new KeyboardIncomingSegment
+        {
+            Data = new KeyboardIncomingSegmentData
+            {
+                Data = keyboard.ToJson()
+            }
+        },
+        SpecialPokeEntity special => new SpecialPokeIncomingSegment
+        {
+            Data = new SpecialPokeIncomingSegmentData { FaceId = special.FaceId, Count = special.Count, FaceName = special.FaceName }
+        },
+        BounceFaceEntity bounce => new BounceFaceIncomingSegment { Data = new BounceFaceIncomingSegmentData { FaceId = bounce.FaceId, Count = bounce.Count, Name = bounce.Name } },
+        GroupReactionEntity reaction => new GroupReactionIncomingSegment { Data = new GroupReactionIncomingSegmentData { Reactions = reaction.Reactions.Select(x => new GroupReactionItem { FaceId = x.FaceId, Type = x.Type, Count = x.Count, IsAdded = x.IsAdded }).ToArray() } },
+        JsonEntity json => new JsonIncomingSegment { Data = new JsonIncomingSegmentData { Data = json.Data } },
+        LocationEntity location => new LocationIncomingSegment { Data = new LocationIncomingSegmentData { Latitude = location.Latitude, Longitude = location.Longitude, Title = location.Title, Content = location.Content } },
+        MusicEntity music => new MusicIncomingSegment { Data = new MusicIncomingSegmentData { Type = music.Type, Id = music.Id, Url = music.Url, Audio = music.Audio, Title = music.Title, Content = music.Content, Image = music.Image } },
+        ShareEntity share => new ShareIncomingSegment { Data = new ShareIncomingSegmentData { Url = share.Url, Title = share.Title, Content = share.Content, Image = share.Image } },
+        ContactEntity contact => new ContactIncomingSegment { Data = new ContactIncomingSegmentData { ContactType = contact.ContactType, Id = contact.Id } },
+        LongMsgEntity longMsg => await ToLongMsgIncomingSegmentAsync(longMsg, type, ownerPeerUin, ct),
+        GreyTipEntity tip => new GreyTipIncomingSegment { Data = new GreyTipSegmentData { Text = tip.GreyTip } },
+        StreamEntity stream => new StreamIncomingSegment { Data = new StreamIncomingSegmentData { Text = stream.Text } },
         LightAppEntity lightApp => new LightAppIncomingSegment
         {
             Data = new LightAppIncomingSegmentData
@@ -123,6 +163,28 @@ public partial class MilkyConverter
         },
         _ => null,
     };
+
+    private async Task<LongMsgIncomingSegment> ToLongMsgIncomingSegmentAsync(LongMsgEntity entity, MessageType type, long ownerPeerUin, CancellationToken ct)
+    {
+        IReadOnlyList<IncomingForwardedMessage>? messages = null;
+        if (entity.Messages.Count > 0)
+        {
+            var list = new List<IncomingForwardedMessage>(entity.Messages.Count);
+            foreach (var message in entity.Messages)
+            {
+                list.Add(new IncomingForwardedMessage
+                {
+                    MessageSeq = message.Type == MessageType.Private ? (long)message.ClientSequence : (long)message.Sequence,
+                    SenderName = message.Contact.Nickname,
+                    AvatarUrl = string.Empty,
+                    Time = message.Time,
+                    Segments = await ToIncomingSegmentsAsync(message.Entities, message.Type, ownerPeerUin, ct)
+                });
+            }
+            messages = list;
+        }
+        return new LongMsgIncomingSegment { Data = new LongMsgIncomingSegmentData { ResId = entity.ResId, Messages = messages } };
+    }
 
     private async Task<ReplyIncomingSegment> ToReplyIncomingSegmentAsync(ReplyEntity reply, MessageType type, long ownerPeerUin, CancellationToken ct = default)
     {
@@ -214,6 +276,22 @@ public partial class MilkyConverter
             Summary = marketFace.Data.Summary ?? string.Empty,
         },
         XmlOutgoingSegment xml => new XmlEntity { Xml = xml.Data.Xml },
+        PokeOutgoingSegment poke => new PokeEntity(poke.Data.Type, poke.Data.Strength),
+        MarkdownOutgoingSegment markdown => new MarkdownEntity(markdown.Data.Content),
+        KeyboardOutgoingSegment keyboard => new KeyboardEntity(keyboard.Data.Data),
+        SpecialPokeOutgoingSegment special => new SpecialPokeEntity(special.Data.FaceId, special.Data.Count, special.Data.FaceName ?? string.Empty),
+        BounceFaceOutgoingSegment bounce => new BounceFaceEntity(bounce.Data.FaceId, bounce.Data.Count, bounce.Data.Name ?? string.Empty),
+        GroupReactionOutgoingSegment reaction => new GroupReactionEntity(reaction.Data.Reactions.Select(x => new GroupReaction(x.FaceId, x.Type, x.Count, x.IsAdded))),
+        JsonOutgoingSegment json => new JsonEntity(json.Data.Data),
+        LocationOutgoingSegment location => new LocationEntity(location.Data.Latitude, location.Data.Longitude, location.Data.Title ?? string.Empty, location.Data.Content ?? string.Empty),
+        MusicOutgoingSegment music => new MusicEntity { Type = music.Data.Type, Id = music.Data.Id, Url = music.Data.Url, Audio = music.Data.Audio, Title = music.Data.Title, Content = music.Data.Content, Image = music.Data.Image },
+        ShareOutgoingSegment share => new ShareEntity { Url = share.Data.Url, Title = share.Data.Title, Content = share.Data.Content, Image = share.Data.Image },
+        ContactOutgoingSegment contact => new ContactEntity { ContactType = contact.Data.ContactType, Id = contact.Data.Id },
+        DiceOutgoingSegment dice => new FaceEntity { FaceId = dice.Data.FaceId },
+        RpsOutgoingSegment rps => new FaceEntity { FaceId = rps.Data.FaceId },
+        LongMsgOutgoingSegment longMsg => new LongMsgEntity(longMsg.Data.ResId),
+        GreyTipOutgoingSegment tip => new GreyTipEntity(tip.Data.Text),
+        StreamOutgoingSegment stream => new StreamEntity(stream.Data.Text),
         _ => throw new NotSupportedException(),
     };
 
@@ -301,6 +379,22 @@ public partial class MilkyConverter
             Summary = marketFace.Data.Summary ?? string.Empty,
         },
         XmlOutgoingSegment xml => new XmlEntity { Xml = xml.Data.Xml },
+        PokeOutgoingSegment poke => new PokeEntity(poke.Data.Type, poke.Data.Strength),
+        MarkdownOutgoingSegment markdown => new MarkdownEntity(markdown.Data.Content),
+        KeyboardOutgoingSegment keyboard => new KeyboardEntity(keyboard.Data.Data),
+        SpecialPokeOutgoingSegment special => new SpecialPokeEntity(special.Data.FaceId, special.Data.Count, special.Data.FaceName ?? string.Empty),
+        BounceFaceOutgoingSegment bounce => new BounceFaceEntity(bounce.Data.FaceId, bounce.Data.Count, bounce.Data.Name ?? string.Empty),
+        GroupReactionOutgoingSegment reaction => new GroupReactionEntity(reaction.Data.Reactions.Select(x => new GroupReaction(x.FaceId, x.Type, x.Count, x.IsAdded))),
+        JsonOutgoingSegment json => new JsonEntity(json.Data.Data),
+        LocationOutgoingSegment location => new LocationEntity(location.Data.Latitude, location.Data.Longitude, location.Data.Title ?? string.Empty, location.Data.Content ?? string.Empty),
+        MusicOutgoingSegment music => new MusicEntity { Type = music.Data.Type, Id = music.Data.Id, Url = music.Data.Url, Audio = music.Data.Audio, Title = music.Data.Title, Content = music.Data.Content, Image = music.Data.Image },
+        ShareOutgoingSegment share => new ShareEntity { Url = share.Data.Url, Title = share.Data.Title, Content = share.Data.Content, Image = share.Data.Image },
+        ContactOutgoingSegment contact => new ContactEntity { ContactType = contact.Data.ContactType, Id = contact.Data.Id },
+        DiceOutgoingSegment dice => new FaceEntity { FaceId = dice.Data.FaceId },
+        RpsOutgoingSegment rps => new FaceEntity { FaceId = rps.Data.FaceId },
+        LongMsgOutgoingSegment longMsg => new LongMsgEntity(longMsg.Data.ResId),
+        GreyTipOutgoingSegment tip => new GreyTipEntity(tip.Data.Text),
+        StreamOutgoingSegment stream => new StreamEntity(stream.Data.Text),
         _ => throw new NotSupportedException(),
     };
 

@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Xml;
 using Lagrange.Core.Common.Entity;
@@ -6,6 +7,7 @@ using Lagrange.Core.Internal.Events.Message;
 using Lagrange.Core.Internal.Packets.Message;
 using Lagrange.Core.Internal.Packets.Service;
 using Lagrange.Core.Utility;
+using Lagrange.Core.Utility.Compression;
 
 using System.Collections.Generic;
 
@@ -100,6 +102,27 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
 
     IMessageEntity? IMessageEntity.Parse(List<Elem> elements, Elem target)
     {
+        if (target.LightAppElem is { } light && light.BytesData.Length > 1)
+        {
+            try
+            {
+                var payload = Encoding.UTF8.GetString(ZCompression.ZDecompress(light.BytesData.Span[1..], false));
+                var json = JsonNode.Parse(payload);
+                if (json?["app"]?.ToString() == "com.tencent.multimsg")
+                {
+                    var detail = json["meta"]?["detail"];
+                    var result = new MultiMsgEntity(detail?["resid"]?.ToString() ?? string.Empty)
+                    {
+                        Title = detail?["title"]?.ToString(),
+                        Summary = detail?["summary"]?.ToString(),
+                        Prompt = json["prompt"]?.ToString()
+                    };
+                    return result;
+                }
+            }
+            catch { }
+        }
+
         if (target.RichMsg is { ServiceId: 35 } richMsg)
         {
             using var source = new MemoryStream();

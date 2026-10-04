@@ -15,11 +15,14 @@ internal class FriendRecallMessageProcessor : MsgPushProcessorBase
 
         long fromUin = bot.CacheContext.ResolveUin(recall.Info.FromUid);
         long toUin = bot.CacheContext.ResolveUin(recall.Info.ToUid);
+        var recalledBySelf = subType == 139;
         var @event = new BotFriendRecallEvent(
                 fromUin == bot.BotUin ? toUin : fromUin,
-                fromUin,
+                recalledBySelf ? bot.BotUin : fromUin,
                 (ulong)recall.Info.Sequence,
-                recall.Info.TipInfo?.Tip ?? string.Empty
+                recall.Info.TipInfo?.Tip ?? string.Empty,
+                recalledBySelf,
+                recalledBySelf ? recall.Info.ToUid : recall.Info.FromUid
             );
             bot.EventInvoker.PostEvent(@event);
 

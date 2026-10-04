@@ -57,10 +57,16 @@ internal class MessagePacker(BotContext context)
             {
                 foreach (var factory in _factory)
                 {
-                    if (factory.Parse(elems, elem) is not { } entity) continue;
-
-                    message.Entities.Add(entity);
-                    break;
+                    try
+                    {
+                        if (factory.Parse(elems, elem) is not { } entity) continue;
+                        message.Entities.Add(entity);
+                        break;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        context.LogWarning(nameof(MessagePacker), $"Failed to parse {factory.GetType().Name}: {ex.Message}");
+                    }
                 }
             }
         }

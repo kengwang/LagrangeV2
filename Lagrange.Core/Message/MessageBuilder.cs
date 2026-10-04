@@ -14,6 +14,18 @@ public class MessageBuilder
         return this;
     }
 
+    public MessageBuilder Poke(uint type = 1)
+    {
+        _entities.Add(new PokeEntity(type));
+        return this;
+    }
+
+    public MessageBuilder Markdown(string content)
+    {
+        _entities.Add(new MarkdownEntity(content));
+        return this;
+    }
+
     public MessageBuilder Mention(long uin, string? display)
     {
         _entities.Add(new MentionEntity(uin, display));

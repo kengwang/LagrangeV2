@@ -7,12 +7,18 @@ namespace Lagrange.Core.Internal.Packets.Message;
 internal partial class Elem
 {
     [ProtoMember(1)] public Text? Text { get; set; } 
+
+    [ProtoMember(2)] public Face? Face { get; set; }
+
+    [ProtoMember(3)] public OnlineImage? OnlineImage { get; set; }
     
     [ProtoMember(4)] public NotOnlineImage? NotOnlineImage { get; set; }
 
     [ProtoMember(5)] public TransElem? TransElemInfo { get; set; }
     
     [ProtoMember(8)] public CustomFace? CustomFace { get; set; }
+
+    [ProtoMember(6)] public MarketFace? MarketFace { get; set; }
     
     [ProtoMember(12)] public RichMsg? RichMsg { get; set; }
     
@@ -23,6 +29,42 @@ internal partial class Elem
     [ProtoMember(51)] public LightAppElem? LightAppElem { get; set; }
     
     [ProtoMember(53)] public CommonElem? CommonElem { get; set; }
+
+    [ProtoMember(37)] public GeneralFlags? GeneralFlags { get; set; }
+}
+
+[ProtoPackable]
+internal partial class Face
+{
+    [ProtoMember(1)] public int Index { get; set; }
+    [ProtoMember(2)] public ReadOnlyMemory<byte> OldData { get; set; }
+    [ProtoMember(11)] public ReadOnlyMemory<byte> Buf { get; set; }
+}
+
+[ProtoPackable]
+internal partial class OnlineImage
+{
+    [ProtoMember(1)] public ReadOnlyMemory<byte> Guid { get; set; }
+    [ProtoMember(2)] public ReadOnlyMemory<byte> FilePath { get; set; }
+    [ProtoMember(3)] public ReadOnlyMemory<byte> OldVerSendFile { get; set; }
+}
+
+[ProtoPackable]
+internal partial class MarketFace
+{
+    [ProtoMember(1)] public string FaceName { get; set; }
+    [ProtoMember(2)] public uint ItemType { get; set; }
+    [ProtoMember(3)] public uint FaceInfo { get; set; }
+    [ProtoMember(4)] public ReadOnlyMemory<byte> FaceId { get; set; }
+    [ProtoMember(5)] public uint TabId { get; set; }
+    [ProtoMember(6)] public uint SubType { get; set; }
+    [ProtoMember(7)] public string Key { get; set; }
+    [ProtoMember(8)] public ReadOnlyMemory<byte> Param { get; set; }
+    [ProtoMember(9)] public uint MediaType { get; set; }
+    [ProtoMember(10)] public uint ImageWidth { get; set; }
+    [ProtoMember(11)] public uint ImageHeight { get; set; }
+    [ProtoMember(12)] public ReadOnlyMemory<byte> MobileParam { get; set; }
+    [ProtoMember(13)] public ReadOnlyMemory<byte> PbReserve { get; set; }
 }
 
 [ProtoPackable]
@@ -327,4 +369,16 @@ internal partial class CommonElem
     [ProtoMember(2)] public ReadOnlyMemory<byte> PbElem { get; set; }
 
     [ProtoMember(3)] public uint BusinessType { get; set; }
+}
+
+[ProtoPackable]
+internal partial class GeneralFlags
+{
+    [ProtoMember(1)] public int BubbleDiyTextId { get; set; }
+    [ProtoMember(2)] public int GroupFlagNew { get; set; }
+    [ProtoMember(3)] public ulong Uin { get; set; }
+    [ProtoMember(6)] public int LongTextFlag { get; set; }
+    [ProtoMember(7)] public string LongTextResId { get; set; }
+    [ProtoMember(8)] public int GroupType { get; set; }
+    [ProtoMember(19)] public ReadOnlyMemory<byte> PbReserve { get; set; }
 }
