@@ -1,5 +1,6 @@
 using Lagrange.Core.Common;
 using Lagrange.Core.Exceptions;
+using Lagrange.Core.Events;
 using Lagrange.Core.Internal.Events.Message;
 using Lagrange.Core.Internal.Packets.Message;
 using Lagrange.Core.Services;
@@ -10,9 +11,18 @@ namespace Lagrange.Core.Internal.Services.Message;
 [Service("trpc.msg.msg_svc.MsgService.SsoReadedReport")]
 [EventSubscribe<MarkMessageReadEventReq>(Protocols.All)]
 [EventSubscribe<MarkAllMessagesReadEventReq>(Protocols.All)]
-internal sealed class MarkMessageReadService : BaseService<MarkMessageReadEventReq, MarkMessageReadEventResp>
+[EventSubscribe<HistorySyncProbeEventReq>(Protocols.All)]
+internal sealed class MarkMessageReadService : BaseService<ProtocolEvent, MarkAllMessagesReadEventResp>
 {
-    protected override async ValueTask<ReadOnlyMemory<byte>> Build(MarkMessageReadEventReq input, BotContext context)
+    protected override ValueTask<ReadOnlyMemory<byte>> Build(ProtocolEvent input, BotContext context) => input switch
+    {
+        MarkMessageReadEventReq single => BuildSingle(single, context),
+        MarkAllMessagesReadEventReq all => ((IService)new MarkAllMessagesReadService()).Build(all, context),
+        HistorySyncProbeEventReq probe => ValueTask.FromResult(ProtoHelper.Serialize(probe.Body)),
+        _ => throw new ArgumentException("Unsupported read-report request.", nameof(input))
+    };
+
+    private static async ValueTask<ReadOnlyMemory<byte>> BuildSingle(MarkMessageReadEventReq input, BotContext context)
     {
         if (input.PeerUin <= 0) throw new InvalidTargetException(input.PeerUin);
         var request = new SsoReadedReportReq();
@@ -31,18 +41,10 @@ internal sealed class MarkMessageReadService : BaseService<MarkMessageReadEventR
         return ProtoHelper.Serialize(request);
     }
 
-    protected override ValueTask<MarkMessageReadEventResp> Parse(ReadOnlyMemory<byte> input, BotContext context)
-    {
-        if (input.IsEmpty) throw new OperationException(-1, "Read report response is empty.");
-        var response = ProtoHelper.Deserialize<SsoReadedReportResp>(input.Span);
-        if (response.ResultCode != 0) throw new OperationException((int)response.ResultCode, response.ErrorMessage);
-        var error = response.GroupList?.FirstOrDefault(x => x.ResultCode != 0)?.ErrorMessage ?? response.C2CList?.FirstOrDefault(x => x.ResultCode != 0)?.ErrorMessage;
-        if (error is not null) throw new OperationException(-1, error);
-        return ValueTask.FromResult(new MarkMessageReadEventResp());
-    }
+    protected override async ValueTask<MarkAllMessagesReadEventResp> Parse(ReadOnlyMemory<byte> input, BotContext context) =>
+        (MarkAllMessagesReadEventResp)await ((IService)new MarkAllMessagesReadService()).Parse(input, context);
 }
 
-[Service("trpc.msg.msg_svc.MsgService.SsoReadedReport")]
 internal sealed class MarkAllMessagesReadService : BaseService<MarkAllMessagesReadEventReq, MarkAllMessagesReadEventResp>
 {
     protected override async ValueTask<ReadOnlyMemory<byte>> Build(MarkAllMessagesReadEventReq input, BotContext context)
@@ -73,9 +75,9 @@ internal sealed class MarkAllMessagesReadService : BaseService<MarkAllMessagesRe
         if (privateErrors is not null) throw new OperationException((int)privateErrors.ResultCode, privateErrors.ErrorMessage);
         return ValueTask.FromResult(new MarkAllMessagesReadEventResp(
             [.. (response.GroupList ?? []).Select(x => ((long)x.GroupUin, x.LatestSeq))],
-            [.. (response.C2CList ?? []).Select(x => (x.TargetUin != 0 ? (long)x.TargetUin : ResolvePrivateUin(context, x), x.LatestSeq))]));
+            [.. (response.C2CList ?? []).Select(x => (x.TargetUin != 0 ? (long)x.TargetUin : ResolvePrivateUin(context, x), x.LatestSeq))]) { Body = response });
     }
 
     private static long ResolvePrivateUin(BotContext context, C2CReadedReportResponseItem item) =>
-        !string.IsNullOrWhiteSpace(item.Uid) ? context.CacheContext.ResolveUin(item.Uid) : 0;
+        !string.IsNullOrWhiteSpace(item.Uid) ? context.CacheContext.ResolveCachedUin(item.Uid) : 0;
 }

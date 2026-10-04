@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Web;
 using Lagrange.Core.Common.Entity;
 using Lagrange.Core.Events.EventArgs;
@@ -16,6 +16,11 @@ internal class RichTextMsgProcessor : MsgPushProcessorBase
 {
     internal override async ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)
     {
+        var head = msgEvt.MsgPush.CommonMessage.RoutingHead;
+        if (msgType == MsgType.GroupMessage && head.Group is { } group &&
+            context.CacheContext.ObserveCard(group.GroupCode, head.FromUin, group.GroupCard) is { } changed)
+            context.EventInvoker.PostEvent(changed);
+
         var message = await context.EventContext.GetLogic<MessagingLogic>().Parse(msgEvt.MsgPush.CommonMessage);
 
         if (message.Contact is BotGroupMember groupMember && message.Entities.OfType<GroupFileEntity>().FirstOrDefault() is { } uploadedFile)
@@ -35,6 +40,7 @@ internal class RichTextMsgProcessor : MsgPushProcessorBase
 
         if (message.Entities.Count > 0 && message.Entities[0] is LightAppEntity app && TryHandleLightApp(context, message, app)) return true;
 
+        context.VoiceContext.OnMessage(message);
         context.EventInvoker.PostEvent(new BotMessageEvent(message, msgEvt.Raw));
         return true;
     }

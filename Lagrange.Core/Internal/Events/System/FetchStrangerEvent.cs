@@ -1,5 +1,6 @@
 using Lagrange.Core.Common.Entity;
 using Lagrange.Core.Events;
+using Lagrange.Core.Internal.Packets.Service.Migration;
 
 namespace Lagrange.Core.Internal.Events.System;
 
@@ -15,7 +16,8 @@ internal class FetchStrangerByUidEventReq(string uid) : FetchStrangerEventReqBas
     public string Uid { get; } = uid;
 }
 
-internal class FetchStrangerEventResp(BotStranger stranger) : ProtocolEvent
+internal class FetchStrangerEventResp(Func<BotStranger> stranger, OidbStrangerStatusResp body) : GetUserStatusEventResp(body)
 {
-    public BotStranger Stranger { get; } = stranger;
+    private readonly Lazy<BotStranger> _stranger = new(stranger);
+    public BotStranger Stranger => _stranger.Value;
 }

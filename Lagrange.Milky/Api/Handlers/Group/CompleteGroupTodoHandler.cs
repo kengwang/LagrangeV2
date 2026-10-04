@@ -19,12 +19,14 @@ public sealed class CompleteGroupTodoHandler(BotContext lagrange) : Endpoint<Com
 
     public override async Task<MilkyApiResponse> ExecuteAsync(Request request, CancellationToken ct)
     {
-        await _lagrange.FinishGroupTodo(request.GroupId).WaitAsync(ct);
+        if (request.MessageSeq is { } sequence) await _lagrange.FinishGroupTodo(request.GroupId, sequence, ct);
+        else await _lagrange.FinishGroupTodo(request.GroupId).WaitAsync(ct);
         return new MilkyApiResponse();
     }
 
     public sealed class Request(long groupId)
     {
+        [JsonPropertyName("message_seq")] public ulong? MessageSeq { get; init; }
         [JsonPropertyName("group_id")] public required long GroupId { get; init; } = groupId;
     }
 }

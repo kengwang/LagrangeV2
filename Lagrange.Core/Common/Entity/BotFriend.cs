@@ -12,7 +12,7 @@ public class BotFriend(long uin, string nickname, string uid, string remarks, st
     
     public BotGender Gender { get; init; }
 
-    public string Remarks { get; } = remarks ?? string.Empty;
+    public string Remarks { get; internal set; } = remarks ?? string.Empty;
 
     public string PersonalSign { get; } = personalSign ?? string.Empty;
 

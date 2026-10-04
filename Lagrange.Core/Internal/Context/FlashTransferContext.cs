@@ -2,10 +2,10 @@
 using Lagrange.Core.Internal.Packets.Service;
 using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Cryptography;
-using Lagrange.Core.Utility.Extension;
 
 namespace Lagrange.Core.Internal.Context;
 
+/// <summary>Uploads QQ flash transfer slices and validates their acknowledgements.</summary>
 public sealed class FlashTransferContext : IDisposable
 {
     private const string Tag = nameof(FlashTransferContext);
@@ -14,14 +14,20 @@ public sealed class FlashTransferContext : IDisposable
     private readonly string? _url;
     private const uint ChunkSize = 1024 * 1024;
 
-    internal FlashTransferContext(BotContext botContext)
+    internal FlashTransferContext(BotContext botContext) : this(botContext, new HttpClient()) { }
+
+    internal FlashTransferContext(BotContext botContext, HttpClient client)
     {
         _botContext = botContext;
-        _client = new HttpClient();
+        _client = client;
         _client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
         _url = "https://multimedia.qfile.qq.com/sliceupload";
     }
 
+    /// <summary>Uploads a complete seekable stream using cumulative SHA1 slice verification.</summary>
+    /// <param name="uKey">Slice upload credential.</param><param name="appId">Media application identifier.</param>
+    /// <param name="bodyStream">Caller-owned stream, read from its beginning.</param><param name="cancellationToken">Cancellation.</param>
+    /// <returns>Whether every slice was accepted.</returns>
     public async Task<bool> UploadFile(string uKey, uint appId, Stream bodyStream, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(uKey);
@@ -31,29 +37,19 @@ public sealed class FlashTransferContext : IDisposable
         var sha1StateVs = new FlashTransferSha1StateV { State = [] };
         var chunkCount = (uint)((bodyStream.Length + ChunkSize - 1) / ChunkSize);
 
+        if (bodyStream.Length > uint.MaxValue) throw new ArgumentOutOfRangeException(nameof(bodyStream), "Flash transfer uses 32-bit offsets.");
         var sha1Stream = new Sha1Stream();
+        byte[] hashBuffer = new byte[ChunkSize];
+        bodyStream.Position = 0;
         for (uint i = 0; i < chunkCount; i++)
         {
-            if (i != chunkCount - 1)
-            {
-                var accLength = (int)((i + 1) * ChunkSize);
-                var accBuffer = new byte[accLength];
-            
-                bodyStream.Position = 0;
-                await bodyStream.ReadExactlyAsync(accBuffer, 0, accLength, cancellationToken);
-            
-                var accSpan = accBuffer.AsSpan();
-                var digest = new byte[20];
-                sha1Stream.Update(accSpan);
-                sha1Stream.Hash(digest, false);
-                sha1Stream.Reset();
-                sha1StateVs.State.Add(digest.ToArray());
-            }
-            else
-            {
-                bodyStream.Position = 0;
-                sha1StateVs.State.Add(bodyStream.Sha1());
-            }
+            int length = (int)Math.Min(ChunkSize, bodyStream.Length - bodyStream.Position);
+            await bodyStream.ReadExactlyAsync(hashBuffer.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
+            sha1Stream.Update(hashBuffer.AsSpan(0, length));
+            byte[] digest = new byte[20];
+            if (i == chunkCount - 1) sha1Stream.Final(digest);
+            else sha1Stream.Hash(digest, false);
+            sha1StateVs.State.Add(digest);
         }
 
         for (uint i = 0; i < chunkCount; i++)
@@ -116,5 +112,6 @@ public sealed class FlashTransferContext : IDisposable
         return true;
     }
 
+    /// <summary>Disposes the HTTP client.</summary>
     public void Dispose() => _client.Dispose();
 }

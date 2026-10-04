@@ -724,9 +724,7 @@ internal partial class OperationLogic(BotContext context) : ILogic
 
     public async Task<string> GetFlashFileUrl(string filesetUuid, string? fileId = null, CancellationToken cancellationToken = default)
     {
-        var result = await GetFlashFileset(filesetUuid, cancellationToken);
-        var entry = fileId is null ? result.Entries.FirstOrDefault() : result.Entries.FirstOrDefault(x => x.FileId == fileId);
-        return entry?.DownloadUrl ?? throw new OperationException(-1, "Flash file download URL is unavailable.");
+        return (await Lagrange.Core.Common.Interface.FlashTransferExt.Download(context, filesetUuid, 1, fileId, cancellationToken).ConfigureAwait(false)).Url;
     }
 
     public async Task<BotFlashCreateResult> CreateFlashTask(string fileName, ulong fileSize, uint fileType = 7, CancellationToken cancellationToken = default)

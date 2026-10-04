@@ -14,6 +14,11 @@
   <ItemGroup>
     <TrimmerRootAssembly Include="Lagrange.Core" />
   </ItemGroup>
+  <ItemGroup Condition="'$(PublishAot)' == 'true' Or '$(PublishTrimmed)' == 'true'">
+    <!-- Match the Web SDK's trimmed-app default; this project uses the base SDK. -->
+    <RuntimeHostConfigurationOption Include="Microsoft.AspNetCore.Mvc.ApiExplorer.IsEnhancedModelMetadataSupported"
+                                    Value="false" Trim="true" />
+  </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\appsettings.json" />
   </ItemGroup>
@@ -28,6 +33,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Lagrange.Core\Lagrange.Core.csproj" />
+    <ProjectReference Include="..\Lagrange.Codec\Lagrange.Codec.csproj" />
     <ProjectReference Include="..\Lagrange.Milky.Generator\Lagrange.Milky.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot" />
   </ItemGroup>
 </Project>

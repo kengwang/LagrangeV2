@@ -14,7 +14,9 @@ public class ReplyEntity : IMessageEntity
 
     internal List<Elem> Elems { get; private init; } = [];
 
-    private long SourceUin { get; set; } // only for storage, not used in protocol
+    public long SourceUin { get; private set; }
+
+    public long SourceTime { get; private set; } // only for storage, not used in protocol
 
     public ReplyEntity(BotMessage source)
     {
@@ -82,7 +84,8 @@ public class ReplyEntity : IMessageEntity
             return new ReplyEntity
             {
                 SrcUid = resvAttr.SourceMsgId,
-                SrcSequence = srcMsg.OrigSeqs[0],
+                SrcSequence = srcMsg.OrigSeqs.FirstOrDefault(),
+                SourceTime = srcMsg.Time,
                 Elems = (srcMsg.Elems ?? []).Select(x => ProtoHelper.Deserialize<Elem>(x.Span)).ToList(),
                 SourceUin = (long)srcMsg.SenderUin,
             };

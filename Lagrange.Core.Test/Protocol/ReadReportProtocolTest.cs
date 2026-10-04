@@ -18,8 +18,10 @@ public sealed class ReadReportProtocolTest
     {
         var request = new SsoReadedReportReq { C2CList = [new C2CReadedReportItem { Uid = "uid", LastReadSeq = 9 }] };
         var encoded = ProtoHelper.Serialize(request);
-        Assert.That(Convert.ToHexString(encoded.Span), Does.StartWith("1209"));
+        // An omitted read time must not emit an explicit zero acknowledgement.
+        Assert.That(Convert.ToHexString(encoded.Span), Is.EqualTo("120712037569642009"));
         var decoded = ProtoHelper.Deserialize<SsoReadedReportReq>(encoded.Span);
         Assert.That(decoded.C2CList!.Single().Uid, Is.EqualTo("uid"));
+        Assert.That(decoded.C2CList!.Single().LastReadTime, Is.Null);
     }
 }

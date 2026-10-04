@@ -32,11 +32,11 @@ public sealed class SendGroupAnnouncementHandler(BotContext lagrange) : Endpoint
         [JsonPropertyName("content")] public string Content { get; init; } = content;
         [JsonPropertyName("pinned")] public bool Pinned { get; init; } = pinned;
         [JsonPropertyName("send_to_new_members")] public bool SendToNewMembers { get; init; }
-        [JsonPropertyName("show_edit_card")] public bool ShowEditCard { get; init; } = true;
+        [JsonPropertyName("show_edit_card")] public bool ShowEditCard { get; set; } = true;
         [JsonPropertyName("show_popup")] public bool ShowPopup { get; init; }
-        [JsonPropertyName("confirm_required")] public bool ConfirmRequired { get; init; } = true;
+        [JsonPropertyName("confirm_required")] public bool ConfirmRequired { get; set; } = true;
         [JsonPropertyName("picture_id")] public string? PictureId { get; init; }
-        [JsonPropertyName("image_width")] public int ImageWidth { get; init; } = 540;
-        [JsonPropertyName("image_height")] public int ImageHeight { get; init; } = 300;
+        [JsonPropertyName("image_width")] public int ImageWidth { get; set; } = 540;
+        [JsonPropertyName("image_height")] public int ImageHeight { get; set; } = 300;
     }
 }

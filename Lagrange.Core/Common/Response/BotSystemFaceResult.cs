@@ -13,5 +13,8 @@ public sealed class BotSystemFace
     public required string EmCode { get; init; }
     public int? CategoryId { get; init; }
     public string? Url { get; init; }
+    public int? AnimationType { get; init; }
+    public int? AnimationPackId { get; init; }
+    public int? AnimationStickerId { get; init; }
     public IReadOnlyList<string> Aliases { get; init; } = [];
 }

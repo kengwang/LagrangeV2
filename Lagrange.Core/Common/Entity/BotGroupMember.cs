@@ -18,7 +18,7 @@ public class BotGroupMember(BotGroup group, long uin, string uid, string nicknam
 
     public int GroupLevel { get; } = groupLevel;
 
-    public string? MemberCard { get; } = memberCard;
+    public string? MemberCard { get; internal set; } = memberCard;
 
     public string? SpecialTitle { get; } = specialTitle;
 

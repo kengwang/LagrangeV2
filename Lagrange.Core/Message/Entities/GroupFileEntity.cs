@@ -8,6 +8,17 @@ namespace Lagrange.Core.Message.Entities;
 
 public class GroupFileEntity : IMessageEntity
 {
+    /// <summary>Creates a reference to an existing file for a forwarded message. This does not upload a file.</summary>
+    public static GroupFileEntity CreateReference(string fileId, string fileName, long fileSize, string? md5 = null, string? url = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        ArgumentOutOfRangeException.ThrowIfNegative(fileSize);
+        if (md5 is not null && (md5.Length != 32 || md5.Any(x => !Uri.IsHexDigit(x))))
+            throw new ArgumentException("MD5 must contain 32 hexadecimal characters.", nameof(md5));
+        return new() { FileId = fileId, FileName = fileName, FileSize = fileSize, FileMd5 = md5 ?? string.Empty, FileUrl = url ?? string.Empty };
+    }
+
     public string FileId { get; internal init; } = string.Empty;
 
     public string FileName { get; internal init; } = string.Empty;
@@ -64,6 +75,7 @@ public class GroupFileEntity : IMessageEntity
                 FileName = extra.FileName,
                 FileSize = extra.FileSize,
                 FileMd5 = extra.FileMd5,
+                FileUrl = extra.Field7 ?? string.Empty,
             };
         }
 

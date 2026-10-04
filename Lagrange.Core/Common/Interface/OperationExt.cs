@@ -26,8 +26,18 @@ public static class OperationExt
     public static async Task<BotCollectionResult> GetCollection(this BotContext context, uint count = 50, CancellationToken cancellationToken = default) =>
         (await context.EventContext.SendEvent<GetCollectionEventResp>(new GetCollectionEventReq(count), cancellationToken)).Result;
 
-    public static async Task<BotGroupAlbumResult> GetGroupAlbums(this BotContext context, long groupUin, string attachInfo = "", CancellationToken cancellationToken = default) =>
-        (await context.EventContext.SendEvent<GetGroupAlbumsEventResp>(new GetGroupAlbumsEventReq(groupUin, attachInfo), cancellationToken)).Result;
+    /// <summary>Reads one group album page from QQ NT AlbumService.</summary>
+    /// <param name="context">The logged-in bot.</param>
+    /// <param name="groupUin">Group number.</param>
+    /// <param name="attachInfo">The previous page's continuation cursor, or empty for the first page.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>Albums and the server-provided continuation state.</returns>
+    public static async Task<BotGroupAlbumResult> GetGroupAlbums(this BotContext context, long groupUin, string attachInfo = "", CancellationToken cancellationToken = default)
+    {
+        var result = (await context.EventContext.SendEvent<GetGroupAlbumsEventResp>(new GetGroupAlbumsEventReq(groupUin, attachInfo), cancellationToken)).Result;
+        GroupAlbumExt.ValidatePage(result, attachInfo);
+        return result;
+    }
 
     public static async Task<BotQzoneMessageListResult> GetQzoneMessageList(this BotContext context, long? targetUin = null, int position = 0, int count = 20, CancellationToken cancellationToken = default) =>
         (await context.EventContext.SendEvent<GetQzoneMessageListEventResp>(new GetQzoneMessageListEventReq(targetUin.GetValueOrDefault(context.BotUin), position, count), cancellationToken)).Result;

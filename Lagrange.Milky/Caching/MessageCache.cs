@@ -17,6 +17,7 @@ public class MessageCache(BotContext lagrange, ILoggerFactory loggerFactory)
         new MessageKey
         {
             Type = message.Type,
+            TempGroupUin = message.TempGroupUin,
             PeerUin = message.Contact switch
             {
                 BotFriend sender => sender.Uin == _lagrange.BotUin ? message.Receiver.Uin : sender.Uin,
@@ -26,22 +27,24 @@ public class MessageCache(BotContext lagrange, ILoggerFactory loggerFactory)
             },
             Sequence = message.Type switch
             {
-                MessageType.Private => message.ClientSequence,
+                MessageType.Private or MessageType.Temp => message.ClientSequence,
                 _ => message.Sequence,
             },
         },
         message,
         TimeSpan.FromSeconds(1)
     );
-    public BotMessage? Get(MessageType type, long uin, ulong sequence) => _cache.Get<BotMessage>(new MessageKey
+    public BotMessage? Get(MessageType type, long uin, ulong sequence, long? tempGroupUin = null) => _cache.Get<BotMessage>(new MessageKey
     {
         Type = type,
+        TempGroupUin = tempGroupUin,
         PeerUin = uin,
         Sequence = sequence,
     });
 
     private readonly struct MessageKey
     {
+        public long? TempGroupUin { get; init; }
         public required MessageType Type { get; init; }
         public required long PeerUin { get; init; }
         public required ulong Sequence { get; init; }
@@ -49,8 +52,9 @@ public class MessageCache(BotContext lagrange, ILoggerFactory loggerFactory)
         public override readonly bool Equals(object? obj) => obj is MessageKey other
             && Type == other.Type
             && PeerUin == other.PeerUin
-            && Sequence == other.Sequence;
+            && Sequence == other.Sequence
+            && TempGroupUin == other.TempGroupUin;
 
-        public override readonly int GetHashCode() => HashCode.Combine(Type, PeerUin, Sequence);
+        public override readonly int GetHashCode() => HashCode.Combine(Type, PeerUin, Sequence, TempGroupUin);
     }
 }

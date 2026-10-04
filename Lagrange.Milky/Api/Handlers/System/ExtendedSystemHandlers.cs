@@ -182,11 +182,11 @@ public sealed class SendTuwenArkHandler(BotContext lagrange) : Endpoint<SendTuwe
     {
         [JsonPropertyName("peer_id")] public long PeerId { get; init; }
         [JsonPropertyName("group_id")] public long? GroupId { get; init; }
-        [JsonPropertyName("title")] public string Title { get; init; } = string.Empty;
-        [JsonPropertyName("description")] public string Description { get; init; } = string.Empty;
-        [JsonPropertyName("summary")] public string Summary { get; init; } = string.Empty;
-        [JsonPropertyName("url")] public string Url { get; init; } = string.Empty;
-        [JsonPropertyName("preview_url")] public string PreviewUrl { get; init; } = string.Empty;
+        [JsonPropertyName("title")] public string Title { get; set; } = string.Empty;
+        [JsonPropertyName("description")] public string Description { get; set; } = string.Empty;
+        [JsonPropertyName("summary")] public string Summary { get; set; } = string.Empty;
+        [JsonPropertyName("url")] public string Url { get; set; } = string.Empty;
+        [JsonPropertyName("preview_url")] public string PreviewUrl { get; set; } = string.Empty;
     }
 
     public sealed class Result

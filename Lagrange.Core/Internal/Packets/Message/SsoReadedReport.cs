@@ -10,9 +10,9 @@ internal partial class SsoReadedReportReq
 }
 
 [ProtoPackable]
-internal partial class GroupReadedReportItem { [ProtoMember(1)] public ulong GroupUin { get; set; } [ProtoMember(2)] public ulong LastReadSeq { get; set; } }
+internal partial class GroupReadedReportItem { [ProtoMember(1)] public ulong GroupUin { get; set; } [ProtoMember(2)] public ulong? LastReadSeq { get; set; } }
 [ProtoPackable]
-internal partial class C2CReadedReportItem { [ProtoMember(2)] public string Uid { get; set; } = string.Empty; [ProtoMember(3)] public ulong LastReadTime { get; set; } [ProtoMember(4)] public ulong LastReadSeq { get; set; } }
+internal partial class C2CReadedReportItem { [ProtoMember(2)] public string Uid { get; set; } = string.Empty; [ProtoMember(3)] public ulong? LastReadTime { get; set; } [ProtoMember(4)] public ulong? LastReadSeq { get; set; } }
 
 [ProtoPackable]
 internal partial class SsoReadedReportResp

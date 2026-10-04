@@ -23,7 +23,9 @@ public partial class BotMessage
 
     public BotContact Receiver { get; }
 
-    public MessageType Type => Contact switch
+    public long? TempGroupUin { get; internal set; }
+
+    public MessageType Type => TempGroupUin.HasValue ? MessageType.Temp : Contact switch
     {
         BotGroupMember _ => MessageType.Group,
         BotFriend _ => MessageType.Private,

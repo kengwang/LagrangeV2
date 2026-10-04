@@ -68,6 +68,9 @@ internal partial class C2CUserInfo
     [ProtoMember(1)] public uint AccountType { get; set; } // 2
 
     [ProtoMember(2)] public string TargetUid { get; set; }
+
+    [ProtoMember(3)] public ReadOnlyMemory<byte>? RoutingHead { get; set; }
+
 }
 
 

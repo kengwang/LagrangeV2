@@ -1,4 +1,5 @@
 using Lagrange.Core.Common.Entity;
+using Lagrange.Core.Internal.Packets.Message;
 using Lagrange.Core.Message;
 using Lagrange.Core.Message.Entities;
 using Lagrange.Core.Utility;
@@ -55,7 +56,7 @@ internal static class NTV2RichMedia
         };
     }
 
-    private static MultiMediaReqHead BuildHead(BotMessage @struct, RichMediaEntityBase entity, uint cmd)
+    internal static MultiMediaReqHead BuildHead(BotMessage @struct, RichMediaEntityBase entity, uint cmd)
     {
         var (request, business) = entity switch
         {
@@ -65,10 +66,27 @@ internal static class NTV2RichMedia
             _ => throw new ArgumentOutOfRangeException(nameof(entity))
         };
 
+        var scene = BuildSceneInfo(@struct.Contact, request, business);
+        if (cmd == 100 && @struct.TempGroupUin is { } sourceGroup)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sourceGroup);
+            ArgumentException.ThrowIfNullOrWhiteSpace(@struct.Receiver.Uid);
+            scene.SceneType = 1;
+            scene.Group = null;
+            scene.C2C = new C2CUserInfo
+            {
+                AccountType = 2,
+                TargetUid = @struct.Receiver.Uid,
+                RoutingHead = ProtoHelper.Serialize(new SendRoutingHead
+                {
+                    GroupTemp = new GroupTemp { GroupUin = sourceGroup, ToUid = @struct.Receiver.Uid }
+                })
+            };
+        }
         return new MultiMediaReqHead
         {
             Common = new CommonHead { RequestId = 1, Command = cmd },
-            Scene = BuildSceneInfo(@struct.Contact, request, business),
+            Scene = scene,
             Client = new ClientMeta { AgentType = 2 }
         };
     }

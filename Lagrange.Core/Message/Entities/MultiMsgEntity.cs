@@ -60,14 +60,16 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
         
         int count = Math.Clamp(Messages.Count, 0, 4);
         string guid = Guid.NewGuid().ToString();
-        var extra = new JsonObject { { "filename", guid }, { "tsum", count } };
-        var news = new JsonArray(Messages[..count].Select(x => new JsonObject { { "text", $"{x.Contact.Nickname}: {string.Join(' ', x.Entities.Select(e => e.ToPreviewString()))}" } }).Cast<JsonNode>().ToArray());
+        var extra = new JsonObject { { "filename", guid }, { "tsum", Messages.Count } };
+        var preview = Preview ?? Messages[..count].Select(x => $"{x.Contact.Nickname}: {string.Join(' ', x.Entities.Select(e => e.ToPreviewString()))}").ToArray();
+        var news = new JsonArray(preview.Select(x => (JsonNode)new JsonObject { ["text"] = x }).ToArray());
         var detail = new JsonObject
         {
             { "news", news },
             { "resid", ResId },
-            { "source", "聊天记录" },
-            { "summary", $"查看{count}条转发消息" },
+            { "source", Title ?? "聊天记录" },
+            { "title", Title ?? "聊天记录" },
+            { "summary", Summary ?? $"查看{Messages.Count}条转发消息" },
             { "uniseq", guid }
         };
 
@@ -85,7 +87,7 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
             Meta = new JsonObject { { "detail", detail } },
             Desc = "[聊天记录]",
             Extra = JsonHelper.Serialize(extra),
-            Prompt = "[聊天记录]",
+            Prompt = Prompt ?? "[聊天记录]",
             Ver = "0.0.0.5",
             View = "contact"
         };
@@ -113,7 +115,8 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
                     var detail = json["meta"]?["detail"];
                     var result = new MultiMsgEntity(detail?["resid"]?.ToString() ?? string.Empty)
                     {
-                        Title = detail?["title"]?.ToString(),
+                        Title = detail?["title"]?.ToString() ?? detail?["source"]?.ToString(),
+                        Preview = (detail?["news"] as JsonArray)?.Select(x => x?["text"]?.ToString() ?? string.Empty).ToArray(),
                         Summary = detail?["summary"]?.ToString(),
                         Prompt = json["prompt"]?.ToString()
                     };

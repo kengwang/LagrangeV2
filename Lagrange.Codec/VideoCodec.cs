@@ -33,20 +33,26 @@ public static class VideoCodec
         return output;
     }
     
+    /// <summary>Reads video dimensions and playback duration from the native codec.</summary>
+    /// <param name="video">Encoded video bytes.</param>
+    /// <returns>Width, height, and the native duration in whole seconds.</returns>
     public static VideoInfo GetSize(byte[] video)
     {
+        ArgumentNullException.ThrowIfNull(video);
+        if (video.Length == 0) throw new ArgumentException("Video must not be empty.", nameof(video));
         var handle = Marshal.AllocHGlobal(video.Length);
-        Marshal.Copy(video, 0, handle, video.Length);
-        
-        var result = new VideoInfo();
-        int code = VideoInterop.VideoGetSize(handle, video.Length, ref result);
-        if (code != 0) throw new Exception("Failed to get video size");
-        
-        Marshal.FreeHGlobal(handle);
-        
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        
-        return result;
+        try
+        {
+            Marshal.Copy(video, 0, handle, video.Length);
+            var result = new VideoInfo();
+            int code = VideoInterop.VideoGetSize(handle, video.Length, ref result);
+            if (code != 0 || result.Width <= 0 || result.Height <= 0 || result.Duration < 0)
+                throw new Exceptions.CodecException($"Failed to get video information. Error code: {code}");
+            return result;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(handle);
+        }
     }
 }

@@ -31,6 +31,7 @@ internal sealed class GetSystemFacesService : OidbService<GetSystemFacesEventReq
     private static IReadOnlyList<BotSystemFace> Convert(IEnumerable<D9154Emoji> emojis) => [.. emojis.Where(face => !string.IsNullOrWhiteSpace(face.Sid)).Select(face => new BotSystemFace
     {
         Sid = face.Sid!, Description = face.Description ?? string.Empty, EmCode = face.EmCode ?? string.Empty,
+        AnimationType = face.AniStickerType, AnimationPackId = face.AniStickerPackId, AnimationStickerId = face.AniStickerId,
         CategoryId = face.CategoryId == 0 ? null : face.CategoryId, Url = face.Url?.BaseUrl, Aliases = face.Aliases ?? [],
     })];
 }

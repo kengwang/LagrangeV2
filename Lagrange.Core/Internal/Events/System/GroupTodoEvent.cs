@@ -14,8 +14,9 @@ internal class GroupSetTodoEventResp : ProtocolEvent
     public static readonly GroupSetTodoEventResp Default = new();
 }
 
-internal class GroupFinishTodoEventReq(long groupUin) : ProtocolEvent
+internal class GroupFinishTodoEventReq(long groupUin, ulong sequence = 0) : ProtocolEvent
 {
+    public ulong Sequence { get; } = sequence;
     public long GroupUin { get; } = groupUin;
 }
 
@@ -24,8 +25,9 @@ internal class GroupFinishTodoEventResp : ProtocolEvent
     public static readonly GroupFinishTodoEventResp Default = new();
 }
 
-internal class GroupRemoveTodoEventReq(long groupUin) : ProtocolEvent
+internal class GroupRemoveTodoEventReq(long groupUin, ulong sequence = 0) : ProtocolEvent
 {
+    public ulong Sequence { get; } = sequence;
     public long GroupUin { get; } = groupUin;
 }
 

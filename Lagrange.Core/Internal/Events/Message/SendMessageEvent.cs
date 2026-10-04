@@ -23,9 +23,11 @@ internal class SendFriendFileEventReq(BotFriend friend, FileUploadEventReq reque
     public uint Sequence { get; } = sequence;
 }
 
-internal class SendMessageEventResp(int result, long sendTime, ulong sequence) : ProtocolEvent
+internal class SendMessageEventResp(int result, long sendTime, ulong sequence, string? errorMessage = null) : ProtocolEvent
 {
     public int Result { get; } = result;
+
+    public string? ErrorMessage { get; } = errorMessage;
     
     public long SendTime { get; } = sendTime;
     

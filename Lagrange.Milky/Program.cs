@@ -67,7 +67,7 @@ public static class Program
         host.UseAuthorization();
         host.UseFastEndpoints(c =>
         {
-            c.Serializer.Options.AddSerializerContextsFromLagrange_Milky();
+            c.ConfigureMilkyBinding();
             c.Errors.ResponseBuilder = (failures, context, _) =>
             {
                 context.Response.StatusCode = StatusCodes.Status200OK;

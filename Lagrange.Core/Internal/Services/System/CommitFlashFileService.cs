@@ -14,7 +14,7 @@ internal sealed class CommitFlashFileService : OidbService<CommitFlashFileEventR
     protected override Task<D93D0Req> ProcessRequest(CommitFlashFileEventReq request, BotContext context) => Task.FromResult(new D93D0Req
     {
         Field1 = 1, FilesetUuid = request.FilesetUuid, UploadKey = request.UploadKey, Field5 = 1, Field6 = 1,
-        CommitInfo = [new D93D0Info { FilesetUuid = request.FilesetUuid, FileUuid = request.FileUuid, Index = request.Index, FormatCode = request.FormatCode, FileName = request.FileName, OriginalName = request.FileName, FileSize = request.FileSize }]
+        CommitInfo = request.Entries ?? [new D93D0Info { FilesetUuid = request.FilesetUuid, FileUuid = request.FileUuid, Index = request.Index, FormatCode = request.FormatCode, FileName = request.FileName, OriginalName = request.FileName, FileSize = request.FileSize }]
     });
     protected override Task<CommitFlashFileEventResp> ProcessResponse(D93D0Resp response, BotContext context)
     {

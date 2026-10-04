@@ -62,6 +62,8 @@ internal class WtExchangeLogic : ILogic, IDisposable
                 _context.LogError(Tag, "Kicked by server: {0} | {1}", null, kick.TipsTitle, kick.TipsInfo);
                 _context.EventInvoker.PostEvent(new BotOfflineEvent(BotOfflineEvent.Reasons.Kicked, (kick.TipsTitle, kick.TipsInfo)));
                 _context.IsOnline = false;
+                _context.VoiceContext.Disconnect();
+                _context.CacheContext.ResetSessionNotifications();
                 _timers[SsoHeartBeatTag].Change(Timeout.Infinite, Timeout.Infinite);
 
                 await _context.EventContext.SendEvent<SsoUnregisterEventResp>(new SsoUnregisterEventReq());
@@ -72,6 +74,7 @@ internal class WtExchangeLogic : ILogic, IDisposable
 
     public async Task<bool> Login(long uin, string? password, CancellationToken token)
     {
+        _context.CacheContext.ResetSessionNotifications();
         _token = token;
 
         token.UnsafeRegister(_ =>
@@ -106,6 +109,8 @@ internal class WtExchangeLogic : ILogic, IDisposable
             {
                 _context.LogInfo(Tag, "Logout success");
                 _context.IsOnline = false;
+                _context.VoiceContext.Disconnect();
+                _context.CacheContext.ResetSessionNotifications();
                 _context.EventInvoker.PostEvent(new BotOfflineEvent(BotOfflineEvent.Reasons.Logout, null));
             }
             else

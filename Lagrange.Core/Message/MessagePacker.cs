@@ -28,6 +28,7 @@ internal class MessagePacker(BotContext context)
             Time = contentHead.Time,
             Sequence = contentHead.Sequence,
             ClientSequence = contentHead.ClientSequence,
+            TempGroupUin = contentHead.Type == 141 ? routingHead.CommonC2C?.FromTinyId : null,
             Random = contentHead.Random
         };
 
@@ -89,7 +90,7 @@ internal class MessagePacker(BotContext context)
                 return friend ?? new BotFriend(routingHead.FromUin, routingHead.FromUid, string.Empty, string.Empty, string.Empty, string.Empty, null!);
 
             case 141:
-                return (await context.CacheContext.ResolveStranger(routingHead.ToUid)).CloneWithSource(routingHead.CommonC2C.FromTinyId);
+                return await ResolveTempContact(routingHead.FromUin, routingHead.FromUid, routingHead.CommonC2C);
             case 82:
                 var items = await context.CacheContext.ResolveMember(routingHead.Group.GroupCode, routingHead.FromUin);
                 if (items != null) return items.Value.Item2;
@@ -117,7 +118,7 @@ internal class MessagePacker(BotContext context)
 
                 return friend;
             case 141:
-                return (await context.CacheContext.ResolveStranger(routingHead.ToUid)).CloneWithSource(routingHead.CommonC2C.FromTinyId);
+                return await ResolveTempContact(routingHead.ToUin, routingHead.ToUid, routingHead.CommonC2C);
             case 82:
                 var items = await context.CacheContext.ResolveMember(routingHead.Group.GroupCode, routingHead.ToUin);
                 if (items == null)
@@ -133,11 +134,27 @@ internal class MessagePacker(BotContext context)
         }
     }
 
+    private async Task<BotContact> ResolveTempContact(long uin, string? uid, CommonC2C? session)
+    {
+        bool self = uin == context.BotUin || (!string.IsNullOrEmpty(uid) && uid == context.Keystore.Uid);
+        if (self) return new BotStranger(context.BotUin, context.BotInfo?.Name ?? string.Empty, context.Keystore.Uid, string.Empty, string.Empty, 0, default, 0, null, 0, string.Empty, string.Empty, string.Empty, null) { Source = session?.FromTinyId ?? 0 };
+        if (uin == 0 && !string.IsNullOrWhiteSpace(uid))
+            return (await context.CacheContext.ResolveStranger(uid)).CloneWithSource(session?.FromTinyId ?? 0);
+        // The push already contains both parties' numeric identities. Do not fetch self/peer
+        // profiles merely to receive a message, or accidentally swap sender and receiver.
+        return new BotStranger(uin, string.Empty, uid ?? context.CacheContext.ResolveCachedUid(uin) ?? string.Empty,
+            string.Empty, string.Empty, 0, default, 0, null, 0, string.Empty, string.Empty, string.Empty, null) { Source = session?.FromTinyId ?? 0 };
+    }
+
     public static ReadOnlyMemory<byte> Build(BotMessage message)
     {
         var routingHead = new SendRoutingHead();
 
-        switch (message.Contact)
+        if (message.TempGroupUin is { } sourceGroup)
+        {
+            routingHead.GroupTemp = new GroupTemp { GroupUin = sourceGroup, ToUid = message.Receiver.Uid };
+        }
+        else switch (message.Contact)
         {
             case BotFriend:
                 routingHead.C2C = new C2C { PeerUin = message.Receiver.Uin, PeerUid = message.Receiver.Uid };
@@ -168,12 +185,13 @@ internal class MessagePacker(BotContext context)
             {
                 PkgNum = 1,
                 PkgIndex = 0,
-                DivSeq = 0,
+                DivSeq = message.Type == MessageType.Temp ? 11u : 0,
                 AutoReply = 0
             },
             MessageBody = messageBody,
             ClientSequence = message.ClientSequence,
             Random = message.Random,
+            Control = message.Type == MessageType.Temp ? new SendMessageControl { MessageFlag = checked((int)message.Time) } : null,
         };
         return ProtoHelper.Serialize(proto);
     }

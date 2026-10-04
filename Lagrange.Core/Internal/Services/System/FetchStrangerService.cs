@@ -5,6 +5,7 @@ using Lagrange.Core.Common.Entity;
 using Lagrange.Core.Exceptions;
 using Lagrange.Core.Internal.Events.System;
 using Lagrange.Core.Internal.Packets.Service;
+using Lagrange.Core.Internal.Packets.Service.Migration;
 using Lagrange.Core.Services;
 using Lagrange.Core.Utility;
 
@@ -12,6 +13,7 @@ namespace Lagrange.Core.Internal.Services.System;
 
 [EventSubscribe<FetchStrangerByUinEventReq>(Protocols.All)]
 [EventSubscribe<FetchStrangerByUidEventReq>(Protocols.All)]
+[EventSubscribe<GetUserStatusEventReq>(Protocols.All)]
 [Service("OidbSvcTrpcTcp.0xfe1_2")]
 internal class FetchStrangerService : BaseService<FetchStrangerEventReqBase, FetchStrangerEventResp>
 {
@@ -47,6 +49,13 @@ internal class FetchStrangerService : BaseService<FetchStrangerEventReqBase, Fet
     {
         return ValueTask.FromResult(input switch
         {
+            GetUserStatusEventReq req => ProtoHelper.Serialize(new Oidb
+            {
+                Command = Command,
+                Service = Service,
+                Body = ProtoHelper.Serialize(req.Body),
+                Reserved = 1
+            }),
             FetchStrangerByUinEventReq req => ProtoHelper.Serialize(new Oidb
             {
                 Command = Command,
@@ -81,7 +90,13 @@ internal class FetchStrangerService : BaseService<FetchStrangerEventReqBase, Fet
             throw new OperationException((int)oidb.Result, oidb.Message);
         }
         var response = ProtoHelper.Deserialize<FetchStrangerResponse>(oidb.Body.Span);
+        var status = ProtoHelper.Deserialize<OidbStrangerStatusResp>(oidb.Body.Span);
+        // A status-only response does not contain profile fields. Decode those only for profile callers.
+        return ValueTask.FromResult(new FetchStrangerEventResp(() => ParseStranger(response), status));
+    }
 
+    private static BotStranger ParseStranger(FetchStrangerResponse response)
+    {
         var numbers = response.Body.Properties.NumberProperties.ToDictionary(
             property => property.Key,
             property => property.Value
@@ -103,7 +118,7 @@ internal class FetchStrangerService : BaseService<FetchStrangerEventReqBase, Fet
         int month = birthday[2];
         int day = birthday[3];
 
-        return ValueTask.FromResult(new FetchStrangerEventResp(new BotStranger(
+        return new BotStranger(
             response.Body.Uin,
             Encoding.UTF8.GetString(nicknameBytes),
             string.Empty, // Can't not get uid
@@ -118,6 +133,6 @@ internal class FetchStrangerService : BaseService<FetchStrangerEventReqBase, Fet
             Encoding.UTF8.GetString(bytes[20003]),
             Encoding.UTF8.GetString(bytes[20004]),
             bytes.TryGetValue(200021, out byte[]? value) ? Encoding.UTF8.GetString(value) : null
-        )));
+        );
     }
 }

@@ -4,7 +4,7 @@ using Lagrange.Core.Internal.Events.System;
 
 namespace Lagrange.Core.Internal.Context;
 
-internal class CacheContext(BotContext context)
+internal partial class CacheContext(BotContext context)
 {
     private List<BotFriend>? _friends;
 
@@ -126,6 +126,7 @@ internal class CacheContext(BotContext context)
     }
 
     public string? ResolveCachedUid(long uin) => _uinToUid.GetValueOrDefault(uin);
+    internal long ResolveCachedUin(string uid) => _uidToUin.TryGetValue(uid, out long uin) ? uin : _uinToUid.FirstOrDefault(x => x.Value == uid).Key;
 
     public long ResolveUin(string uid)
     {

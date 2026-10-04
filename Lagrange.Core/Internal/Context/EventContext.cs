@@ -31,6 +31,7 @@ internal class EventContext : IDisposable
     {
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             await HandleOutgoingEvent(@event);
             if (_httpServices.TryGetValue(@event.GetType(), out var httpService))
             {
@@ -39,7 +40,7 @@ internal class EventContext : IDisposable
                 return httpResult as T ?? throw new LagrangeException($"The HTTP event type is not the expected type. Expected: {typeof(T)}, Actual: {httpResult.GetType()}");
             }
             var (frame, attribute) = await _context.ServiceContext.Resolve(@event);
-            var @return = await _context.PacketContext.SendPacket(frame, attribute);
+            var @return = await _context.PacketContext.SendPacket(frame, attribute).AsTask().WaitAsync(cancellationToken);
             var resolved = await _context.ServiceContext.Resolve(@return);
 
             var result = resolved as T ?? throw new LagrangeException(
@@ -47,7 +48,7 @@ internal class EventContext : IDisposable
             await HandleIncomingEvent(result);
             return result;
         }
-        catch (Exception e) when (e is not LagrangeException && e is not HttpServiceException)
+        catch (Exception e) when (e is not LagrangeException && e is not HttpServiceException && e is not OperationCanceledException)
         {
             throw new LagrangeException("An error occurred while sending the event", e);
         }

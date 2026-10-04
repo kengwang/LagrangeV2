@@ -37,4 +37,6 @@ public sealed class MarkdownEntity : IMessageEntity
 internal partial class MarkdownData
 {
     [ProtoMember(1)] public string Content { get; set; } = string.Empty;
+    [ProtoMember(6)] public uint ExtType { get; set; }
+    [ProtoMember(7)] public FlashFileExtra? ExtInfo { get; set; }
 }

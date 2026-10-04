@@ -10,7 +10,7 @@ public class BotStranger(long uin, string nickname, string uid, string personalS
 
     public string PersonalSign { get; } = personalSign;
 
-    public string Remark { get; } = remark;
+    public string Remark { get; internal set; } = remark;
 
     public ulong Level { get; } = level;
 

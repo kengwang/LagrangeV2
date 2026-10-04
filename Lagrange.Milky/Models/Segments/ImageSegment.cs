@@ -5,6 +5,7 @@ namespace Lagrange.Milky.Models.Segments;
 public class ImageIncomingSegment : IncomingSegmentBase<ImageIncomingSegmentData>;
 public class ImageIncomingSegmentData
 {
+    [JsonPropertyName("flash")] public bool Flash { get; init; }
     [JsonPropertyName("resource_id")] public required string ResourceId { get; init; }
     [JsonPropertyName("temp_url")] public required string TempUrl { get; init; }
     [JsonPropertyName("width")] public required int Width { get; init; }

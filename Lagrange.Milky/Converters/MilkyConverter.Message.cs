@@ -14,6 +14,14 @@ public partial class MilkyConverter
     {
         MessageType.Private => await ToFriendMessageAsync(message, ct),
         MessageType.Group => await ToGroupMessageAsync(message, ct),
+        MessageType.Temp => new TempIncomingMessage
+        {
+            GroupId = message.TempGroupUin ?? 0,
+            PeerId = message.Contact.Uin == _lagrange.BotUin ? message.Receiver.Uin : message.Contact.Uin,
+            SenderId = message.Contact.Uin, MessageSeq = (long)message.ClientSequence, Time = message.Time,
+            Segments = await ToIncomingSegmentsAsync(message.Entities, MessageType.Temp,
+                message.Contact.Uin == _lagrange.BotUin ? message.Receiver.Uin : message.Contact.Uin, ct)
+        },
         _ => throw new NotSupportedException(),
     };
 

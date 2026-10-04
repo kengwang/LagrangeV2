@@ -37,7 +37,8 @@ internal class SocketContext : IClientListener, IDisposable
 
     public void OnDisconnect()
     {
-        
+        _context.VoiceContext.Disconnect();
+        _context.CacheContext.ResetSessionNotifications();
     }
 
     public void OnSocketError(Exception e, ReadOnlyMemory<byte> data)

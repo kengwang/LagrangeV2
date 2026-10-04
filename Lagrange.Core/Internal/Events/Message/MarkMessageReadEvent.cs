@@ -9,7 +9,7 @@ internal sealed class MarkMessageReadEventReq(string scene, long peerUin, ulong 
     public ulong LastReadSeq { get; } = lastReadSeq;
 }
 
-internal sealed class MarkMessageReadEventResp : ProtocolEvent;
+internal class MarkMessageReadEventResp : ProtocolEvent;
 
 internal sealed class MarkAllMessagesReadEventReq(IReadOnlyList<long> groupUins, IReadOnlyList<long> privateUins) : ProtocolEvent
 {
@@ -17,8 +17,9 @@ internal sealed class MarkAllMessagesReadEventReq(IReadOnlyList<long> groupUins,
     public IReadOnlyList<long> PrivateUins { get; } = privateUins;
 }
 
-internal sealed class MarkAllMessagesReadEventResp(IReadOnlyList<(long PeerUin, ulong LatestSeq)> groups, IReadOnlyList<(long PeerUin, ulong LatestSeq)> privates) : ProtocolEvent
+internal sealed class MarkAllMessagesReadEventResp(IReadOnlyList<(long PeerUin, ulong LatestSeq)> groups, IReadOnlyList<(long PeerUin, ulong LatestSeq)> privates) : MarkMessageReadEventResp
 {
+    public required Lagrange.Core.Internal.Packets.Message.SsoReadedReportResp Body { get; init; }
     public IReadOnlyList<(long PeerUin, ulong LatestSeq)> Groups { get; } = groups;
     public IReadOnlyList<(long PeerUin, ulong LatestSeq)> Privates { get; } = privates;
 }

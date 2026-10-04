@@ -36,6 +36,6 @@ internal class SendMessageService : BaseService<ProtocolEvent, ProtocolEvent>
     {
         var response = ProtoHelper.Deserialize<PbSendMsgResp>(input.Span);
         ulong sequence = response.ClientSequence == 0 ? response.Sequence : response.ClientSequence;
-        return new ValueTask<ProtocolEvent>(new SendMessageEventResp(response.Result, response.SendTime, sequence));
+        return new ValueTask<ProtocolEvent>(new SendMessageEventResp(response.Result, response.SendTime, sequence, response.ErrMsg));
     }
 }

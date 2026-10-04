@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Lagrange.Core.Common.Entity;
+using Lagrange.Core.Exceptions;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Core.Message;
 using Lagrange.Core.Message.Entities;
@@ -39,11 +40,11 @@ public partial class MilkyConverter
                     Name = mention.Display ?? string.Empty,
                 }
             },
-        FaceEntity { FaceId: 358 } face => new DiceIncomingSegment { Data = new DiceIncomingSegmentData { FaceId = face.FaceId } },
-        FaceEntity { FaceId: 359 } face => new RpsIncomingSegment { Data = new RpsIncomingSegmentData { FaceId = face.FaceId } },
+        FaceEntity { FaceId: 358, ResultId: null } face => new DiceIncomingSegment { Data = new DiceIncomingSegmentData { FaceId = face.FaceId } },
+        FaceEntity { FaceId: 359, ResultId: null } face => new RpsIncomingSegment { Data = new RpsIncomingSegmentData { FaceId = face.FaceId } },
         FaceEntity face => new FaceIncomingSegment
         {
-            Data = new FaceIncomingSegmentData { FaceId = face.FaceId, Raw = face.Raw }
+            Data = new FaceIncomingSegmentData { FaceId = face.FaceId, Large = face.Large, ResultId = face.ResultId, Raw = face.Raw }
         },
         XmlEntity xml => new XmlIncomingSegment
         {
@@ -55,6 +56,7 @@ public partial class MilkyConverter
             Data = new ImageIncomingSegmentData
             {
                 ResourceId = image.FileUuid,
+                Flash = image.IsFlash,
                 TempUrl = image.FileUrl,
                 Width = (int)image.ImageSize.X,
                 Height = (int)image.ImageSize.Y,
@@ -128,6 +130,7 @@ public partial class MilkyConverter
         {
             Data = new PokeIncomingSegmentData { Type = poke.Type, Strength = poke.Strength }
         },
+        FlashFileEntity flash => new FlashFileIncomingSegment { Data = new FlashFileIncomingSegmentData { FilesetId = flash.FilesetId, FileName = flash.FileName, ThumbnailUrl = flash.ThumbnailUrl, SceneType = flash.SceneType } },
         MarkdownEntity markdown => new MarkdownIncomingSegment
         {
             Data = new MarkdownIncomingSegmentData { Content = markdown.Content }
@@ -186,23 +189,37 @@ public partial class MilkyConverter
         return new LongMsgIncomingSegment { Data = new LongMsgIncomingSegmentData { ResId = entity.ResId, Messages = messages } };
     }
 
+    private static async Task<BotMessage?> ResolveReplyTargetAsync(Func<Task<List<BotMessage>>> lookup, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        try
+        {
+            return (await lookup().WaitAsync(ct)).FirstOrDefault();
+        }
+        catch (OperationException ex) when (ex.Result == 100000301)
+        {
+            // QQ explicitly reports that message storage has no matching message.
+            // Keep the original reply metadata rather than discard the enclosing message.
+            ct.ThrowIfCancellationRequested();
+            return null;
+        }
+    }
+
     private async Task<ReplyIncomingSegment> ToReplyIncomingSegmentAsync(ReplyEntity reply, MessageType type, long ownerPeerUin, CancellationToken ct = default)
     {
         var message = _cache.Get(type, ownerPeerUin, reply.SrcSequence)
-            ?? (type switch
+            ?? await ResolveReplyTargetAsync(() => type switch
             {
-                MessageType.Private => await _lagrange.GetC2CMessage(
-                    ownerPeerUin,
-                    reply.SrcSequence,
-                    reply.SrcSequence
-                ).WaitAsync(ct),
-                MessageType.Group => await _lagrange.GetGroupMessage(
-                    ownerPeerUin,
-                    reply.SrcSequence,
-                    reply.SrcSequence
-                ).WaitAsync(ct),
-                _ => throw new NotSupportedException(),
-            }).First();
+                MessageType.Private => _lagrange.GetC2CMessage(ownerPeerUin, reply.SrcSequence, reply.SrcSequence, ct),
+                MessageType.Group => _lagrange.GetGroupMessage(ownerPeerUin, reply.SrcSequence, reply.SrcSequence, ct),
+                _ => Task.FromResult(new List<BotMessage>()),
+            }, ct);
+
+        if (message is null) return new ReplyIncomingSegment { Data = new ReplyIncomingSegmentData
+        {
+            MessageSeq = (long)reply.SrcSequence, SenderId = reply.Source?.Uin ?? reply.SourceUin,
+            SenderName = reply.Source?.Nickname, Time = reply.SourceTime, Segments = []
+        } };
 
         return new ReplyIncomingSegment
         {
@@ -210,7 +227,7 @@ public partial class MilkyConverter
             {
                 MessageSeq = message.Type switch
                 {
-                    MessageType.Private => (long)message.ClientSequence,
+                    MessageType.Private or MessageType.Temp => (long)message.ClientSequence,
                     _ => (long)message.Sequence,
                 },
                 SenderId = message.Contact.Uin,
@@ -239,6 +256,7 @@ public partial class MilkyConverter
 
     private async Task<IMessageEntity> FromOutgoingSegmentAsync(OutgoingSegmentBase segment, MessageType type, long ownerPeerUin, CancellationToken ct) => segment switch
     {
+        FileOutgoingSegment => throw new NotSupportedException("File references are only supported inside forwarded messages; use the file upload API for live messages."),
         TextOutgoingSegment text => new TextEntity(text.Data.Text),
         MentionOutgoingSegment mention => new MentionEntity(mention.Data.UserId, null),
         MentionAllOutgoingSegment => new MentionEntity(0, null),
@@ -262,12 +280,9 @@ public partial class MilkyConverter
             video.Data.ThumbUri == null ? null : await _resourceConverter.UriToStreamAsync(video.Data.ThumbUri, ct),
             disposeOnCompletion: true
         ),
-        ForwardOutgoingSegment forward => new MultiMsgEntity(await FromOutgoingForwardedMessagesAsync(
-            forward.Data.Messages,
-            ct
-        )),
+        ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
-        FaceOutgoingSegment face => new FaceEntity { FaceId = face.Data.FaceId, Raw = face.Data.Raw ?? string.Empty },
+        FaceOutgoingSegment face => new FaceEntity { FaceId = face.Data.FaceId, Large = face.Data.Large, ResultId = face.Data.ResultId, Raw = face.Data.Raw ?? string.Empty },
         MarketFaceOutgoingSegment marketFace => new MarketFaceEntity
         {
             FaceId = marketFace.Data.FaceId,
@@ -310,8 +325,13 @@ public partial class MilkyConverter
                     (ulong)reply.Data.MessageSeq,
                     (ulong)reply.Data.MessageSeq
                 ).WaitAsync(ct),
-                _ => throw new NotSupportedException(),
-            }).First();
+                _ => new List<BotMessage>(),
+            }).FirstOrDefault();
+
+        if (message is null)
+        {
+            throw new InvalidOperationException($"The reply target message {reply.Data.MessageSeq} could not be found.");
+        }
 
         return new ReplyEntity(message);
     }
@@ -345,6 +365,7 @@ public partial class MilkyConverter
 
     private async Task<IMessageEntity> FromForwardOutgoingSegmentAsync(OutgoingSegmentBase segment, CancellationToken ct) => segment switch
     {
+        FileOutgoingSegment file => GroupFileEntity.CreateReference(file.Data.FileId, file.Data.FileName, file.Data.FileSize, file.Data.FileHash, file.Data.Url),
         TextOutgoingSegment text => new TextEntity(text.Data.Text),
         MentionOutgoingSegment mention => new MentionEntity(mention.Data.UserId, null),
         MentionAllOutgoingSegment => new MentionEntity(0, null),
@@ -370,7 +391,7 @@ public partial class MilkyConverter
         ), // TODO: Unable to upload due to a bug in the core.
         ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
-        FaceOutgoingSegment face => new FaceEntity { FaceId = face.Data.FaceId, Raw = face.Data.Raw ?? string.Empty },
+        FaceOutgoingSegment face => new FaceEntity { FaceId = face.Data.FaceId, Large = face.Data.Large, ResultId = face.Data.ResultId, Raw = face.Data.Raw ?? string.Empty },
         MarketFaceOutgoingSegment marketFace => new MarketFaceEntity
         {
             FaceId = marketFace.Data.FaceId,

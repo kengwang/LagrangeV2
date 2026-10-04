@@ -65,6 +65,8 @@ public static partial class Serializer
     [JsonSerializable(typeof(FriendIncomingMessage))]
     [JsonSerializable(typeof(GroupIncomingMessage))]
     [JsonSerializable(typeof(IncomingSegmentBase))]
+    [JsonSerializable(typeof(OutgoingSegmentBase))]
+    [JsonSerializable(typeof(GroupCardChangeEventConverter.Data), TypeInfoPropertyName = "GroupCardChangeEventData")]
     [JsonSerializable(typeof(Friend))]
     [JsonSerializable(typeof(FriendCategory))]
     [JsonSerializable(typeof(FriendRequest))]

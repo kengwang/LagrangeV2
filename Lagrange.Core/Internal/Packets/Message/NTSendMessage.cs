@@ -16,6 +16,8 @@ internal partial class PbSendMsgReq
     [ProtoMember(4)] public ulong ClientSequence { get; set; }
     
     [ProtoMember(5)] public uint Random { get; set; }
+
+    [ProtoMember(12)] public SendMessageControl? Control { get; set; }
 }
 
 [ProtoPackable]
@@ -52,6 +54,8 @@ internal partial class SendRoutingHead // EncodeSendMsgReqRoutingHead
     
     [ProtoMember(2)] public Grp Group { get; set; }
     
+    [ProtoMember(3)] public GroupTemp? GroupTemp { get; set; }
+
     [ProtoMember(15)] public Trans0X211 Trans0X211 { get; set; }
 }
 
@@ -77,4 +81,9 @@ internal partial class Trans0X211
     [ProtoMember(2)] public uint CcCmd { get; set; }
     
     [ProtoMember(8)] public string Uid { get; set; }
+}
+[ProtoPackable]
+internal partial class SendMessageControl
+{
+    [ProtoMember(1)] public int MessageFlag { get; set; }
 }

@@ -27,7 +27,7 @@ public sealed class CommitFlashFileHandler(BotContext lagrange) : Endpoint<Commi
         [JsonPropertyName("file_uuid")] public required string FileUuid { get; init; } = fileUuid;
         [JsonPropertyName("file_name")] public required string FileName { get; init; } = fileName;
         [JsonPropertyName("file_size")] public required ulong FileSize { get; init; } = fileSize;
-        [JsonPropertyName("index")] public uint Index { get; init; } = 1;
-        [JsonPropertyName("format_code")] public uint FormatCode { get; init; } = 26;
+        [JsonPropertyName("index")] public uint Index { get; set; } = 1;
+        [JsonPropertyName("format_code")] public uint FormatCode { get; set; } = 26;
     }
 }

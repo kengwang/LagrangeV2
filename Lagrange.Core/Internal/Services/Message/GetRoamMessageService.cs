@@ -1,5 +1,6 @@
 ﻿using Lagrange.Core.Common;
 using Lagrange.Core.Internal.Events.Message;
+using Lagrange.Core.Exceptions;
 using Lagrange.Core.Internal.Packets.Message;
 using Lagrange.Core.Services;
 using Lagrange.Core.Utility;
@@ -16,9 +17,9 @@ internal class GetRoamMessageService : BaseService<GetRoamMessageEventReq, GetRo
         {
             PeerUid = input.PeerUid,
             Time = input.Time,
-            Random = 0,
+            Random = input.Random,
             Count = input.Count,
-            Direction = 2
+            Direction = input.Direction
         };
 
         return ValueTask.FromResult(ProtoHelper.Serialize(packet));
@@ -26,7 +27,8 @@ internal class GetRoamMessageService : BaseService<GetRoamMessageEventReq, GetRo
 
     protected override ValueTask<GetRoamMessageEventResp> Parse(ReadOnlyMemory<byte> input, BotContext context)
     {
+        if (input.IsEmpty) throw new OperationException(-1, "Private roam history returned an empty protocol response.");
         var packet = ProtoHelper.Deserialize<SsoGetRoamMsgRsp>(input.Span);
-        return ValueTask.FromResult(new GetRoamMessageEventResp(packet.Messages));
+        return ValueTask.FromResult(new GetRoamMessageEventResp(packet.Messages, packet.Timestamp, packet.Random, packet.IsComplete, packet.PeerUid));
     }
 }

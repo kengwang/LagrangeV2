@@ -40,7 +40,7 @@ internal class GroupFinishTodoService : OidbService<GroupFinishTodoEventReq, Gro
     {
         return Task.FromResult(new F90ReqBody
         {
-            GroupCode = (ulong)request.GroupUin
+            GroupCode = (ulong)request.GroupUin, Seq = request.Sequence
         });
     }
 
@@ -62,7 +62,7 @@ internal class GroupRemoveTodoService : OidbService<GroupRemoveTodoEventReq, Gro
     {
         return Task.FromResult(new F90ReqBody
         {
-            GroupCode = (ulong)request.GroupUin
+            GroupCode = (ulong)request.GroupUin, Seq = request.Sequence
         });
     }
 

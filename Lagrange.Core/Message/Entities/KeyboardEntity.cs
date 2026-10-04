@@ -79,6 +79,9 @@ public partial class KeyboardAction
 {
     [ProtoMember(1)] public uint Type { get; set; }
     [ProtoMember(2)] public KeyboardPermission Permission { get; set; } = new();
+    [ProtoMember(3)] public uint ClickLimit { get; set; }
+    [ProtoMember(6)] public bool AtBotShowChannelList { get; set; }
+    [ProtoMember(9)] public uint Anchor { get; set; }
     [ProtoMember(4)] public string UnsupportedTips { get; set; } = string.Empty;
     [ProtoMember(5)] public string Data { get; set; } = string.Empty;
     [ProtoMember(7)] public bool Reply { get; set; }

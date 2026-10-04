@@ -22,9 +22,25 @@ internal sealed class GetGroupAlbumMediaService : BaseService<GetGroupAlbumMedia
         if (input.IsEmpty) throw new OperationException(-1, "Group album media response is empty.");
         var response = ProtoHelper.Deserialize<GetMediaListResponse>(input.Span);
         if (response.Field1 != 0) throw new OperationException(response.Field1, "Group album media request failed.");
-        var media = (response.Data?.MediaList ?? []).Select(item => new BotGroupAlbumMedia { Type = item.Type == 2 ? "video" : "image", Id = item.Image?.Lloc ?? item.Video?.Id, Url = item.Image?.DefaultUrl?.Url ?? item.Image?.PhotoUrls?.FirstOrDefault()?.Url?.Url ?? item.Video?.Url, CoverUrl = item.Video?.Cover?.DefaultUrl?.Url, Width = item.Image?.DefaultUrl?.Width ?? item.Video?.Width ?? 0, Height = item.Image?.DefaultUrl?.Height ?? item.Video?.Height ?? 0, UploadTime = item.UploadTime }).ToList();
+        // QQ media type values differ between album/feed codec variants. The actual
+        // video payload is authoritative when determining the media type.
+        var media = (response.Data?.MediaList ?? []).Select(item => item.Video is { } video
+            ? new BotGroupAlbumMedia
+            {
+                Type = "video", Id = video.Id,
+                Url = !string.IsNullOrEmpty(video.Url) ? video.Url : video.VideoUrl.FirstOrDefault(url => !string.IsNullOrEmpty(url.Url?.Url))?.Url?.Url,
+                CoverUrl = ImageUrl(video.Cover)?.Url, Width = video.Width, Height = video.Height, UploadTime = item.UploadTime
+            }
+            : new BotGroupAlbumMedia
+            {
+                Type = "image", Id = item.Image?.Lloc, Url = ImageUrl(item.Image)?.Url,
+                Width = ImageUrl(item.Image)?.Width ?? 0, Height = ImageUrl(item.Image)?.Height ?? 0, UploadTime = item.UploadTime
+            }).ToList();
         return ValueTask.FromResult(new GetGroupAlbumMediaEventResp(new BotGroupAlbumMediaResult { Media = media, PreviousCursor = response.Data?.PrevAttachInfo ?? string.Empty, NextCursor = response.Data?.NextAttachInfo ?? string.Empty }));
     }
+
+    private static AlbumUrlInfo? ImageUrl(AlbumImageInfo? image) => !string.IsNullOrEmpty(image?.DefaultUrl?.Url)
+        ? image?.DefaultUrl : image?.PhotoUrls.FirstOrDefault(url => !string.IsNullOrEmpty(url.Url?.Url))?.Url;
 }
 
 [EventSubscribe<SetGroupAlbumLikeEventReq>(Protocols.All)]

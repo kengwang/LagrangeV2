@@ -17,6 +17,7 @@ public class BotContext : IDisposable
         EventInvoker = new EventInvoker(this);
         
         CacheContext = new CacheContext(this);
+        VoiceContext = new VoiceContext(this);
         PacketContext = new PacketContext(this);
         ServiceContext = new ServiceContext(this);
         SocketContext = new SocketContext(this);
@@ -42,6 +43,7 @@ public class BotContext : IDisposable
         EventContext.SendEvent<TResponse>(request);
     
     internal CacheContext CacheContext { get; }
+    internal VoiceContext VoiceContext { get; }
     internal PacketContext PacketContext { get; }
     internal ServiceContext ServiceContext { get; }
     internal SocketContext SocketContext { get; }
@@ -100,6 +102,7 @@ public class BotContext : IDisposable
         EventInvoker.Dispose();
         HttpSessionContext.Dispose();
         FlashTransferContext.Dispose();
+        VoiceContext.Disconnect();
         SocketContext.Dispose();
         EventContext.Dispose();
     }

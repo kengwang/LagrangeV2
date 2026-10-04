@@ -1,4 +1,4 @@
-﻿using Lagrange.Core.Common.Entity;
+using Lagrange.Core.Common.Entity;
 using Lagrange.Core.Exceptions;
 using Lagrange.Core.Internal.Events.Message;
 using Lagrange.Core.Internal.Packets.Message;
@@ -43,6 +43,7 @@ internal class MessagingLogic(BotContext context) : ILogic
 
     public async Task<BotMessage> SendFriendMessage(long friendUin, MessageChain chain)
     {
+        ValidatePoke(chain, false);
         var friend = await context.CacheContext.ResolveFriend(friendUin) ?? throw new InvalidTargetException(friendUin);
         var self = await context.CacheContext.ResolveFriend(context.BotUin) ?? throw new InvalidTargetException(context.BotUin);
         var message = await BuildMessage(chain, self, friend);
@@ -59,6 +60,7 @@ internal class MessagingLogic(BotContext context) : ILogic
 
     public async Task<BotMessage> SendGroupMessage(long groupUin, MessageChain chain)
     {
+        ValidatePoke(chain, true);
         var (group, self) = await context.CacheContext.ResolveMember(groupUin, context.BotUin) ?? throw new InvalidTargetException(context.BotUin, groupUin);
         var message = await BuildMessage(chain, self, group);
         var result = await context.EventContext.SendEvent<SendMessageEventResp>(new SendMessageEventReq(message));
@@ -108,6 +110,36 @@ internal class MessagingLogic(BotContext context) : ILogic
     public async Task RemoveEssenceMessage(long groupUin, ulong sequence, uint random, CancellationToken cancellationToken = default)
     {
         await context.EventContext.SendEvent<RemoveEssenceMessageEventResp>(new RemoveEssenceMessageEventReq(groupUin, sequence, random), cancellationToken);
+    }
+
+    public async Task<BotMessage> SendTempMessage(long groupUin, long userUin, MessageChain chain, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(groupUin);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(userUin);
+        ArgumentNullException.ThrowIfNull(chain);
+        if (chain.Count == 0) throw new ArgumentException("Message is empty.", nameof(chain));
+        if (chain.Any(x => x is Lagrange.Core.Message.Entities.PokeEntity)) throw new ArgumentException("Window shake requires a direct private chat.", nameof(chain));
+        ct.ThrowIfCancellationRequested();
+        var target = await context.CacheContext.ResolveStranger(userUin).WaitAsync(ct);
+        var self = new BotFriend(context.BotUin, context.BotInfo?.Name ?? string.Empty, context.Keystore.Uid, string.Empty, string.Empty, string.Empty, null!);
+        var random = (uint)Random.Shared.Next();
+        var message = new BotMessage(chain, self, target, DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+        {
+            TempGroupUin = groupUin, Random = random, MessageId = (0x10000000ul << 32) | random
+        };
+        foreach (var entity in chain) { ct.ThrowIfCancellationRequested(); await entity.Preprocess(context, message).WaitAsync(ct); }
+        var result = await context.EventContext.SendEvent<SendMessageEventResp>(new SendMessageEventReq(message), ct);
+        if (result.Result != 0) throw new OperationException(result.Result, result.ErrorMessage);
+        message.Sequence = result.Sequence;
+        message.Time = result.SendTime;
+        return message;
+    }
+
+    internal static void ValidatePoke(MessageChain chain, bool group)
+    {
+        ArgumentNullException.ThrowIfNull(chain);
+        if (chain.Any(x => x is Lagrange.Core.Message.Entities.PokeEntity) && (group || chain.Count != 1))
+            throw new ArgumentException("Window shake must be the only element in a direct private message.", nameof(chain));
     }
 
     private async Task<BotMessage> BuildMessage(MessageChain chain, BotContact contact, BotContact receiver)
