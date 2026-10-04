@@ -1,10 +1,10 @@
-using Lagrange.Core.Internal.Packets.Message;
-using Lagrange.Core.Internal.Packets.Notify;
-using Lagrange.Core.Message.Entities;
-using Lagrange.Core.Utility;
-using Lagrange.Core.Message;
 using System.IO.Compression;
 using System.Text;
+using Lagrange.Core.Internal.Packets.Message;
+using Lagrange.Core.Internal.Packets.Notify;
+using Lagrange.Core.Message;
+using Lagrange.Core.Message.Entities;
+using Lagrange.Core.Utility;
 
 namespace Lagrange.Core.Test.Protocol;
 
@@ -60,6 +60,14 @@ public sealed class ProtocolMigrationTest
     }
 
     [Test]
+    public void FaceIgnoresUnsignedLegacyIdsOutsideSignedRange()
+    {
+        var elem = new Elem { CustomFace = new CustomFace { BizType = 0, FileId = uint.MaxValue } };
+        var parsed = ((IMessageEntity)new FaceEntity()).Parse([], elem);
+        Assert.That(parsed, Is.Null);
+    }
+
+    [Test]
     public void PokeRoundTripsCommonElement()
     {
         var entity = new PokeEntity(3);
@@ -82,4 +90,3 @@ public sealed class ProtocolMigrationTest
     }
 
 }
-

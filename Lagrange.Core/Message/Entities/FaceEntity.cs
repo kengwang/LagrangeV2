@@ -35,7 +35,13 @@ public sealed class FaceEntity : IMessageEntity
 
         // Keep compatibility with legacy clients which still send CustomFace.
         if (target.CustomFace is { BizType: 0 } legacy)
-            return new FaceEntity { FaceId = checked((int)legacy.FileId), Raw = legacy.Shortcut ?? string.Empty };
+        {
+            // QQ occasionally uses the legacy CustomFace slot for IDs outside
+            // the public signed face range. Preserve the rest of the message
+            // chain by treating those values as an unsupported face.
+            if (legacy.FileId > int.MaxValue) return null;
+            return new FaceEntity { FaceId = (int)legacy.FileId, Raw = legacy.Shortcut ?? string.Empty };
+        }
 
         return null;
     }
