@@ -19,14 +19,18 @@ public sealed class GetQzoneFeedsHandler(BotContext lagrange) : Endpoint<GetQzon
     }
     public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
-        var result = await lagrange.GetQzoneFeeds(request.UserId, request.Position + 1, request.Count, ct).WaitAsync(ct);
+        // Feeds are read from the bot's own Qzone timeline. The legacy
+        // user_id field is accepted for request compatibility but ignored.
+        var result = await lagrange.GetQzoneFeeds(null, request.EffectivePage, request.Count, ct).WaitAsync(ct);
         return new(new Result(result));
     }
-    public sealed class Request(long? userId = null, int position = 0, int count = 20)
+    public sealed class Request(int pageNum = 1, int count = 10, int? position = null, long? userId = null)
     {
+        [JsonPropertyName("page_num")] public int PageNum { get; init; } = pageNum;
+        [JsonPropertyName("position")] public int? Position { get; init; } = position;
         [JsonPropertyName("user_id")] public long? UserId { get; init; } = userId;
-        [JsonPropertyName("position")] public int Position { get; init; } = position;
         [JsonPropertyName("count")] public int Count { get; init; } = count;
+        public int EffectivePage => Position is { } offset ? offset + 1 : PageNum;
     }
     public sealed class Result(Lagrange.Core.Common.Response.BotQzoneFeedResult result)
     {

@@ -15,7 +15,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<UploadGroupAlbumImageEventReq>(Protocols.All)]
 internal sealed class UploadGroupAlbumImageHttpService : HttpService<UploadGroupAlbumImageEventReq, UploadGroupAlbumImageEventResp>
 {
-    public UploadGroupAlbumImageHttpService() : base("qzone.qq.com") { }
 
     public override async Task<UploadGroupAlbumImageEventResp> ExecuteAsync(BotContext context, UploadGroupAlbumImageEventReq request, CancellationToken cancellationToken = default)
     {

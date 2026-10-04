@@ -13,7 +13,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<PublishGroupAnnouncementEventReq>(Protocols.All)]
 internal sealed class PublishGroupAnnouncementHttpService : HttpService<PublishGroupAnnouncementEventReq, PublishGroupAnnouncementEventResp>
 {
-    public PublishGroupAnnouncementHttpService() : base("qun.qq.com", "web.qun.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, PublishGroupAnnouncementEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || string.IsNullOrWhiteSpace(request.Content)) throw new ArgumentException("Group and announcement content are required.");

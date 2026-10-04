@@ -18,10 +18,15 @@ public sealed class GetFriendDressHandler(BotContext lagrange) : Endpoint<GetFri
     }
     public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
-        var result = await lagrange.GetFriendDress(request.TargetUin, ct).WaitAsync(ct);
+        var result = await lagrange.GetFriendDress(request.EffectiveUin, ct).WaitAsync(ct);
         return new(new Result(result));
     }
-    public sealed class Request(long targetUin) { [JsonPropertyName("target_uin")] public long TargetUin { get; init; } = targetUin; }
+    public sealed class Request(long? userId = null, long? targetUin = null)
+    {
+        [JsonPropertyName("user_id")] public long? UserId { get; init; } = userId;
+        [JsonPropertyName("target_uin")] public long? TargetUin { get; init; } = targetUin;
+        public long EffectiveUin => UserId ?? TargetUin ?? 0;
+    }
     public sealed class Result(Lagrange.Core.Common.Response.BotFriendDressResult result)
     {
         [JsonPropertyName("target_uin")] public string TargetUin { get; } = result.TargetUin;

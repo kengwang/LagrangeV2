@@ -14,7 +14,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<GetCollectionEventReq>(Protocols.All)]
 internal sealed class CollectionHttpService : HttpService<GetCollectionEventReq, GetCollectionEventResp>
 {
-    public CollectionHttpService() : base("collector.weiyun.com") { }
 
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetCollectionEventReq request, CancellationToken cancellationToken)
     {
@@ -38,7 +37,8 @@ internal sealed class CollectionHttpService : HttpService<GetCollectionEventReq,
     protected override Task<GetCollectionEventResp> ParseResponseAsync(BotContext context, GetCollectionEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
         var bytes = payload.Span;
-        if (bytes.Length <= 16 || !bytes[..4].SequenceEqual(new byte[] { 0x20, 0x13, 0x03, 0x29 })) throw new HttpServiceException("collection.get_list", "Collection response envelope is invalid.");
+        if (bytes.Length <= 16 || !bytes[..4].SequenceEqual(new byte[] { 0x20, 0x13, 0x03, 0x29 }))
+            throw new HttpServiceException("collection.get_list", $"Collection response envelope is invalid (length={bytes.Length}, prefix={Convert.ToHexString(bytes[..Math.Min(bytes.Length, 16)])}).");
         var bodyLength = BinaryPrimitives.ReadUInt32BigEndian(bytes.Slice(10, 4));
         if (bodyLength == 0 || bodyLength >= bytes.Length - 16) throw new HttpServiceException("collection.get_list", "Collection response body is invalid.");
         var head = ProtoHelper.Deserialize<CollectionResponseHead>(bytes.Slice(16, bytes.Length - 16 - (int)bodyLength));

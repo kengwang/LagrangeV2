@@ -12,7 +12,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<UploadQzoneImageEventReq>(Protocols.All)]
 internal sealed class QzoneUploadHttpService : HttpService<UploadQzoneImageEventReq, UploadQzoneImageEventResp>
 {
-    public QzoneUploadHttpService() : base("qzone.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, UploadQzoneImageEventReq request, CancellationToken cancellationToken)
     {
         if (!request.Image.CanRead) throw new ArgumentException("Image stream is not readable.");

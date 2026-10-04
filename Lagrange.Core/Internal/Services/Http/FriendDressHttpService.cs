@@ -10,18 +10,26 @@ using Lagrange.Core.Services;
 
 namespace Lagrange.Core.Internal.Services.Http;
 
-[HttpServiceAttribute("qzone.friend_dress", "GET", "/v2/pages/aioDressPage", "qzone.qq.com")]
+[HttpServiceAttribute("qzone.friend_dress", "GET", "/v2/pages/aioDressPage", "vip.qq.com")]
 [EventSubscribe<GetFriendDressEventReq>(Protocols.All)]
 internal sealed class FriendDressHttpService : HttpService<GetFriendDressEventReq, GetFriendDressEventResp>
 {
-    public FriendDressHttpService() : base("qzone.qq.com") { }
-    protected override Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetFriendDressEventReq request, CancellationToken cancellationToken)
+    protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetFriendDressEventReq request, CancellationToken cancellationToken)
     {
         if (request.TargetUin <= 0) throw new ArgumentOutOfRangeException(nameof(request.TargetUin));
-        const string trace = "base64-eyJhcHBpZCI6InRvYWlvIiwicGFnZV9pZCI6IjM3IiwiaXRlbV9pZCI6IiIsIml0ZW1fdHlwZSI6IjIifQ%3D%3D";
+        const string trace = "base64-eyJhcHBpZCI6InRvYWlvIiwicGFnZV9pZCI6IjM3IiwiaXRlbV9pZCI6IiIsIml0ZW1fdHlwZSI6%0AIiJ9%0A";
         var inner = $"https://zb.vip.qq.com/v2/pages/aioDressPage?fromPage=1&targetUin={request.TargetUin}&widgetId=0&fontEffectId=0&bgId=custom&chatId={request.TargetUin}&isGroup=0&traceDetail={trace}";
         var url = $"https://zb.vip.qq.com/v2/pages/aioDressPage?fromPage=1&enteranceId=aio&url={Uri.EscapeDataString(inner)}&fontEffectId=0&chatId={request.TargetUin}&widgetId=0&targetUin={request.TargetUin}&isGroup=0&bgId=custom&traceDetail={trace}";
-        return CreateGetRequestAsync(context, new Uri(url), cancellationToken);
+        var httpRequest = await CreateGetRequestAsync(context, new Uri(url), cancellationToken);
+        httpRequest.Headers.Referrer = new Uri($"https://user.qzone.qq.com/{request.TargetUin}");
+        httpRequest.Headers.UserAgent.ParseAdd(
+            "Mozilla/5.0 (Linux; Android 13; 2109119BC Build/TKQ1.221114.001; wv) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/121.0.6167.71 " +
+            "MQQBrowser/6.2 TBS/047925 Mobile Safari/537.36 V1_AND_SQ_9.2.66_13188_YYB_D " +
+            "QQ/9.2.66.33870 NetType/WIFI WebP/0.3.0 AppId/537339358");
+        httpRequest.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        httpRequest.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9");
+        return httpRequest;
     }
     protected override Task<GetFriendDressEventResp> ParseResponseAsync(BotContext context, GetFriendDressEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {

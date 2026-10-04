@@ -14,7 +14,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<UploadGroupAnnouncementImageEventReq>(Protocols.All)]
 internal sealed class UploadGroupAnnouncementImageHttpService : HttpService<UploadGroupAnnouncementImageEventReq, UploadGroupAnnouncementImageEventResp>
 {
-    public UploadGroupAnnouncementImageHttpService() : base("qun.qq.com", "web.qun.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, UploadGroupAnnouncementImageEventReq request, CancellationToken cancellationToken)
     {
         if (!request.Image.CanRead) throw new ArgumentException("Image stream is not readable.");

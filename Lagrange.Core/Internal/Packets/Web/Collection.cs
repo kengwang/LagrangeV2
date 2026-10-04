@@ -9,7 +9,7 @@ namespace Lagrange.Core.Internal.Packets.Web;
 [ProtoPackable] internal partial class CollectionRequestBody { [ProtoMember(1)] public CollectionRequestOperation Operation { get; set; } = new(); }
 [ProtoPackable] internal partial class CollectionResponseHead { [ProtoMember(101)] public int RetCode { get; set; } [ProtoMember(102)] public string? RetMsg { get; set; } }
 [ProtoPackable] internal partial class CollectionResponseOperation { [ProtoMember(20000)] public CollectionListResp? GetCollectionList { get; set; } }
-[ProtoPackable] internal partial class CollectionResponseBody { [ProtoMember(2)] public CollectionResponseOperation Operation { get; set; } = new(); }
+[ProtoPackable] internal partial class CollectionResponseBody { [ProtoMember(1)] public CollectionResponseOperation Operation { get; set; } = new(); }
 [ProtoPackable] internal partial class CollectionListResp { [ProtoMember(1)] public List<CollectionItem>? Items { get; set; } [ProtoMember(2)] public uint TotalCount { get; set; } [ProtoMember(3)] public uint ReachedBottom { get; set; } }
 [ProtoPackable] internal partial class CollectionItem { [ProtoMember(1)] public string? Id { get; set; } [ProtoMember(2)] public uint Type { get; set; } [ProtoMember(9)] public ulong CreateTime { get; set; } [ProtoMember(10)] public ulong CollectTime { get; set; } [ProtoMember(11)] public ulong ModifyTime { get; set; } [ProtoMember(15)] public CollectionSummary? Summary { get; set; } [ProtoMember(18)] public string? ShareUrl { get; set; } [ProtoMember(4)] public CollectionAuthor? Author { get; set; } }
 [ProtoPackable] internal partial class CollectionAuthor { [ProtoMember(2)] public ulong NumId { get; set; } [ProtoMember(6)] public string? Uid { get; set; } }

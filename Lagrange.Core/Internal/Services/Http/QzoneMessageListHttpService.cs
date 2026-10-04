@@ -13,12 +13,41 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<GetQzoneMessageListEventReq>(Protocols.All)]
 internal sealed class QzoneMessageListHttpService : HttpService<GetQzoneMessageListEventReq, GetQzoneMessageListEventResp>
 {
-    public QzoneMessageListHttpService() : base("qzone.qq.com") { }
+    public override async Task<GetQzoneMessageListEventResp> ExecuteAsync(BotContext context, GetQzoneMessageListEventReq request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.ExecuteAsync(context, request, cancellationToken);
+        }
+        catch (HttpServiceException exception) when (exception.BusinessCode == -10000)
+        {
+            // The h5 gateway is frequently rate-limited. Retry through the
+            // user.qzone.qq.com proxy, which is a separate route.
+            using var fallback = await BuildFallbackRequestAsync(context, request, cancellationToken);
+            await PrepareRequestAsync(context, fallback, cancellationToken);
+            using var response = await context.HttpSessionContext.SendAsync(fallback, cancellationToken);
+            var payload = await context.HttpSessionContext.ReadResponseAsync(response, cancellationToken);
+            return await ParseResponseAsync(context, request, response, payload, cancellationToken);
+        }
+    }
+
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetQzoneMessageListEventReq request, CancellationToken cancellationToken)
+        => await BuildRequestAsync(context, request, cancellationToken, false);
+
+    private async Task<HttpRequestMessage> BuildFallbackRequestAsync(BotContext context, GetQzoneMessageListEventReq request, CancellationToken cancellationToken)
+        => await BuildRequestAsync(context, request, cancellationToken, true);
+
+    private async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetQzoneMessageListEventReq request, CancellationToken cancellationToken, bool fallback)
     {
         if (request.UserUin <= 0 || request.Position < 0 || request.Count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
-        var query = $"uin={request.UserUin}&ftype=0&sort=0&pos={request.Position}&num={request.Count}&replynum=100&callback=_preloadCallback&code_version=1&format=jsonp&need_private_comment=1";
-        return await CreateGetRequestAsync(context, new Uri($"https://h5.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_msglist_v6?{query}"), cancellationToken);
+        var query = fallback
+            ? $"uin={request.UserUin}&ftype=0&sort=0&pos={request.Position}&num={request.Count}&code_version=1&format=json"
+            : $"uin={request.UserUin}&ftype=0&sort=0&pos={request.Position}&num={request.Count}&replynum=100&callback=_preloadCallback&code_version=1&format=jsonp&need_private_comment=1";
+        var host = fallback ? "https://user.qzone.qq.com/proxy/domain/taotao.qq.com/cgi-bin/emotion_cgi_msglist_v6" : "https://h5.qzone.qq.com/proxy/domain/taotao.qzone.qq.com/cgi-bin/emotion_cgi_msglist_v6";
+        var httpRequest = await CreateGetRequestAsync(context, new Uri($"{host}?{query}"), cancellationToken);
+        if (fallback)
+            httpRequest.Headers.Referrer = new Uri($"https://user.qzone.qq.com/{request.UserUin}");
+        return httpRequest;
     }
 
     protected override Task<GetQzoneMessageListEventResp> ParseResponseAsync(BotContext context, GetQzoneMessageListEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)

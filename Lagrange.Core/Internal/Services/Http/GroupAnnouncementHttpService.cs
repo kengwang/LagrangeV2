@@ -13,7 +13,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<GetGroupAnnouncementsEventReq>(Protocols.All)]
 internal sealed class GetGroupAnnouncementsHttpService : HttpService<GetGroupAnnouncementsEventReq, GetGroupAnnouncementsEventResp>
 {
-    public GetGroupAnnouncementsHttpService() : base("qun.qq.com", "web.qun.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetGroupAnnouncementsEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || request.Count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
@@ -37,7 +36,6 @@ internal sealed class GetGroupAnnouncementsHttpService : HttpService<GetGroupAnn
 [EventSubscribe<DeleteGroupAnnouncementEventReq>(Protocols.All)]
 internal sealed class DeleteGroupAnnouncementHttpService : HttpService<DeleteGroupAnnouncementEventReq, DeleteGroupAnnouncementEventResp>
 {
-    public DeleteGroupAnnouncementHttpService() : base("qun.qq.com", "web.qun.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, DeleteGroupAnnouncementEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || string.IsNullOrWhiteSpace(request.AnnouncementId)) throw new ArgumentException("Group and announcement id are required.");

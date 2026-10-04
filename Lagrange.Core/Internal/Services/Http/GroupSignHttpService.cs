@@ -13,7 +13,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<GetGroupSignInEventReq>(Protocols.All)]
 internal sealed class GroupSignHttpService : HttpService<GetGroupSignInEventReq, GetGroupSignInEventResp>
 {
-    public GroupSignHttpService() : base("qun.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetGroupSignInEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0) throw new ArgumentOutOfRangeException(nameof(request.GroupUin));

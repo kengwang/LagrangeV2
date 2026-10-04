@@ -12,7 +12,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<GetGroupEssenceEventReq>(Protocols.All)]
 internal sealed class GroupEssenceHttpService : HttpService<GetGroupEssenceEventReq, GetGroupEssenceEventResp>
 {
-    public GroupEssenceHttpService() : base("qun.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetGroupEssenceEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || request.PageStart < 0 || request.PageLimit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));

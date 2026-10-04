@@ -15,12 +15,16 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<GetQzoneFeedsEventReq>(Protocols.All)]
 internal sealed class QzoneFeedsHttpService : HttpService<GetQzoneFeedsEventReq, GetQzoneFeedsEventResp>
 {
-    public QzoneFeedsHttpService() : base("qzone.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetQzoneFeedsEventReq request, CancellationToken cancellationToken)
     {
         if (request.UserUin <= 0 || request.Page < 1 || request.Count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
         var query = $"uin={request.UserUin}&scope=0&view=1&filter=all&flag=1&applist=all&pagenum={request.Page}&count={request.Count}&aisortEndTime=0&aisortOffset=0&aisortBeginTime=0&begintime=0&callback=_preloadCallback&format=jsonp&useutf8=1&outputhtmlfeed=1";
-        return await CreateGetRequestAsync(context, new Uri($"https://h5.qzone.qq.com/proxy/domain/ic2.qzone.qq.com/cgi-bin/feeds/feeds3_html_more?{query}"), cancellationToken);
+        var httpRequest = await CreateGetRequestAsync(context, new Uri($"https://h5.qzone.qq.com/proxy/domain/ic2.qzone.qq.com/cgi-bin/feeds/feeds3_html_more?{query}"), cancellationToken);
+        httpRequest.Headers.Referrer = new Uri($"https://user.qzone.qq.com/{request.UserUin}");
+        httpRequest.Headers.TryAddWithoutValidation("Origin", "https://user.qzone.qq.com");
+        httpRequest.Headers.TryAddWithoutValidation("Accept", "*/*");
+        httpRequest.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9");
+        return httpRequest;
     }
 
     protected override async Task<GetQzoneFeedsEventResp> ParseResponseAsync(BotContext context, GetQzoneFeedsEventReq request, HttpResponseMessage response, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)

@@ -11,7 +11,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<SetQzoneLikeEventReq>(Protocols.All)]
 internal sealed class QzoneLikeHttpService : HttpService<SetQzoneLikeEventReq, SetQzoneLikeEventResp>
 {
-    public QzoneLikeHttpService() : base("qzone.qq.com") { }
 
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, SetQzoneLikeEventReq request, CancellationToken cancellationToken)
     {

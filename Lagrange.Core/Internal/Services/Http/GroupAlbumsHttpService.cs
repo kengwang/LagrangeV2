@@ -13,7 +13,6 @@ namespace Lagrange.Core.Internal.Services.Http;
 [EventSubscribe<GetGroupAlbumsEventReq>(Protocols.All)]
 internal sealed class GroupAlbumsHttpService : HttpService<GetGroupAlbumsEventReq, GetGroupAlbumsEventResp>
 {
-    public GroupAlbumsHttpService() : base("qzone.qq.com") { }
     protected override async Task<HttpRequestMessage> BuildRequestAsync(BotContext context, GetGroupAlbumsEventReq request, CancellationToken cancellationToken)
     {
         if (request.GroupUin <= 0 || request.AttachInfo.Length > 4096) throw new ArgumentOutOfRangeException(nameof(request));

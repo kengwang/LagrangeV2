@@ -1,6 +1,5 @@
 using Lagrange.Core.Internal.Context;
 using Lagrange.Core.Events;
-using System.Net.Http.Headers;
 using Lagrange.Core.Internal.Http;
 
 namespace Lagrange.Core.Services;
@@ -11,15 +10,11 @@ public abstract class HttpService<TRequest, TResponse> : IHttpService
     where TResponse : ProtocolEvent
 {
     private static readonly HttpRequestOptionsKey<bool> AuthPrepared = new("Lagrange.HttpService.AuthPrepared");
-    private readonly IReadOnlyList<string> _cookieDomains;
     private HttpServiceAttribute? _metadata;
     void IHttpService.Configure(HttpServiceAttribute metadata) => _metadata = metadata;
     private HttpServiceAttribute Metadata => _metadata ?? throw new InvalidOperationException("HTTP service metadata must be configured by the generated registry.");
 
-    protected HttpService(params string[] cookieDomains)
-    {
-        _cookieDomains = cookieDomains ?? throw new ArgumentNullException(nameof(cookieDomains));
-    }
+    protected HttpService() { }
 
     public virtual async Task<TResponse> ExecuteAsync(BotContext context, TRequest request, CancellationToken cancellationToken = default)
     {
@@ -40,45 +35,36 @@ public abstract class HttpService<TRequest, TResponse> : IHttpService
         await context.HttpSessionContext.PrepareRequestAsync(message, domains, ct);
         string? pskey = null;
         string? skey = null;
-        if ((metadata.AuthInjection & (HttpAuthInjection.UrlBknFromPSkey | HttpAuthInjection.FormBknFromPSkey | HttpAuthInjection.FormCredentials)) != 0 || metadata.BodyPSkeyPath is not null)
+        if (metadata.RequiresPSkey)
             pskey = await context.HttpSessionContext.GetPSkeyAsync(domains[0], ct);
-        if ((metadata.AuthInjection & (HttpAuthInjection.UrlBknFromSkey | HttpAuthInjection.FormBknFromSkey | HttpAuthInjection.FormCredentials)) != 0)
+        if (metadata.RequiresSkey)
             skey = await context.HttpSessionContext.GetSkeyAsync(ct);
         await HttpRequestAuthentication.ApplyAsync(message, metadata, pskey, skey, ct);
         message.Options.Set(AuthPrepared, true);
     }
 
     protected async Task<HttpRequestMessage> CreateGetRequestAsync(BotContext context, Uri url, CancellationToken ct)
-    {
-        var request = CreateGetRequest(url);
-        await PrepareRequestAsync(context, request, ct);
-        return request;
-    }
+        => await CreatePreparedRequestAsync(context, HttpMethod.Get, url, null, ct);
 
     protected async Task<HttpRequestMessage> CreateFormRequestAsync(BotContext context, HttpMethod method, Uri url, IEnumerable<KeyValuePair<string, string?>> fields, CancellationToken ct)
-    {
-        var request = CreateFormRequest(method, url, fields);
-        await PrepareRequestAsync(context, request, ct);
-        return request;
-    }
+        => await CreatePreparedRequestAsync(context, method, url, CreateFormContent(fields), ct);
 
     protected async Task<HttpRequestMessage> CreateRequestAsync(BotContext context, HttpMethod method, Uri url, HttpContent content, CancellationToken ct)
+        => await CreatePreparedRequestAsync(context, method, url, content, ct);
+
+    protected async Task<HttpRequestMessage> CreateJsonRequestAsync(BotContext context, HttpMethod method, Uri url, ReadOnlyMemory<byte> payload, CancellationToken ct)
+        => await CreatePreparedRequestAsync(context, method, url, CreateJsonContent(payload), ct);
+
+    private async Task<HttpRequestMessage> CreatePreparedRequestAsync(BotContext context, HttpMethod method, Uri url, HttpContent? content, CancellationToken ct)
     {
         var request = CreateRequest(method, url, content);
         await PrepareRequestAsync(context, request, ct);
         return request;
     }
 
-    protected async Task<HttpRequestMessage> CreateJsonRequestAsync(BotContext context, HttpMethod method, Uri url, ReadOnlyMemory<byte> payload, CancellationToken ct)
-    {
-        var request = CreateJsonRequest(method, url, payload);
-        await PrepareRequestAsync(context, request, ct);
-        return request;
-    }
-
     // Binary ticket protocols embed their authentication inside a protobuf payload.
     protected Task<string> GetTicketAsync(BotContext context, CancellationToken ct) =>
-        context.HttpSessionContext.GetPSkeyAsync(Metadata.CookieDomains.FirstOrDefault() ?? "collector.weiyun.com", ct);
+        context.HttpSessionContext.GetPSkeyAsync(Metadata.CookieDomains.FirstOrDefault() ?? "weiyun.com", ct);
 
     protected async Task<ReadOnlyMemory<byte>> SendRequestAsync(BotContext context, HttpRequestMessage message, CancellationToken cancellationToken)
     {
@@ -96,16 +82,22 @@ public abstract class HttpService<TRequest, TResponse> : IHttpService
     protected HttpRequestMessage CreateGetRequest(Uri? url = null) => CreateRequest(HttpMethod.Get, url);
 
     protected HttpRequestMessage CreateFormRequest(HttpMethod method, Uri? url = null, IEnumerable<KeyValuePair<string, string?>>? fields = null)
+        => CreateRequest(method, url, CreateFormContent(fields));
+
+    private static FormUrlEncodedContent CreateFormContent(IEnumerable<KeyValuePair<string, string?>>? fields)
     {
         var values = (fields ?? []).ToDictionary(pair => pair.Key, pair => pair.Value ?? string.Empty, StringComparer.Ordinal);
-        return CreateRequest(method, url, new FormUrlEncodedContent(values));
+        return new FormUrlEncodedContent(values);
     }
 
     protected HttpRequestMessage CreateJsonRequest(HttpMethod method, Uri? url = null, ReadOnlyMemory<byte> payload = default)
+        => CreateRequest(method, url, CreateJsonContent(payload));
+
+    private static ByteArrayContent CreateJsonContent(ReadOnlyMemory<byte> payload)
     {
         var content = new ByteArrayContent(payload.ToArray());
         content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-        return CreateRequest(method, url, content);
+        return content;
     }
 
     Type IHttpService.RequestType => typeof(TRequest);

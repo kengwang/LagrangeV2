@@ -22,7 +22,6 @@ internal sealed class HttpSessionContext : IDisposable
         {
             Timeout = TimeSpan.FromSeconds(30)
         };
-        _client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("LagrangeV2", "1.0"));
     }
 
     public TimeSpan Timeout { get => _client.Timeout; set => _client.Timeout = value; }
@@ -47,15 +46,40 @@ internal sealed class HttpSessionContext : IDisposable
     {
         if (domains.Count == 0) return;
         var pSkeys = await Task.WhenAll(domains.Select(CookieSourceDomain).Distinct(StringComparer.OrdinalIgnoreCase).Select(domain => GetPSkeyAsync(domain, cancellationToken)));
-        var cookies = new List<string>();
-        foreach (var domain in domains.Select(CookieSourceDomain).Distinct(StringComparer.OrdinalIgnoreCase))
-            foreach (Cookie cookie in _cookies.GetCookies(new Uri($"https://{domain}/"))) cookies.Add($"{cookie.Name}={cookie.Value}");
-        foreach (var pskey in pSkeys) if (!cookies.Any(x => x.StartsWith("p_skey=", StringComparison.Ordinal))) cookies.Add($"p_skey={pskey}");
-        var skey = await GetSkeyAsync(cancellationToken);
-        if (!string.IsNullOrWhiteSpace(skey) && !cookies.Any(x => x.StartsWith("skey=", StringComparison.Ordinal))) cookies.Add($"skey={skey}");
-        cookies.Add($"p_uin=o{_context.BotUin}");
-        cookies.Add($"uin=o{_context.BotUin}");
-        message.Headers.TryAddWithoutValidation("Cookie", string.Join("; ", cookies));
+        // The handler owns the Cookie header. The web endpoint expects cookies
+        // from one jump exchange as a single jar; manually adding a second Cookie
+        // header here makes HttpClient append the jar a second time and can
+        // leave Qzone with two different p_skey values.
+        var sourceDomains = domains.Select(CookieSourceDomain).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var destination = message.RequestUri?.Host ?? sourceDomains[0];
+        foreach (var domain in sourceDomains)
+        {
+            if (_cookies.GetCookies(new Uri($"https://{domain}/"))["p_skey"] is null)
+                SetCookie(domain, "p_skey", pSkeys[Array.IndexOf(sourceDomains, domain)]);
+            if (_cookies.GetCookies(new Uri($"https://{destination}/"))["p_skey"] is null)
+                SetCookie(destination, "p_skey", pSkeys[Array.IndexOf(sourceDomains, domain)]);
+            // ptlogin2 may set auxiliary cookies on ssl.ptlogin2.qq.com or
+            // .qq.com. Forward the complete jump result to the destination,
+            // mirroring those non-ticket cookies into the
+            // destination jar instead of relying on domain matching.
+            foreach (var origin in new[] { "ssl.ptlogin2.qq.com", "qq.com", "qzone.qq.com", "vip.qq.com", "qun.qq.com" })
+            foreach (Cookie cookie in _cookies.GetCookies(new Uri($"https://{origin}/")))
+            {
+                if (cookie.Name is "p_skey" or "skey") continue;
+                if (_cookies.GetCookies(new Uri($"https://{domain}/"))[cookie.Name] is null)
+                    SetCookie(domain, cookie.Name, cookie.Value);
+                if (_cookies.GetCookies(new Uri($"https://{destination}/"))[cookie.Name] is null)
+                    SetCookie(destination, cookie.Name, cookie.Value);
+            }
+            if (_cookies.GetCookies(new Uri($"https://{domain}/"))["p_uin"] is null)
+                SetCookie(domain, "p_uin", $"o{_context.BotUin}");
+            if (_cookies.GetCookies(new Uri($"https://{domain}/"))["uin"] is null)
+                SetCookie(domain, "uin", $"o{_context.BotUin}");
+            if (_cookies.GetCookies(new Uri($"https://{destination}/"))["p_uin"] is null)
+                SetCookie(destination, "p_uin", $"o{_context.BotUin}");
+            if (_cookies.GetCookies(new Uri($"https://{destination}/"))["uin"] is null)
+                SetCookie(destination, "uin", $"o{_context.BotUin}");
+        }
     }
 
     internal async Task<string> GetPSkeyAsync(string domain, CancellationToken cancellationToken)
@@ -92,8 +116,8 @@ internal sealed class HttpSessionContext : IDisposable
     {
         var clientKey = await _context.EventContext.SendEvent<FetchClientKeyEventResp>(new FetchClientKeyEventReq(), cancellationToken);
         if (string.IsNullOrWhiteSpace(clientKey.ClientKey)) return string.Empty;
-        const string jumpTarget = "https%3A%2F%2Fh5.qzone.qq.com%2Fqqnt%2Fqzoneinpcqq%2Ffriend%3Frefresh%3D0%26clientuin%3D0%26darkMode%3D0&keyindex=19&random=2599";
-        var url = $"https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin={_context.BotUin}&clientkey={clientKey.ClientKey}&u1={jumpTarget}";
+        var jumpTarget = Uri.EscapeDataString("https://h5.qzone.qq.com/qqnt/qzoneinpcqq/friend?refresh=0&clientuin=0&darkMode=0");
+        var url = $"https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin={_context.BotUin}&clientkey={Uri.EscapeDataString(clientKey.ClientKey)}&u1={jumpTarget}&keyindex={clientKey.KeyType}";
         using var response = await _client.GetAsync(url, cancellationToken);
         // ptlogin2 may answer with a redirect or a non-success status while
         // still setting the cookie jar. The cookie, not the body status, is
@@ -122,15 +146,36 @@ internal sealed class HttpSessionContext : IDisposable
 
     private async Task<string> FetchPSkeyAsync(string domain, CancellationToken cancellationToken)
     {
-        var response = await _context.EventContext.SendEvent<FetchCookiesEventResp>(new FetchCookiesEventReq([domain]), cancellationToken);
-        if (response.Cookies.TryGetValue(domain, out var pskey) && !string.IsNullOrWhiteSpace(pskey)) return pskey;
+        // Match the web client flow: the ptlogin jump populates the cookie jar
+        // for the requested domain before falling back to OIDB p_skey.
+        var clientKey = await _context.EventContext.SendEvent<FetchClientKeyEventResp>(new FetchClientKeyEventReq(), cancellationToken);
+        if (!string.IsNullOrWhiteSpace(clientKey.ClientKey))
+        {
+            var jumpTarget = Uri.EscapeDataString($"https://{domain}/{_context.BotUin}/infocenter");
+            var url = $"https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin={_context.BotUin}&clientkey={Uri.EscapeDataString(clientKey.ClientKey)}&u1={jumpTarget}&keyindex={clientKey.KeyType}";
+            using var response = await _client.GetAsync(url, cancellationToken);
+            if (_cookies.GetCookies(new Uri($"https://{domain}/"))["p_skey"] is { Value.Length: > 0 } jumped)
+            {
+                return jumped.Value;
+            }
+        }
+        var cookieResponse = await _context.EventContext.SendEvent<FetchCookiesEventResp>(new FetchCookiesEventReq([domain]), cancellationToken);
+        cookieResponse.Cookies.TryGetValue(domain, out var oidbPskey);
+        if (!string.IsNullOrWhiteSpace(oidbPskey))
+        {
+            SetCookie(domain, "p_skey", oidbPskey);
+            return oidbPskey;
+        }
         if (_cookies.GetCookies(new Uri($"https://{domain}/"))["p_skey"] is { Value.Length: > 0 } cookie) return cookie.Value;
         throw new Lagrange.Core.Exceptions.HttpServiceException(domain, "Cookie service did not return p_skey.");
     }
 
     internal async Task<ReadOnlyMemory<byte>> ReadResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        if (!response.IsSuccessStatusCode) throw new Lagrange.Core.Exceptions.HttpServiceException(response.RequestMessage?.RequestUri?.Host ?? "http", $"HTTP request failed with status {(int)response.StatusCode}.", (int)response.StatusCode);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Lagrange.Core.Exceptions.HttpServiceException(response.RequestMessage?.RequestUri?.Host ?? "http", $"HTTP request failed with status {(int)response.StatusCode}.", (int)response.StatusCode);
+        }
         if (response.Content.Headers.ContentLength is > MaxResponseBytes) throw new Lagrange.Core.Exceptions.HttpServiceException(response.RequestMessage?.RequestUri?.Host ?? "http", "HTTP response exceeds the configured size limit.", (int)response.StatusCode);
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var buffer = new MemoryStream();
