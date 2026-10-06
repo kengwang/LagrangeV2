@@ -6,18 +6,18 @@ public sealed class FaceIncomingSegment : IncomingSegmentBase<FaceIncomingSegmen
 
 public sealed class FaceIncomingSegmentData
 {
-    [JsonPropertyName("large")] public bool Large { get; init; } = true;
+    [JsonPropertyName("is_large")] public bool Large { get; init; }
     [JsonPropertyName("result_id")] public string? ResultId { get; init; }
-    [JsonPropertyName("face_id")] public required uint FaceId { get; init; }
-    [JsonPropertyName("raw")] public required string Raw { get; init; }
+    [JsonPropertyName("face_id")] public required string FaceId { get; init; }
+    [JsonPropertyName("raw")] public string Raw { get; init; } = string.Empty;
 }
 
 public sealed class FaceOutgoingSegment : OutgoingSegmentBase<FaceOutgoingSegmentData>;
 
 public sealed class FaceOutgoingSegmentData
 {
-    [JsonPropertyName("large")] public bool Large { get; init; } = true;
+    [JsonPropertyName("is_large")] public bool Large { get; init; }
     [JsonPropertyName("result_id")] public string? ResultId { get; init; }
-    [JsonPropertyName("face_id")] public required uint FaceId { get; init; }
+    [JsonPropertyName("face_id")] public required string FaceId { get; init; }
     [JsonPropertyName("raw")] public string? Raw { get; init; }
 }

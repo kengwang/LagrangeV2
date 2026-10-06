@@ -44,7 +44,7 @@ public partial class MilkyConverter
         FaceEntity { FaceId: 359, ResultId: null } face => new RpsIncomingSegment { Data = new RpsIncomingSegmentData { FaceId = face.FaceId } },
         FaceEntity face => new FaceIncomingSegment
         {
-            Data = new FaceIncomingSegmentData { FaceId = face.FaceId, Large = face.Large, ResultId = face.ResultId, Raw = face.Raw }
+            Data = new FaceIncomingSegmentData { FaceId = face.FaceId.ToString(System.Globalization.CultureInfo.InvariantCulture), Large = face.Large, ResultId = face.ResultId, Raw = face.Raw }
         },
         XmlEntity xml => new XmlIncomingSegment
         {
@@ -282,7 +282,7 @@ public partial class MilkyConverter
         ),
         ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
-        FaceOutgoingSegment face => new FaceEntity { FaceId = face.Data.FaceId, Large = face.Data.Large, ResultId = face.Data.ResultId, Raw = face.Data.Raw ?? string.Empty },
+        FaceOutgoingSegment face => new FaceEntity { FaceId = uint.Parse(face.Data.FaceId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture), Large = face.Data.Large, ResultId = face.Data.ResultId, Raw = face.Data.Raw ?? string.Empty },
         MarketFaceOutgoingSegment marketFace => new MarketFaceEntity
         {
             FaceId = marketFace.Data.FaceId,
@@ -391,7 +391,7 @@ public partial class MilkyConverter
         ), // TODO: Unable to upload due to a bug in the core.
         ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
-        FaceOutgoingSegment face => new FaceEntity { FaceId = face.Data.FaceId, Large = face.Data.Large, ResultId = face.Data.ResultId, Raw = face.Data.Raw ?? string.Empty },
+        FaceOutgoingSegment face => new FaceEntity { FaceId = uint.Parse(face.Data.FaceId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture), Large = face.Data.Large, ResultId = face.Data.ResultId, Raw = face.Data.Raw ?? string.Empty },
         MarketFaceOutgoingSegment marketFace => new MarketFaceEntity
         {
             FaceId = marketFace.Data.FaceId,
