@@ -57,15 +57,21 @@ internal class RichTextMsgProcessor : MsgPushProcessorBase
         using var document = JsonDocument.Parse(app.Payload);
         var root = document.RootElement;
 
-        string? bizsrc = root.GetProperty("bizsrc").GetString();
-        if (app.AppName == "com.tencent.qun.invite" && bizsrc != "qun.invite") return false;
+        if (root.ValueKind != JsonValueKind.Object) return false;
+        if (app.AppName == "com.tencent.qun.invite" &&
+            (!root.TryGetProperty("bizsrc", out var bizsrc) ||
+             bizsrc.ValueKind != JsonValueKind.String || bizsrc.GetString() != "qun.invite")) return false;
 
-        string? url = root.GetProperty("meta").GetProperty("news").GetProperty("jumpUrl").GetString();
-        if (url == null) throw new Exception($"TryHandleQunInvite failed! LightApp: {app.Payload}");
+        // com.tencent.tuwen.lua is also used by ordinary shares, such as QQ Music.
+        // Only consume the card when it contains valid group invitation parameters.
+        if (!root.TryGetProperty("meta", out var meta) || meta.ValueKind != JsonValueKind.Object ||
+            !meta.TryGetProperty("news", out var news) || news.ValueKind != JsonValueKind.Object ||
+            !news.TryGetProperty("jumpUrl", out var jumpUrl) || jumpUrl.ValueKind != JsonValueKind.String ||
+            !Uri.TryCreate(jumpUrl.GetString(), UriKind.Absolute, out var url)) return false;
 
-        var query = HttpUtility.ParseQueryString(new Uri(url).Query);
-        long uin = uint.Parse(query["groupcode"] ?? throw new Exception($"TryHandleQunInvite failed! LightApp: {app.Payload}"));
-        ulong sequence = ulong.Parse(query["msgseq"] ?? throw new Exception($"TryHandleQunInvite failed! LightApp: {app.Payload}"));
+        var query = HttpUtility.ParseQueryString(url.Query);
+        if (!uint.TryParse(query["groupcode"], out var uin) ||
+            !ulong.TryParse(query["msgseq"], out var sequence)) return false;
 
         context.EventInvoker.PostEvent(new BotGroupInviteNotificationEvent(new BotGroupInviteNotification(
             uin,
