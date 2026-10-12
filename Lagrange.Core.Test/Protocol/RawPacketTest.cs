@@ -120,6 +120,71 @@ public sealed class RawPacketTest
     }
 
     [Test]
+    public async Task SlowRawEventHandlerDoesNotBlockResponseMatching()
+    {
+        using var bot = Bot();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bot.EventInvoker.RegisterEvent<BotPacketReceivedEvent>(async (_, _) =>
+        {
+            entered.TrySetResult();
+            await release.Task;
+            completed.TrySetResult();
+        });
+        PacketContext? packets = null;
+        using (packets = new PacketContext(bot, (_, _) =>
+        {
+            packets!.DispatchPacket(Frame(Response(13)));
+            return ValueTask.CompletedTask;
+        }))
+        {
+            try
+            {
+                var response = await packets.SendRawPacket(Packet(13), true, default).AsTask().WaitAsync(TimeSpan.FromSeconds(3));
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+                Assert.That(response!.Sequence, Is.EqualTo(13));
+                Assert.That(completed.Task.IsCompleted, Is.False);
+                Assert.That(packets.PendingCount, Is.Zero);
+            }
+            finally
+            {
+                release.TrySetResult();
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            }
+        }
+    }
+
+    [Test]
+    public async Task BlacklistedPacketStillReturnsResponseWithoutRawEventOrPacketLogs()
+    {
+        using var bot = BotFactory.Create(new BotConfig
+        {
+            LogLevel = LogLevel.Trace,
+            RawPacketCommandBlacklist = new HashSet<string>(StringComparer.Ordinal) { "Unknown.RawCommand" }
+        }, new BotKeystore(), BotAppInfo.ProtocolToAppInfo[Protocols.Linux]);
+        var events = new EventRecorder();
+        var logs = new ConcurrentQueue<BotLogEvent>();
+        bot.EventInvoker.RegisterEvent<BotPacketReceivedEvent>(events.Record);
+        bot.EventInvoker.RegisterEvent<BotLogEvent>((_, log) => logs.Enqueue(log));
+        PacketContext? packets = null;
+        using (packets = new PacketContext(bot, (_, _) =>
+        {
+            packets!.DispatchPacket(Frame(Response(14, 7)));
+            return ValueTask.CompletedTask;
+        }))
+        {
+            var response = await packets.SendRawPacket(Packet(14), true, default).AsTask().WaitAsync(TimeSpan.FromSeconds(3));
+            // Give asynchronously posted diagnostics/events a chance to expose a regression.
+            await Task.Delay(100);
+            Assert.That(response!.RetCode, Is.EqualTo(7));
+            Assert.That(packets.PendingCount, Is.Zero);
+            Assert.That(events.Count, Is.Zero);
+            Assert.That(logs.Any(x => x.Message.Contains("Unknown.RawCommand", StringComparison.Ordinal)), Is.False);
+        }
+    }
+
+    [Test]
     public async Task NoResponseModeWaitsForTheWriteAndCreatesNoPendingEntry()
     {
         using var bot = Bot();

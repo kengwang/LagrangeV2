@@ -22,6 +22,37 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 
 ## Feature List
 
+### Logging
+
+Milky uses Serilog for text console logs and an optional JSON Lines file sink.
+Existing `Logging:LogLevel` defaults and category overrides apply to both outputs.
+To enable file logging, add this to the `Logging` section of `appsettings.json`:
+
+```json
+"JsonFile": {
+  "Enabled": true,
+  "Path": "logs/milky-.jsonl",
+  "RetainedFileCountLimit": 7,
+  "FileSizeLimitBytes": 104857600
+}
+```
+
+File logging is disabled by default. Relative paths resolve against the application's
+content root; absolute paths are supported. Files roll daily (for example,
+`milky-20261012.jsonl`) and on reaching the size limit (100 MiB by default).
+Retention counts files, including size-based rolls, rather than days.
+Each line is an independent JSON object containing timestamp, level, message template,
+rendered message, structured properties (including logger category and scopes), and
+exception details when present. Writes are flushed per event; the logger is disposed
+after the host on shutdown. File sink failures are reported directly to standard error;
+console logging continues.
+
+Restart Milky after changing file settings. Standard configuration overrides work,
+for example `Logging__JsonFile__Enabled=true`. The Banner, QR code graphics and scan
+links for login, new-device verification and online captcha use `Console.WriteLine`
+directly and are excluded from the log sinks. Scan status, login results, SMS prompts
+and other captcha prompts remain log events.
+
 ### Raw SSO packets (Lagrange extension)
 
 `POST /api/send_packet` sends an arbitrary binary SSO payload over the bot's
@@ -51,10 +82,17 @@ To receive raw packets, explicitly enable this setting in `appsettings.json`
 and restart Milky:
 
 ```json
-{"Milky":{"Event":{"EnableRawPacketEvents":true}}}
+{"Milky":{"Event":{"EnableRawPacketEvents":true,"RawPacketCommandBlacklist":["Heartbeat.Alive"]}}}
 ```
 
-The default is `false`. When enabled, all successfully parsed incoming SSO packets
+The default is `false`. The bundled configuration sets `RawPacketCommandBlacklist`
+to `["Heartbeat.Alive"]`; when omitted it defaults to `[]`. It matches
+complete command names case-sensitively. Listed commands produce no raw packet
+events or packet send/receive diagnostics (including unknown-command diagnostics).
+Their responses and normal QQ business processing remain active. The blacklist
+also suppresses packet diagnostics when raw events are disabled.
+
+When enabled, all other successfully parsed incoming SSO packets
 (responses, heartbeats, server pushes and unknown commands) produce
 `packet_received` events on the enabled WebSocket, SSE and WebHook transports:
 
@@ -65,9 +103,12 @@ The default is `false`. When enabled, all successfully parsed incoming SSO packe
 `time` is the local receipt time in Unix seconds. Data is decrypted, decompressed
 and encoded as uppercase hexadecimal. Original encrypted TCP frames, outbound
 packet events and historical capture are not included. Events use the existing
-bounded queues: delivery is best effort and does not guarantee lossless capture
+bounded queues (4096 events per subscriber by default): delivery is best effort and does not guarantee lossless capture
 or strict packet order. Enabling this option forwards all packet contents to
 your configured event consumers.
+Raw event handlers run asynchronously; receiving packets and matching API responses
+never wait for event delivery. The original SSO `sequence` is preserved; no additional
+packet ordering field is introduced.
 
 - Api
   - [x] Http

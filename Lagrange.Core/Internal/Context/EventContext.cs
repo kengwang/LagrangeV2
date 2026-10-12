@@ -117,11 +117,13 @@ internal class EventContext : IDisposable
         }
         catch (ServiceNotFoundException e)
         {
-            _context.LogDebug(Tag, "Service not found for command: {0}", e.Command);
+            if (!_context.Config.RawPacketCommandBlacklist.Contains(packet.Command))
+                _context.LogDebug(Tag, "Service not found for command: {0}", e.Command);
         }
         catch (Exception e)
         {
-            _context.LogError(Tag, "Handle {0} server packet failed", e, packet.Command);
+            if (!_context.Config.RawPacketCommandBlacklist.Contains(packet.Command))
+                _context.LogError(Tag, "Handle {0} server packet failed", e, packet.Command);
         }
     }
 

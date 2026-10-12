@@ -57,14 +57,19 @@ public sealed class GetHistoryMessagesHandler(BotContext lagrange, MilkyConverte
             incomingMessages[i] = await _converter.ToIncomingMessageAsync(messages[i], ct);
         }
 
-        long? nextSequence = incomingMessages.Min(m => m.MessageSeq) - 1;
-        if (nextSequence.Value < 0) nextSequence = null;
+        return new MilkyApiResponse<Result>(CreateResult(incomingMessages));
+    }
 
-        return new MilkyApiResponse<Result>(new Result
+    internal static Result CreateResult(IReadOnlyList<IncomingMessageBase> messages)
+    {
+        long? nextSequence = messages.Count == 0 ? null : messages.Min(m => m.MessageSeq) - 1;
+        if (nextSequence < 0) nextSequence = null;
+
+        return new Result
         {
-            Messages = [.. incomingMessages.OrderBy(m => m.MessageSeq)],
+            Messages = [.. messages.OrderBy(m => m.MessageSeq)],
             NextMessageSeq = nextSequence,
-        });
+        };
     }
 
     public sealed class Request(string messageScene, long peerId, long? startMessageSeq = null, int limit = 20)

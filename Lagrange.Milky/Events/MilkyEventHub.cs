@@ -24,6 +24,7 @@ public sealed class MilkyEventHub(
 {
     private readonly ConcurrentDictionary<Guid, Channel<byte[]>> _clients = new();
     private readonly CancellationTokenSource _stop = new();
+    private readonly HashSet<string> _rawPacketCommandBlacklist = new(configuration.Event.RawPacketCommandBlacklist, StringComparer.Ordinal);
 
     internal int SubscriptionCount => _clients.Count;
 
@@ -45,7 +46,7 @@ public sealed class MilkyEventHub(
         return Task.CompletedTask;
     }
 
-    public EventSubscription Subscribe(int capacity = 64)
+    public EventSubscription Subscribe(int capacity = 4096)
     {
         var id = Guid.NewGuid();
         var channel = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(capacity)
@@ -67,7 +68,8 @@ public sealed class MilkyEventHub(
     public async Task OnEvent<TEvent>(BotContext context, TEvent @event)
         where TEvent : Lagrange.Core.Events.EventBase
     {
-        if (@event is BotPacketReceivedEvent && !configuration.Event.EnableRawPacketEvents)
+        if (@event is BotPacketReceivedEvent rawPacket &&
+            (!configuration.Event.EnableRawPacketEvents || _rawPacketCommandBlacklist.Contains(rawPacket.Command)))
             return;
         if (configuration.Event.SuppressSelfMessageEvents && @event is Lagrange.Core.Events.EventArgs.BotMessageEvent message && message.Message.Contact.Uin == bot.BotUin)
             return;

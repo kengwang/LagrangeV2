@@ -64,6 +64,10 @@ public class BotConfig
     /// </summary>
     [JsonIgnore]
     public IReadOnlyList<IService> CustomServices { get; init; } = [];
+
+    /// <summary>SSO commands excluded from raw packet events and packet diagnostics. Protocol handling is unaffected.</summary>
+    [JsonIgnore]
+    public IReadOnlySet<string> RawPacketCommandBlacklist { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 }
 
 /// <summary>

@@ -104,6 +104,54 @@ public sealed class RawPacketTests
     }
 
     [Test]
+    public void RawPacketBlacklistBindsThroughProductionConfiguration()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Lagrange:Protocol:Platform"] = "Linux",
+            ["Lagrange:Login:Uin"] = "0",
+            ["Lagrange:Server:GetOptimumServer"] = "false",
+            ["Milky:HttpServer:Host"] = "127.0.0.1",
+            ["Milky:HttpServer:Port"] = "3000",
+            ["Milky:Event:RawPacketCommandBlacklist:0"] = "Heartbeat.Alive",
+            ["Milky:Event:RawPacketCommandBlacklist:1"] = "Test.Raw"
+        });
+        builder.ConfigureLagrange();
+        builder.ConfigureMilky();
+        using var services = builder.Services.BuildServiceProvider();
+        Assert.That(services.GetRequiredService<MilkyConfiguration>().Event.RawPacketCommandBlacklist,
+            Is.EqualTo(new[] { "Heartbeat.Alive", "Test.Raw" }));
+        Assert.That(services.GetRequiredService<BotContext>().Config.RawPacketCommandBlacklist,
+            Is.EquivalentTo(new[] { "Heartbeat.Alive", "Test.Raw" }));
+    }
+
+    [Test]
+    public async Task HubFiltersExactBlacklistedCommandsAndRetainsBurstBeyondOldCapacity()
+    {
+        using var bot = Bot();
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventConverter<BotPacketReceivedEvent>, PacketReceivedEventConverter>();
+        using var provider = services.BuildServiceProvider();
+        var hub = new MilkyEventHub(provider.GetRequiredService<IServiceScopeFactory>(), bot,
+            new MilkyConfiguration(new("127.0.0.1", 0), event_: new(enableRawPacketEvents: true,
+                rawPacketCommandBlacklist: ["Test.Raw"])), NullLogger<MilkyEventHub>.Instance);
+        using var subscription = hub.Subscribe();
+        await hub.OnEvent(bot, new BotPacketReceivedEvent(new BotSsoPacket("Test.Raw", new byte[] { 1 }, 1)));
+        Assert.That(subscription.Reader.TryRead(out _), Is.False);
+        for (int i = 0; i < 4096; i++)
+            await hub.OnEvent(bot, new BotPacketReceivedEvent(new BotSsoPacket("test.raw", new byte[] { 1 }, i)));
+        for (int i = 0; i < 4096; i++)
+        {
+            Assert.That(subscription.Reader.TryRead(out var payload), Is.True, $"Missing burst event {i}");
+            using var json = JsonDocument.Parse(payload!);
+            Assert.That(json.RootElement.GetProperty("data").GetProperty("sequence").GetInt32(), Is.EqualTo(i));
+        }
+        Assert.That(subscription.Reader.TryRead(out _), Is.False);
+        await hub.StopAsync(default);
+    }
+
+    [Test]
     public async Task HttpContractValidatesBeforeSendingAndReturnsRawProtocolErrors()
     {
         using var bot = Bot();

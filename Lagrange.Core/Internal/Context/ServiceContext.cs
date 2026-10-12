@@ -37,7 +37,8 @@ internal class ServiceContext
     {
         if (!_services.TryGetValue(ssoPacket.Command, out var service)) throw new ServiceNotFoundException(ssoPacket.Command);
 
-        if (!_disabledLog.Contains(ssoPacket.Command)) _context.LogTrace(Tag, "Incoming SSOFrame: {0}", ssoPacket.Command);
+        if (!_disabledLog.Contains(ssoPacket.Command) && !_context.Config.RawPacketCommandBlacklist.Contains(ssoPacket.Command))
+            _context.LogTrace(Tag, "Incoming SSOFrame: {0}", ssoPacket.Command);
         return service.Parse(ssoPacket.Data, _context);
     }
 
@@ -46,7 +47,8 @@ internal class ServiceContext
         if (!_servicesEventType.TryGetValue(@event.GetType(), out var handler)) throw new ServiceNotFoundException(@event.GetType());
 
         var (attr, service) = handler;
-        if (!handler.Attribute.DisableLog) _context.LogTrace(Tag, "Outgoing SSOFrame: {0}", handler.Attribute.Command);
+        if (!handler.Attribute.DisableLog && !_context.Config.RawPacketCommandBlacklist.Contains(handler.Attribute.Command))
+            _context.LogTrace(Tag, "Outgoing SSOFrame: {0}", handler.Attribute.Command);
 
         return (new BotSsoPacket(attr.Command, await service.Build(@event, _context), GetNewSequence()), attr);
     }

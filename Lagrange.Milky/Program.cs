@@ -13,6 +13,7 @@ using Lagrange.Milky.Api;
 using Lagrange_Milky;
 using Lagrange.Milky.Serialization;
 using Scalar.AspNetCore;
+using Serilog.Debugging;
 
 namespace Lagrange.Milky;
 
@@ -44,6 +45,8 @@ public static class Program
         CheckConfigurationFile(isNoStdin, isNoStdout);
 
         var builder = WebApplication.CreateSlimBuilder(args);
+        SelfLog.Enable(TextWriter.Synchronized(Console.Error));
+        using var logger = builder.ConfigureMilkyLogging();
         builder.ConfigureLagrange();
         builder.ConfigureMilky();
         builder.Services.AddAuthentication("Milky")
@@ -61,7 +64,7 @@ public static class Program
                 options.EnableJWTBearerAuth = false;
             });
 
-        var host = builder.Build();
+        await using var host = builder.Build();
         host.UseWebSockets();
         host.UseAuthentication();
         host.UseAuthorization();

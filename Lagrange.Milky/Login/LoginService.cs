@@ -76,8 +76,8 @@ public class LoginService(IHostEnvironment environment, ILogger<LoginService> lo
         );
         await stream.WriteAsync(@event.Image, StoppingToken);
 
-        _logger.LogQrCode(QrCode.EncodeText(@event.Url, QrCode.Ecc.Low).ToAscii(_compatibleQrCode));
-        _logger.LogQrCodeLoginPrompt(_uin, @event.Url);
+        Console.WriteLine(QrCode.EncodeText(@event.Url, QrCode.Ecc.Low).ToAscii(_compatibleQrCode));
+        Console.WriteLine($"Please scan the QR code with a device logged into account {_uin} to login, URL: {@event.Url}");
     }
 
     private void OnQrCodeQuery(BotContext lagrange, BotQrCodeQueryEvent @event)
@@ -106,8 +106,8 @@ public class LoginService(IHostEnvironment environment, ILogger<LoginService> lo
 
     private void OnNewDeviceVerify(BotContext lagrange, BotNewDeviceVerifyEvent @event)
     {
-        _logger.LogQrCode(QrCode.EncodeText(@event.Url, QrCode.Ecc.Low).ToAscii(_compatibleQrCode));
-        _logger.LogNewDeviceVerifyPrompt(_uin, @event.Url);
+        Console.WriteLine(QrCode.EncodeText(@event.Url, QrCode.Ecc.Low).ToAscii(_compatibleQrCode));
+        Console.WriteLine($"Please scan the QR code with a device logged into account {_uin} for new device verification, URL: {@event.Url}");
     }
 
     public async Task StopAsync(CancellationToken ct)
@@ -121,20 +121,11 @@ public class LoginService(IHostEnvironment environment, ILogger<LoginService> lo
 
 public static partial class LagrangeLoginServiceLoggerExtension
 {
-    [LoggerMessage(LogLevel.Information, "\n{QrCode}")]
-    public static partial void LogQrCode(this ILogger<LoginService> logger, string qrcode);
-
-    [LoggerMessage(LogLevel.Information, "Please scan the QR code with a device logged into account {Uin} to login, URL: {Url}")]
-    public static partial void LogQrCodeLoginPrompt(this ILogger<LoginService> logger, long uin, string url);
-
     [LoggerMessage("QR code scan state: {State}")]
     public static partial void LogQrCodeQueryState(this ILogger<LoginService> logger, LogLevel level, TransEmpState state);
 
     [LoggerMessage(LogLevel.Information, "Please enter the SMS verification code: ")]
     public static partial void LogSmsInputPrompt(this ILogger<LoginService> logger);
-
-    [LoggerMessage(LogLevel.Information, "Please scan the QR code with a device logged into account {Uin} for new device verification, URL: {Url}")]
-    public static partial void LogNewDeviceVerifyPrompt(this ILogger<LoginService> logger, long uin, string url);
 
     [LoggerMessage(LogLevel.Information, "Successfully logged in as {Uin} with protocol {Protocol}, version {Version}")]
     public static partial void LogLoginSuccess(this ILogger<LoginService> logger, long uin, Protocols protocol, string version);

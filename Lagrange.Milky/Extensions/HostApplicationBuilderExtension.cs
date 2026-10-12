@@ -54,6 +54,7 @@ public static class HostApplicationBuilderExtension
                 AutoReLogin = configuration.Login.AutoReLogin,
                 UseNTLogin = configuration.Login.UseNTLogin,
                 SignProvider = sp.GetRequiredService<BotSignProvider>(),
+                RawPacketCommandBlacklist = new HashSet<string>(sp.GetService<MilkyConfiguration>()?.Event.RawPacketCommandBlacklist ?? [], StringComparer.Ordinal),
             };
 
             string ksPath = Path.Combine(environment.ContentRootPath, $"{configuration.Login.Uin}.ks");

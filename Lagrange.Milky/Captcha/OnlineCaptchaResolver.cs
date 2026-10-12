@@ -28,8 +28,8 @@ public class OnlineCaptchaResolver(ILogger<OnlineCaptchaResolver> logger, Lagran
         string queryString = url[(url.IndexOf('?') + 1)..].Replace("uin=0", $"uin={_uin}", StringComparison.Ordinal);
         string solveUrl = string.Format(Url, queryString);
 
-        _logger.LogQrCode(QrCode.EncodeText(solveUrl, QrCode.Ecc.Low).ToAscii(_compatibleQrCode));
-        _logger.LogCaptchaUrl(solveUrl);
+        Console.WriteLine(QrCode.EncodeText(solveUrl, QrCode.Ecc.Low).ToAscii(_compatibleQrCode));
+        Console.WriteLine($"Please scan the QR code or open the following link to complete captcha: {solveUrl}");
 
         string queryUrl = string.Format(QueryUrl, _uin);
         while (true)
@@ -87,12 +87,6 @@ public class OnlineCaptchaResolver(ILogger<OnlineCaptchaResolver> logger, Lagran
 
 public static partial class OnlineCaptchaResolverLoggerExtension
 {
-    [LoggerMessage(LogLevel.Information, "\n{QrCode}")]
-    public static partial void LogQrCode(this ILogger<OnlineCaptchaResolver> logger, string qrcode);
-
-    [LoggerMessage(LogLevel.Information, "Please scan the QR code or open the following link to complete captcha: {Url}")]
-    public static partial void LogCaptchaUrl(this ILogger<OnlineCaptchaResolver> logger, string url);
-
     [LoggerMessage(LogLevel.Debug, "Waiting for captcha response...")]
     public static partial void LogWaitingResponse(this ILogger<OnlineCaptchaResolver> logger);
 

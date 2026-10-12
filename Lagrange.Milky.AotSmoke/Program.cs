@@ -1,6 +1,9 @@
 using System.Runtime.CompilerServices;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using FastEndpoints;
 using FluentValidation.Results;
 using Lagrange.Milky;
@@ -19,6 +22,8 @@ using Microsoft.AspNetCore.Http.Features;
 // Every generic binder is statically instantiated so Native AOT compiles the real binding path.
 if (args.Contains("--require-native") && RuntimeFeature.IsDynamicCodeSupported)
     throw new InvalidOperationException("Run the published Native AOT executable for --require-native.");
+
+await CheckLoggingAsync();
 
 var builder = WebApplication.CreateSlimBuilder();
 builder.Logging.ClearProviders();
@@ -131,8 +136,46 @@ BinderContext Context(string json, string? query = null)
 
 static void Check(bool condition, string scenario)
 {
-    if (!condition) throw new InvalidOperationException($"Binding smoke failed: {scenario}");
+    if (!condition) throw new InvalidOperationException($"Milky smoke failed: {scenario}");
     Console.WriteLine($"PASS: {scenario}");
+}
+
+static async Task CheckLoggingAsync()
+{
+    string directory = Directory.CreateTempSubdirectory("milky-aot-logging-").FullName;
+    try
+    {
+        var loggingBuilder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { ContentRootPath = directory, Args = [] });
+        loggingBuilder.Configuration.Sources.Clear();
+        loggingBuilder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Logging:LogLevel:Default"] = "Information",
+            ["Logging:JsonFile:Enabled"] = "true",
+        });
+        using (var rootLogger = loggingBuilder.ConfigureMilkyLogging())
+        {
+            await using var loggingApp = loggingBuilder.Build();
+            var logger = loggingApp.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Milky.AotSmoke");
+            logger.LogDebug("filtered-marker");
+            using (logger.BeginScope(new Dictionary<string, object> { ["RequestId"] = "native-smoke" }))
+                logger.LogError(new InvalidOperationException("exception-marker"), "JSON smoke {Value}", 42);
+        }
+        var lines = Directory.GetFiles(directory, "*.jsonl", SearchOption.AllDirectories).SelectMany(File.ReadAllLines).ToArray();
+        Check(lines.Length == 1, "JSON logging category filter and shutdown flush");
+        using var document = JsonDocument.Parse(lines[0]);
+        var entry = document.RootElement;
+        var properties = entry.GetProperty("Properties");
+        Check(entry.GetProperty("MessageTemplate").GetString() == "JSON smoke {Value}" &&
+            entry.GetProperty("RenderedMessage").GetString() == "JSON smoke 42" &&
+            entry.GetProperty("Exception").GetString()!.Contains("exception-marker") &&
+            properties.GetProperty("Value").GetInt32() == 42 &&
+            properties.GetProperty("SourceContext").GetString() == "Milky.AotSmoke" &&
+            properties.GetProperty("RequestId").GetString() == "native-smoke", "JSON logging structured properties, scope and exception");
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
 }
 
 sealed class BodyDetection : IHttpRequestBodyDetectionFeature

@@ -6,6 +6,10 @@ The 17 scenarios cover group/private sends, polymorphic and string collections, 
 
 Run locally with `dotnet run --project Lagrange.Milky.AotSmoke -c Release`. For actual AOT evidence, publish for the target RID and run the published executable directly with `--require-native`. The printed dynamic-code feature flag alone is not proof of native compilation: SDK runtime settings can disable dynamic code for a managed executable too.
 
+The executable also exercises production Serilog configuration with a temporary
+JSON file sink, verifying level filtering, structured properties, scopes, exception
+formatting and shutdown flushing. Temporary log files are removed after the check.
+
 ## Negative regression variant
 
 `-p:ReproduceUncachedBinding=true` compiles a smoke-only branch that registers generated JSON metadata but omits production binder metadata and scalar parsers. Publish it into separate output and intermediate directories, then run that executable. A binding/type-initializer failure is the expected regression result. This switch does not modify production Milky code.

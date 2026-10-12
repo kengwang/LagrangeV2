@@ -103,8 +103,9 @@ internal class PacketContext : IDisposable
     private async ValueTask SendFrame(BotSsoPacket packet, ServiceAttribute options, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        _context.LogTrace(nameof(PacketContext), "[↑] <{0}>[{1}]({2}, {4}|{5}) {3}", packet.Sequence, packet.Command, packet.RetCode,
-            Convert.ToHexString(packet.Data.Span), options.RequestType, options.EncryptType);
+        if (!_context.Config.RawPacketCommandBlacklist.Contains(packet.Command))
+            _context.LogTrace(nameof(PacketContext), "[↑] <{0}>[{1}]({2}, {4}|{5}) {3}", packet.Sequence, packet.Command, packet.RetCode,
+                Convert.ToHexString(packet.Data.Span), options.RequestType, options.EncryptType);
         var secInfo = SignProvider.IsWhiteListCommand(packet.Command)
             ? await SignProvider.GetSecSign(_keystore.Uin, packet.Command, packet.Sequence, packet.Data).WaitAsync(token)
             : null;
@@ -161,10 +162,14 @@ internal class PacketContext : IDisposable
 
     private void DispatchSsoPacket(BotSsoPacket sso)
     {
-        if (_context.EventInvoker.HasSubscribers<BotPacketReceivedEvent>())
-            _context.EventInvoker.PostEvent(new BotPacketReceivedEvent(sso));
-        _context.LogTrace(nameof(PacketContext), "[↓] <{0}>[{1}]({2}) {3}", sso.Sequence, sso.Command, sso.RetCode,
-            Convert.ToHexString(sso.Data.Span));
+        if (!_context.Config.RawPacketCommandBlacklist.Contains(sso.Command))
+        {
+            // PostEvent schedules handlers independently; never wait for event delivery on the receive path.
+            if (_context.EventInvoker.HasSubscribers<BotPacketReceivedEvent>())
+                _context.EventInvoker.PostEvent(new BotPacketReceivedEvent(sso));
+            _context.LogTrace(nameof(PacketContext), "[↓] <{0}>[{1}]({2}) {3}", sso.Sequence, sso.Command, sso.RetCode,
+                Convert.ToHexString(sso.Data.Span));
+        }
         if (_pendingTasks.TryRemove(sso.Sequence, out var pending))
         {
             if (!pending.Raw && sso is { RetCode: not 0, Extra: var extra })
