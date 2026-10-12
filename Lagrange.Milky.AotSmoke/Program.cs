@@ -9,6 +9,9 @@ using Lagrange.Milky.Api.Handlers.Message;
 using Lagrange.Milky.Api.Handlers.System;
 using Lagrange.Milky.Extensions;
 using Lagrange.Milky.Models.Segments;
+using Lagrange.Milky.Models;
+using Lagrange.Milky.Events;
+using Lagrange.Milky.Serialization;
 using Lagrange_Milky;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -92,7 +95,20 @@ try
     catch (ValidationFailureException) { rejected = true; }
     Check(rejected, "invalid numeric query rejected");
 
-    Console.WriteLine($"PASS: 12 request-binding smoke scenarios; DynamicCodeSupported={RuntimeFeature.IsDynamicCodeSupported}");
+    var packetContext = Context("""{"cmd":"Example.Command","data":"0801aB00","rsp":false}""");
+    var packet = await new RequestBinder<SendPacketHandler.Request>().BindAsync(packetContext, CancellationToken.None);
+    Check(packet.Command == "Example.Command" && packet.Data == "0801aB00" && packet.WaitForResponse == false, "send_packet JSON and nullable boolean");
+    var packetDefaults = await new RequestBinder<SendPacketHandler.Request>().BindAsync(Context("""{"cmd":"Example.Command"}"""), CancellationToken.None);
+    Check(packetDefaults.Data == string.Empty && packetDefaults.WaitForResponse == true, "send_packet omitted defaults");
+    var nullPacket = await new RequestBinder<SendPacketHandler.Request>().BindAsync(Context("""{"cmd":"Example.Command","data":null,"rsp":null}"""), CancellationToken.None);
+    Check(nullPacket.Data is null && nullPacket.WaitForResponse is null, "send_packet explicit nulls preserved for validation");
+    var rawData = new RawPacketData { Command = "Example.Command", Data = "0801AB00", Sequence = 1, RetCode = 7, Extra = "error" };
+    var packetEvent = Serializer.JsonSerialize(new MilkyEvent { EventType = "packet_received", Time = 1, SelfId = 123, Data = rawData });
+    Check(packetEvent.Contains("\"ret_code\":7") && packetEvent.Contains("\"data\":\"0801AB00\""), "raw packet event generated serialization");
+    var packetResponse = Serializer.JsonSerialize(new Lagrange.Milky.Api.MilkyApiResponse<RawPacketData>(rawData));
+    Check(packetResponse.Contains("\"ret_code\":7"), "raw packet response generated serialization");
+
+    Console.WriteLine($"PASS: 17 binding and serialization smoke scenarios; DynamicCodeSupported={RuntimeFeature.IsDynamicCodeSupported}");
 }
 finally
 {

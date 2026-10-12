@@ -99,6 +99,7 @@ public class BotContext : IDisposable
 
     public void Dispose()
     {
+        PacketContext.Dispose();
         EventInvoker.Dispose();
         HttpSessionContext.Dispose();
         FlashTransferContext.Dispose();

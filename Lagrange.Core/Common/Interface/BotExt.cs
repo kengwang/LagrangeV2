@@ -25,4 +25,23 @@ public static class BotExt
 
     public static ValueTask<BotSsoPacket> SendPacket(this BotContext context, BotSsoPacket packet, RequestType requestType = RequestType.D2Auth, EncryptType encryptType = EncryptType.EncryptD2Key)
         => context.EventContext.GetLogic<OperationLogic>().SendPacket(packet, requestType, encryptType);
+
+    /// <summary>Sends an arbitrary SSO payload. Nonzero response codes are returned unchanged.
+    /// With <paramref name="waitForResponse"/> disabled, returns null after writing the complete frame.
+    /// Cancellation does not retract a packet already sent and never retries it.</summary>
+    /// <param name="context">The bot whose authenticated connection is used.</param>
+    /// <param name="packet">The command and arbitrary binary payload to send.</param>
+    /// <param name="waitForResponse">Whether to wait for a matching SSO response.</param>
+    /// <param name="cancellationToken">Cancels waiting for signing, socket writes and the response.</param>
+    /// <returns>The raw response, or null after a completed send when no response is requested.</returns>
+    public static ValueTask<BotSsoPacket?> SendRawPacket(this BotContext context, BotSsoPacket packet,
+        bool waitForResponse = true, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(packet);
+        ArgumentException.ThrowIfNullOrWhiteSpace(packet.Command);
+        cancellationToken.ThrowIfCancellationRequested();
+        // A new sequence for every raw operation, including reuse of the same packet instance.
+        var outgoing = new BotSsoPacket(packet.Command, packet.Data, context.ServiceContext.GetNewSequence());
+        return context.PacketContext.SendRawPacket(outgoing, waitForResponse, cancellationToken);
+    }
 }

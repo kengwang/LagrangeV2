@@ -95,6 +95,7 @@ public static class HostApplicationBuilderExtension
         builder.Services.AddSingleton<ResourceConverter>();
 
         builder.Services.AddEventConverters();
+        builder.Services.AddSingleton<Lagrange.Milky.Events.Converters.IEventConverter<Lagrange.Core.Events.EventArgs.BotPacketReceivedEvent>, Lagrange.Milky.Events.Converters.PacketReceivedEventConverter>();
         builder.Services.AddSingleton<MilkyEventHub>();
         builder.Services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<MilkyEventHub>());
         builder.Services.AddHttpClient(nameof(WebHookEventHandler), client => client.Timeout = TimeSpan.FromSeconds(10));

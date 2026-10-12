@@ -15,6 +15,8 @@ internal abstract partial class ClientListener : IClientListener
 
     protected SocketSession? Session;
 
+    private readonly SemaphoreSlim _sendLock = new(1, 1);
+
     /// <summary>
     /// Construct a tcp client
     /// </summary>
@@ -181,11 +183,40 @@ internal abstract partial class ClientListener : IClientListener
         }
     }
 
+    /// <summary>Serializes complete SSO frames, including partial socket writes.</summary>
+    internal async ValueTask SendFully(ReadOnlyMemory<byte> buffer, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var session = Session ?? throw new IOException("The socket is not connected.");
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(token, session.Token);
+        await _sendLock.WaitAsync(lifetime.Token);
+        bool started = false;
+        try
+        {
+            while (!buffer.IsEmpty)
+            {
+                lifetime.Token.ThrowIfCancellationRequested();
+                started = true;
+                int count = await session.Socket.SendAsync(buffer, SocketFlags.None, lifetime.Token);
+                if (count <= 0) throw new IOException("The socket closed before the complete packet was sent.");
+                buffer = buffer[count..];
+            }
+        }
+        catch
+        {
+            // A partially written frame cannot safely be followed by another frame.
+            if (started) RemoveSession(session);
+            throw;
+        }
+        finally { _sendLock.Release(); }
+    }
+
     private void RemoveSession(SocketSession session)
     {
         if (Interlocked.CompareExchange(ref Session, null, session) == session)
         {
             session.Dispose();
+            OnDisconnect();
         }
     }
 

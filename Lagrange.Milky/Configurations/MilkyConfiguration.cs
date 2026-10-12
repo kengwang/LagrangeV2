@@ -12,8 +12,10 @@ public class MilkyConfiguration(MilkyHttpServerConfiguration httpServer, string?
     public MilkyEventConfiguration Event => Event_;
 }
 
-public class MilkyEventConfiguration(bool suppressSelfMessageEvents = false, MilkyWebSocketEventConfiguration? webSocket = null, MilkySSEEventConfiguration? sse = null, MilkyWebHookEventConfiguration? webHook = null)
+public class MilkyEventConfiguration(bool suppressSelfMessageEvents = false, MilkyWebSocketEventConfiguration? webSocket = null, MilkySSEEventConfiguration? sse = null, MilkyWebHookEventConfiguration? webHook = null, bool enableRawPacketEvents = false)
 {
+    /// <summary>Explicitly opts into raw SSO events on all enabled event transports. Defaults to false.</summary>
+    public bool EnableRawPacketEvents { get; } = enableRawPacketEvents;
     public bool SuppressSelfMessageEvents { get; } = suppressSelfMessageEvents;
     public MilkyWebSocketEventConfiguration? WebSocket { get; } = webSocket;
     public MilkySSEEventConfiguration? SSE { get; } = sse;

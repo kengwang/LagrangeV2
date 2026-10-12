@@ -22,6 +22,53 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 
 ## Feature List
 
+### Raw SSO packets (Lagrange extension)
+
+`POST /api/send_packet` sends an arbitrary binary SSO payload over the bot's
+authenticated connection. Authentication uses the usual Milky access token.
+The payload is not required to be Protobuf; JCE and other binary formats also work.
+
+```json
+{"cmd":"Example.Command","data":"0801aB00","rsp":true}
+```
+
+`cmd` is required and must not be blank. `data` defaults to `""` and accepts
+continuous, even-length hexadecimal text in either case. `rsp` defaults to `true`.
+Explicit null values are invalid. With `rsp=true`, a received response looks like:
+
+```json
+{"status":"ok","retcode":0,"message":null,"data":{"cmd":"Example.Command","data":"0801AB00","sequence":5000001,"ret_code":0,"extra":""}}
+```
+
+`status=ok` means a response was received, even when `data.ret_code` is nonzero.
+The error payload and `extra` are preserved. With `rsp=false`, the endpoint returns
+the usual success response with `data={}` after the complete frame is written;
+this does not confirm acceptance by QQ. Operations time out after 10 seconds.
+Invalid input returns `retcode=-400`, timeout returns `-408`, and signing,
+connection or sending failure returns `-500`. Packets are never automatically retried.
+
+To receive raw packets, explicitly enable this setting in `appsettings.json`
+and restart Milky:
+
+```json
+{"Milky":{"Event":{"EnableRawPacketEvents":true}}}
+```
+
+The default is `false`. When enabled, all successfully parsed incoming SSO packets
+(responses, heartbeats, server pushes and unknown commands) produce
+`packet_received` events on the enabled WebSocket, SSE and WebHook transports:
+
+```json
+{"time":1791792000,"self_id":123456,"event_type":"packet_received","data":{"cmd":"Example.Command","data":"0801AB00","sequence":5000001,"ret_code":0,"extra":""}}
+```
+
+`time` is the local receipt time in Unix seconds. Data is decrypted, decompressed
+and encoded as uppercase hexadecimal. Original encrypted TCP frames, outbound
+packet events and historical capture are not included. Events use the existing
+bounded queues: delivery is best effort and does not guarantee lossless capture
+or strict packet order. Enabling this option forwards all packet contents to
+your configured event consumers.
+
 - Api
   - [x] Http
 - Event

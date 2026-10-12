@@ -36,6 +36,8 @@ public class MilkyApiResponse
 
 public sealed class MilkyApiResponse<TData> : MilkyApiResponse where TData : notnull
 {
+    /// <summary>Creates a successful response with an empty data object.</summary>
+    public MilkyApiResponse() { }
     public MilkyApiResponse(TData data) : base(data) { }
     public MilkyApiResponse(long retcode, string message) : base(retcode, message) { }
 }

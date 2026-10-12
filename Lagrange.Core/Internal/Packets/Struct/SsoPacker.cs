@@ -78,9 +78,7 @@ internal class SsoPacker(BotContext context) : StructBase(context)
             _ => throw new ArgumentOutOfRangeException(nameof(dataFlag))
         };
 
-        return retCode == 0
-            ? new BotSsoPacket(command, payload, sequence)
-            : new BotSsoPacket(command, sequence, retCode, extra);
+        return new BotSsoPacket(command, payload, sequence, retCode, extra);
     }
 
     private void WriteSsoReservedField(ref BinaryPacket writer, SsoSecureInfo? secInfo)

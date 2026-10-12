@@ -4,6 +4,7 @@ using System.Threading.Channels;
 using System.Net.WebSockets;
 using Lagrange.Core;
 using Lagrange.Core.Events;
+using Lagrange.Core.Events.EventArgs;
 using Lagrange.Milky.Configurations;
 using Lagrange.Milky.Events.Converters;
 using Lagrange.Milky.Events.Extensions;
@@ -24,9 +25,13 @@ public sealed class MilkyEventHub(
     private readonly ConcurrentDictionary<Guid, Channel<byte[]>> _clients = new();
     private readonly CancellationTokenSource _stop = new();
 
+    internal int SubscriptionCount => _clients.Count;
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
         bot.RegisterConvertibleEvents(this);
+        if (configuration.Event.EnableRawPacketEvents)
+            bot.EventInvoker.RegisterEvent<BotPacketReceivedEvent>(OnEvent);
         return Task.CompletedTask;
     }
 
@@ -34,6 +39,8 @@ public sealed class MilkyEventHub(
     {
         _stop.Cancel();
         bot.UnregisterConvertibleEvents(this);
+        if (configuration.Event.EnableRawPacketEvents)
+            bot.EventInvoker.UnregisterEvent<BotPacketReceivedEvent>(OnEvent);
         foreach (var channel in _clients.Values) channel.Writer.TryComplete();
         return Task.CompletedTask;
     }
@@ -60,6 +67,8 @@ public sealed class MilkyEventHub(
     public async Task OnEvent<TEvent>(BotContext context, TEvent @event)
         where TEvent : Lagrange.Core.Events.EventBase
     {
+        if (@event is BotPacketReceivedEvent && !configuration.Event.EnableRawPacketEvents)
+            return;
         if (configuration.Event.SuppressSelfMessageEvents && @event is Lagrange.Core.Events.EventArgs.BotMessageEvent message && message.Message.Contact.Uin == bot.BotUin)
             return;
 
@@ -73,7 +82,7 @@ public sealed class MilkyEventHub(
         byte[] payload = Serializer.JsonSerializeToUtf8Bytes(new MilkyEvent
         {
             EventType = converter.Name,
-            Time = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Time = @event is BotPacketReceivedEvent ? @event.EventTime : DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             SelfId = bot.BotUin,
             Data = data
         });
@@ -133,17 +142,28 @@ public sealed class MilkySseEndpoint(MilkyEventHub hub, MilkyConfiguration confi
         }
     }
 
-    private static async IAsyncEnumerable<object> Stream(EventSubscription subscription, ulong heartbeat, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    private static async IAsyncEnumerable<JsonElement> Stream(EventSubscription subscription, ulong heartbeat, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Math.Max(1, heartbeat)));
+        var read = subscription.Reader.WaitToReadAsync(ct).AsTask();
+        var tick = timer.WaitForNextTickAsync(ct).AsTask();
         while (!ct.IsCancellationRequested)
         {
-            var read = subscription.Reader.WaitToReadAsync(ct).AsTask();
-            var tick = timer.WaitForNextTickAsync(ct).AsTask();
-            if (await Task.WhenAny(read, tick) == tick) { yield return new { }; continue; }
+            // Keep the losing wait alive: PeriodicTimer permits only one pending tick.
+            if (await Task.WhenAny(read, tick) == tick)
+            {
+                if (!await tick) yield break;
+                yield return Serializer.JsonDeserialize<JsonElement>("{}");
+                tick = timer.WaitForNextTickAsync(ct).AsTask();
+                continue;
+            }
             if (!await read) yield break;
             while (subscription.Reader.TryRead(out byte[]? bytes))
-                yield return JsonDocument.Parse(bytes).RootElement.Clone();
+            {
+                using var document = JsonDocument.Parse(bytes);
+                yield return document.RootElement.Clone();
+            }
+            read = subscription.Reader.WaitToReadAsync(ct).AsTask();
         }
     }
 

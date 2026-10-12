@@ -12,6 +12,7 @@ public static class MilkyBindingExtensions
     public static void ConfigureMilkyBinding(this Config configuration)
     {
         configuration.Serializer.Options.AddSerializerContextsFromLagrange_Milky();
+        configuration.Serializer.Options.TypeInfoResolverChain.Add(Lagrange.Milky.Serialization.Serializer.JsonTypeInfoResolver);
         configuration.Binding.ReflectionCache.AddFromLagrangeMilky();
 
         // FastEndpoints' fallback builds an Expression.Convert(StringValues, string)

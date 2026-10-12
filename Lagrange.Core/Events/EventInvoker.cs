@@ -20,6 +20,10 @@ public sealed class EventInvoker(BotContext context) : IDisposable
     public delegate void  LagrangeEventHandler <in TEvent>(BotContext ctx, TEvent e) where TEvent : EventBase;
     public delegate Task  LagrangeAsyncEventHandler<in TEvent>(BotContext ctx, TEvent e) where TEvent : EventBase;
 
+    internal bool HasSubscribers<TEvent>() where TEvent : EventBase =>
+        (_syncHandlers.TryGetValue(typeof(TEvent), out var sync) && sync is not null) ||
+        (_asyncHandlers.TryGetValue(typeof(TEvent), out var asyncHandler) && asyncHandler is not null);
+
     public void RegisterEvent<TEvent>(LagrangeEventHandler<TEvent> handler) where TEvent : EventBase
     {
         Debug.Assert(handler.Method.IsStatic is false);

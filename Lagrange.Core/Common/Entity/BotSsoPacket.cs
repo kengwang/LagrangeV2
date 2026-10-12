@@ -26,6 +26,9 @@ public class BotSsoPacket
         RetCode = retCode;
         Sequence = sequence;
     }
+
+    internal BotSsoPacket(string command, ReadOnlyMemory<byte> data, int sequence, int retCode, string extra)
+        : this(command, sequence, retCode, extra) => Data = data;
 }
 
 public enum EncryptType : byte

@@ -24,6 +24,7 @@ namespace Lagrange.Milky.Serialization;
 
 public static partial class Serializer
 {
+    internal static System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver JsonTypeInfoResolver => JsonContext.Default;
     public static string JsonSerialize<T>(T value)
     {
         return JsonSerializer.Serialize(value, typeof(T), JsonContext.Default);
@@ -61,6 +62,10 @@ public static partial class Serializer
     [JsonSerializable(typeof(AndroidSigner.ResponseRoot<string>))]
     // Event
     [JsonSerializable(typeof(MilkyEvent))]
+    [JsonSerializable(typeof(JsonElement))]
+    [JsonSerializable(typeof(RawPacketData))]
+    [JsonSerializable(typeof(SendPacketHandler.Request))]
+    [JsonSerializable(typeof(MilkyApiResponse<RawPacketData>), TypeInfoPropertyName = "RawPacketApiResponse")]
     [JsonSerializable(typeof(IncomingMessageBase))]
     [JsonSerializable(typeof(FriendIncomingMessage))]
     [JsonSerializable(typeof(GroupIncomingMessage))]

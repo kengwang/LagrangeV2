@@ -37,6 +37,7 @@ internal class SocketContext : IClientListener, IDisposable
 
     public void OnDisconnect()
     {
+        _context.PacketContext.OnDisconnect();
         _context.VoiceContext.Disconnect();
         _context.CacheContext.ResetSessionNotifications();
     }
@@ -68,6 +69,8 @@ internal class SocketContext : IClientListener, IDisposable
     
     public void Disconnect() => _client.Disconnect();
 
+    internal Task<bool> Connect(string host, ushort port) => _client.Connect(host, port);
+
     internal void SetPushedServers(IEnumerable<SsoServerInfo> servers)
     {
         lock (_serverLock)
@@ -81,6 +84,8 @@ internal class SocketContext : IClientListener, IDisposable
     }
     
     public ValueTask<int> Send(ReadOnlyMemory<byte> packet) => _client.Send(packet);
+
+    internal ValueTask SendFully(ReadOnlyMemory<byte> packet, CancellationToken token) => _client.SendFully(packet, token);
     
     private async Task SortServers(List<(string Host, ushort Port)> servers)
     {
