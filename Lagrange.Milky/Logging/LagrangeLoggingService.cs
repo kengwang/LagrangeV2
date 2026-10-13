@@ -27,7 +27,18 @@ public partial class LagrangeLoggingService(ILoggerFactory lf, BotContext lagran
         var level = (LogLevel)e.Level;
 
         var logger = _lf.CreateLogger(e.Tag);
-        if (logger.IsEnabled(level)) LoggerUtility.Log(logger, level, e.Message, e.Exception);
+        if (!logger.IsEnabled(level)) return;
+        if (e is BotPacketLogEvent packet)
+        {
+            if (packet.Direction == "Outgoing")
+                LoggerUtility.PacketSent(logger, packet.Direction, packet.Sequence, packet.Command, packet.RetCode,
+                    packet.RequestType!, packet.EncryptType!, packet.DataLength, packet.Data);
+            else
+                LoggerUtility.PacketReceived(logger, packet.Direction, packet.Sequence, packet.Command, packet.RetCode,
+                    packet.Extra, packet.DataLength, packet.Data);
+            return;
+        }
+        LoggerUtility.Log(logger, level, e.Message, e.Exception);
     }
 
     public Task StopAsync(CancellationToken ct)
@@ -39,6 +50,16 @@ public partial class LagrangeLoggingService(ILoggerFactory lf, BotContext lagran
 
     private static partial class LoggerUtility
     {
+        [LoggerMessage(1001, LogLevel.Trace,
+            "SSO packet {Direction}: <{Sequence}>[{Command}]({RetCode}, {RequestType}|{EncryptType}), {DataLength} bytes: {Data}", SkipEnabledCheck = true)]
+        public static partial void PacketSent(ILogger logger, string direction, int sequence, string command, int retCode,
+            string requestType, string encryptType, int dataLength, string data);
+
+        [LoggerMessage(1002, LogLevel.Trace,
+            "SSO packet {Direction}: <{Sequence}>[{Command}]({RetCode}), extra={Extra}, {DataLength} bytes: {Data}", SkipEnabledCheck = true)]
+        public static partial void PacketReceived(ILogger logger, string direction, int sequence, string command, int retCode,
+            string extra, int dataLength, string data);
+
         [LoggerMessage("{Message}", SkipEnabledCheck = true)]
         public static partial void Log(ILogger logger, LogLevel level, string message, Exception? e);
     }

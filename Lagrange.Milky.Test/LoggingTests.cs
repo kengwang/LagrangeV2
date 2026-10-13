@@ -3,6 +3,8 @@ using System.Text.Json;
 using Lagrange.Core;
 using Lagrange.Core.Common;
 using Lagrange.Core.Common.Interface;
+using Lagrange.Core.Common.Entity;
+using Lagrange.Core.Services;
 using Lagrange.Core.Events.EventArgs;
 using Lagrange.Milky.Captcha;
 using Lagrange.Milky.Configurations;
@@ -254,6 +256,64 @@ public sealed class LoggingTests
         Assert.That(entry.GetProperty("Properties").GetProperty("Message").GetString(), Is.EqualTo("core-marker"));
         Assert.That(entry.GetProperty("Properties").GetProperty("SourceContext").GetString(), Is.EqualTo("Core.Packet"));
         Assert.That(entry.GetProperty("Exception").GetString(), Does.Contain("core-exception"));
+    }
+
+    [Test]
+    public void PacketTraceBridgeWritesGeneratedTemplatesAndTypedJsonProperties()
+    {
+        var builder = Builder(("Logging:LogLevel:PacketContext", "Trace"));
+        using (var root = builder.ConfigureMilkyLogging())
+        {
+            using var host = builder.Build();
+            using var bot = BotFactory.Create(new BotConfig(), new BotKeystore(), BotAppInfo.ProtocolToAppInfo[Protocols.Linux]);
+            var bridge = new LagrangeLoggingService(host.Services.GetRequiredService<ILoggerFactory>(), bot);
+            var log = typeof(LagrangeLoggingService).GetMethod("OnLog", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            log.Invoke(bridge, [bot, BotPacketLogEvent.Create(new BotSsoPacket("test.command", new byte[] { 8, 1, 0xAB }, 42), new ServiceAttribute("test.command", RequestType.D2Auth, EncryptType.EncryptD2Key))]);
+            log.Invoke(bridge, [bot, BotPacketLogEvent.Create(new BotSsoPacket("test.command", ReadOnlyMemory<byte>.Empty, 42, 7, "server \"detail\"\n中文"))]);
+        }
+        Assert.That(Lines(), Has.Length.EqualTo(2));
+        using var sent = JsonDocument.Parse(Lines()[0]);
+        using var received = JsonDocument.Parse(Lines()[1]);
+        var outgoing = sent.RootElement.GetProperty("Properties");
+        var incoming = received.RootElement.GetProperty("Properties");
+        Assert.Multiple(() =>
+        {
+            Assert.That(sent.RootElement.GetProperty("Level").GetString(), Is.EqualTo("Verbose"));
+            Assert.That(sent.RootElement.GetProperty("MessageTemplate").GetString(), Does.Contain("{Command}").And.Contain("{Data}"));
+            Assert.That(outgoing.GetProperty("Direction").GetString(), Is.EqualTo("Outgoing"));
+            Assert.That(outgoing.GetProperty("Sequence").GetInt32(), Is.EqualTo(42));
+            Assert.That(outgoing.GetProperty("Command").GetString(), Is.EqualTo("test.command"));
+            Assert.That(outgoing.GetProperty("RetCode").GetInt32(), Is.Zero);
+            Assert.That(outgoing.GetProperty("RequestType").GetString(), Is.EqualTo("D2Auth"));
+            Assert.That(outgoing.GetProperty("EncryptType").GetString(), Is.EqualTo("EncryptD2Key"));
+            Assert.That(outgoing.GetProperty("DataLength").GetInt32(), Is.EqualTo(3));
+            Assert.That(outgoing.GetProperty("Data").GetString(), Is.EqualTo("0801AB"));
+            Assert.That(outgoing.GetProperty("SourceContext").GetString(), Is.EqualTo("PacketContext"));
+            Assert.That(outgoing.GetProperty("EventId").GetProperty("Id").GetInt32(), Is.EqualTo(1001));
+            Assert.That(outgoing.TryGetProperty("Message", out _), Is.False);
+            Assert.That(incoming.GetProperty("Direction").GetString(), Is.EqualTo("Incoming"));
+            Assert.That(incoming.GetProperty("RetCode").GetInt32(), Is.EqualTo(7));
+            Assert.That(incoming.GetProperty("Extra").GetString(), Is.EqualTo("server \"detail\"\n中文"));
+            Assert.That(incoming.GetProperty("DataLength").GetInt32(), Is.Zero);
+            Assert.That(incoming.GetProperty("Data").GetString(), Is.Empty);
+            Assert.That(incoming.GetProperty("EventId").GetProperty("Id").GetInt32(), Is.EqualTo(1002));
+        });
+    }
+
+    [Test]
+    public void PacketTraceBridgeHonorsCategoryFilter()
+    {
+        var builder = Builder(("Logging:LogLevel:Default", "Trace"), ("Logging:LogLevel:PacketContext", "Information"));
+        using (var root = builder.ConfigureMilkyLogging())
+        {
+            using var host = builder.Build();
+            using var bot = BotFactory.Create(new BotConfig(), new BotKeystore(), BotAppInfo.ProtocolToAppInfo[Protocols.Linux]);
+            var bridge = new LagrangeLoggingService(host.Services.GetRequiredService<ILoggerFactory>(), bot);
+            typeof(LagrangeLoggingService).GetMethod("OnLog", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(bridge,
+                [bot, BotPacketLogEvent.Create(new BotSsoPacket("hidden-packet", new byte[] { 8, 1 }, 42))]);
+        }
+        Assert.That(Lines(), Is.Empty);
+        Assert.That(_output.ToString(), Does.Not.Contain("hidden-packet"));
     }
 
     [Test]

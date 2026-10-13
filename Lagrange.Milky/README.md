@@ -168,6 +168,18 @@ events or packet send/receive diagnostics (including unknown-command diagnostics
 Their responses and normal QQ business processing remain active. The blacklist
 also suppresses packet diagnostics when raw events are disabled.
 
+Packet send/receive Trace diagnostics use source-generated logging methods and
+preserve packet fields as JSONL properties instead of embedding everything in
+`Message`. Both directions include `Direction` (`Outgoing` or `Incoming`),
+`Sequence`, `Command`, `RetCode`, `DataLength` (bytes), and `Data` (uppercase HEX).
+Outgoing diagnostics also include `RequestType` and `EncryptType`; incoming
+diagnostics include `Extra`. Their category is `PacketContext`, and event IDs
+are 1001 (`PacketSent`) and 1002 (`PacketReceived`). Trace is written as
+`Verbose` by Serilog. Existing Core `BotLogEvent` subscribers retain the readable
+packet message and can inspect the derived `BotPacketLogEvent` for its fields.
+These logs do not require `EnableRawPacketEvents`; Core Trace and Milky category
+filters still apply.
+
 When enabled, all other successfully parsed incoming SSO packets
 (responses, heartbeats, server pushes and unknown commands) produce
 `packet_received` events on the enabled WebSocket, SSE and WebHook transports:

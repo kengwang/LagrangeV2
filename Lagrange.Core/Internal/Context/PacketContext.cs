@@ -103,9 +103,7 @@ internal class PacketContext : IDisposable
     private async ValueTask SendFrame(BotSsoPacket packet, ServiceAttribute options, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        if (!_context.Config.RawPacketCommandBlacklist.Contains(packet.Command))
-            _context.LogTrace(nameof(PacketContext), "[↑] <{0}>[{1}]({2}, {4}|{5}) {3}", packet.Sequence, packet.Command, packet.RetCode,
-                Convert.ToHexString(packet.Data.Span), options.RequestType, options.EncryptType);
+        LogPacket(packet, options);
         var secInfo = SignProvider.IsWhiteListCommand(packet.Command)
             ? await SignProvider.GetSecSign(_keystore.Uin, packet.Command, packet.Sequence, packet.Data).WaitAsync(token)
             : null;
@@ -167,8 +165,7 @@ internal class PacketContext : IDisposable
             // PostEvent schedules handlers independently; never wait for event delivery on the receive path.
             if (_context.EventInvoker.HasSubscribers<BotPacketReceivedEvent>())
                 _context.EventInvoker.PostEvent(new BotPacketReceivedEvent(sso));
-            _context.LogTrace(nameof(PacketContext), "[↓] <{0}>[{1}]({2}) {3}", sso.Sequence, sso.Command, sso.RetCode,
-                Convert.ToHexString(sso.Data.Span));
+            LogPacket(sso);
         }
         if (_pendingTasks.TryRemove(sso.Sequence, out var pending))
         {
@@ -186,5 +183,16 @@ internal class PacketContext : IDisposable
         {
             Task.Run(() => _context.EventContext.HandleServerPacket(sso));
         }
+    }
+
+    private void LogPacket(BotSsoPacket packet, ServiceAttribute? options = null)
+    {
+        if (_context.Config.LogLevel > LogLevel.Trace ||
+            _context.Config.RawPacketCommandBlacklist.Contains(packet.Command) ||
+            !_context.EventInvoker.HasSubscribers<BotLogEvent>()) return;
+
+        // Publish as the existing base event so ordinary Core log subscribers
+        // retain their readable message, while adapters can inspect packet fields.
+        _context.EventInvoker.PostEvent<BotLogEvent>(BotPacketLogEvent.Create(packet, options));
     }
 }

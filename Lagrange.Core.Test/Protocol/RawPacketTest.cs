@@ -185,6 +185,61 @@ public sealed class RawPacketTest
     }
 
     [Test]
+    public async Task PacketTracePublishesStructuredFieldsThroughExistingLogSubscription()
+    {
+        using var bot = BotFactory.Create(new BotConfig { LogLevel = LogLevel.Trace }, new BotKeystore(), BotAppInfo.ProtocolToAppInfo[Protocols.Linux]);
+        var sent = new TaskCompletionSource<BotPacketLogEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var received = new TaskCompletionSource<BotPacketLogEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        bot.EventInvoker.RegisterEvent<BotLogEvent>((_, log) =>
+        {
+            if (log is BotPacketLogEvent packet)
+                (packet.Direction == "Outgoing" ? sent : received).TrySetResult(packet);
+        });
+        PacketContext? packets = null;
+        using (packets = new PacketContext(bot, (_, _) =>
+        {
+            packets!.DispatchPacket(Frame(Response(15, 7, extra: "server detail")));
+            return ValueTask.CompletedTask;
+        }))
+        {
+            await packets.SendRawPacket(Packet(15), true, default);
+            var outgoing = await sent.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            var incoming = await received.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            Assert.Multiple(() =>
+            {
+                Assert.That(outgoing.Sequence, Is.EqualTo(15));
+                Assert.That(outgoing.Command, Is.EqualTo("Unknown.RawCommand"));
+                Assert.That(outgoing.RequestType, Is.EqualTo("D2Auth"));
+                Assert.That(outgoing.EncryptType, Is.EqualTo("EncryptD2Key"));
+                Assert.That(outgoing.RetCode, Is.Zero);
+                Assert.That(outgoing.Message, Does.Contain("[↑] <15>[Unknown.RawCommand]"));
+                Assert.That(incoming.RetCode, Is.EqualTo(7));
+                Assert.That(incoming.Extra, Is.EqualTo("server detail"));
+                Assert.That(incoming.RequestType, Is.Null);
+                Assert.That(incoming.EncryptType, Is.Null);
+                Assert.That(incoming.Message, Does.Contain("[↓] <15>[Unknown.RawCommand]"));
+                Assert.That(incoming.Data, Is.EqualTo("0801AB00"));
+                Assert.That(outgoing.Data, Is.EqualTo(incoming.Data));
+                Assert.That(incoming.DataLength, Is.EqualTo(4));
+                Assert.That(outgoing.Tag, Is.EqualTo("PacketContext"));
+                Assert.That(incoming.Level, Is.EqualTo(LogLevel.Trace));
+            });
+        }
+    }
+
+    [Test]
+    public async Task PacketTraceIsNotEmittedWhenCoreTraceIsDisabled()
+    {
+        using var bot = Bot();
+        var logs = new ConcurrentQueue<BotLogEvent>();
+        bot.EventInvoker.RegisterEvent<BotLogEvent>((_, log) => logs.Enqueue(log));
+        using var packets = new PacketContext(bot, (_, _) => ValueTask.CompletedTask);
+        await packets.SendRawPacket(Packet(16), false, default);
+        await Task.Delay(100);
+        Assert.That(logs.OfType<BotPacketLogEvent>(), Is.Empty);
+    }
+
+    [Test]
     public async Task NoResponseModeWaitsForTheWriteAndCreatesNoPendingEntry()
     {
         using var bot = Bot();
