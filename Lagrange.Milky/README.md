@@ -53,6 +53,82 @@ links for login, new-device verification and online captcha use `Console.WriteLi
 directly and are excluded from the log sinks. Scan status, login results, SMS prompts
 and other captcha prompts remain log events.
 
+### Friends status (Lagrange extension)
+
+`POST /api/get_friends_status` takes no parameters and uses the usual Milky access
+token. It sends one `OidbSvcTrpcTcp.0x116d_1` request using the current session's
+UID (not its numeric UIN), then returns:
+
+```json
+{"status":"ok","retcode":0,"message":null,"data":{"self_uid":"u_...","friends":[{"uid":"u_...","status":10,"status_text":"电脑在线","raw_fields":[{"field":3,"wire_type":0,"value":"1"},{"field":21,"wire_type":2,"value":"0800"}]}]}}
+```
+
+Entries retain server order, duplicates and self. No UIN conversion, friend-list
+lookup or offline-user supplementation is performed. This is a single server
+response, which is not guaranteed to include every friend; unknown response
+fields are not interpreted as pagination controls.
+
+Each entry's `status` is the unmodified field 2 value, or null when absent.
+`status_text` is field 15 text, or `""` when absent. `raw_fields` preserves all
+other entry fields in wire order, including empty and repeated values. For wire
+type 0, `value` is an unsigned decimal string to preserve 64-bit precision.
+For wire types 1, 2 and 5, it is uppercase hex of the value bytes; nested messages
+remain uninterpreted. These fields are not assigned speculative device or
+extended-status meanings, and do not use `get_user_status`'s status conversion.
+
+Missing session UID, sending failures, missing entry UID and malformed entry
+encoding return `retcode=-500`. A 10-second timeout returns `-408`; OIDB failures
+preserve the server's code and message. Caller cancellation is propagated and
+requests are not retried automatically. This is a Lagrange extension to Milky.
+The underlying packet has been verified against a logged-in QQ environment:
+the server accepted the request and echoed the session UID, returning entries
+including self, device display text and uninterpreted fields. This was a raw
+`send_packet` verification, rather than a deployment test of this new endpoint.
+
+### Database keys (Lagrange extension)
+
+`POST /api/request_decrypt_key` requests the current account's QQ database key
+using the bot's authenticated session and the usual Milky access token.
+The required `mode` selects one of two operations:
+
+```json
+{"mode":"encrypt"}
+```
+
+`encrypt` calls `OidbSvcTrpcTcp.0xcde_1` and returns both the database password
+and the server-generated `key_meta`. Both operations use the authenticated bot
+connection without an additional OIDB field 7 authentication block.
+Do not provide `key_meta` in this mode, including explicit null or empty values.
+
+```json
+{"mode":"decrypt","key_meta":"<128 hexadecimal characters from the database header>"}
+```
+
+`decrypt` calls `OidbSvcTrpcTcp.0xcde_2`. Its `key_meta` must contain exactly
+128 continuous hexadecimal characters (either case), passed as ASCII text.
+It is the database header metadata, distinct from the SQLCipher page salt.
+No additional A2 authentication block is included in this operation.
+
+Both modes return the standard Milky response:
+
+```json
+{"status":"ok","retcode":0,"message":null,"data":{"key":"<database password>","key_meta":"<server metadata>"}}
+```
+
+`key` is the password string, without hexadecimal conversion. If the decrypt
+response omits metadata, `key_meta` is `""`. Empty keys are errors, as is missing
+metadata in encrypt mode. Invalid input returns `retcode=-400`, a 10-second
+timeout returns `-408`, and sending or parsing failures return `-500`.
+OIDB failures preserve the server's error code and message (for example, 1006
+for metadata belonging to a different account). Requests are never retried
+automatically. The API does not read or decrypt database files.
+
+The existing `/api/request_database_key` endpoint remains available with its
+`db_salt` input and `data.key` output. This extension is not part of the Milky
+standard. Both protocol operations have been verified in a logged-in environment
+without OIDB field 7: encrypt returned a 16-byte key and 128-character metadata,
+and decrypt returned the same key with empty metadata.
+
 ### Raw SSO packets (Lagrange extension)
 
 `POST /api/send_packet` sends an arbitrary binary SSO payload over the bot's

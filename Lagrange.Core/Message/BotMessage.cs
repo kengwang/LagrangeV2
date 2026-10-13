@@ -39,7 +39,7 @@ public partial class BotMessage
 
     internal ulong MessageId { get; set; }
 
-    internal uint Random { get; init; }
+    internal ulong Random { get; init; }
 
     public ulong Sequence { get; set; }
 

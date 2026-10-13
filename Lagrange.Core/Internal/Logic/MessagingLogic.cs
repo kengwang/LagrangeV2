@@ -13,6 +13,8 @@ internal class MessagingLogic(BotContext context) : ILogic
 
     public Task<BotMessage> Parse(CommonMessage msg) => _packer.Parse(msg);
 
+    public Task<BotMessage> ParseForwarded(CommonMessage msg) => _packer.ParseForwarded(msg);
+
     public Task<CommonMessage> BuildFake(BotMessage msg) => _packer.BuildFake(msg);
 
     public async Task<List<BotMessage>> GetGroupMessage(long groupUin, ulong startSequence, ulong endSequence, CancellationToken cancellationToken = default)
@@ -82,7 +84,7 @@ internal class MessagingLogic(BotContext context) : ILogic
                 await context.EventContext.SendEvent<GroupRecallMsgEventResp>(new GroupRecallMsgEventReq(member.Group.GroupUin, message.Sequence), cancellationToken);
                 break;
             case BotFriend friend:
-                await context.EventContext.SendEvent<C2CRecallMsgEventResp>(new C2CRecallMsgEventReq(friend.Uin == context.BotUin ? message.Receiver.Uid : friend.Uid, message.Sequence, message.ClientSequence, message.Random, (uint)message.Time), cancellationToken);
+                await context.EventContext.SendEvent<C2CRecallMsgEventResp>(new C2CRecallMsgEventReq(friend.Uin == context.BotUin ? message.Receiver.Uid : friend.Uid, message.Sequence, message.ClientSequence, unchecked((uint)message.Random), (uint)message.Time), cancellationToken);
                 break;
             default: throw new InvalidTargetException(message.Contact.Uin);
         }
@@ -92,14 +94,14 @@ internal class MessagingLogic(BotContext context) : ILogic
     {
         if (message.Contact is not BotGroupMember member) throw new ArgumentException("Only group messages can be set as essence messages.", nameof(message));
 
-        return SetEssenceMessage(member.Group.GroupUin, message.Sequence, message.Random, cancellationToken);
+        return SetEssenceMessage(member.Group.GroupUin, message.Sequence, unchecked((uint)message.Random), cancellationToken);
     }
 
     public Task RemoveEssenceMessage(BotMessage message, CancellationToken cancellationToken = default)
     {
         if (message.Contact is not BotGroupMember member) throw new ArgumentException("Only group messages can be removed from essence messages.", nameof(message));
 
-        return RemoveEssenceMessage(member.Group.GroupUin, message.Sequence, message.Random, cancellationToken);
+        return RemoveEssenceMessage(member.Group.GroupUin, message.Sequence, unchecked((uint)message.Random), cancellationToken);
     }
 
     public async Task SetEssenceMessage(long groupUin, ulong sequence, uint random, CancellationToken cancellationToken = default)

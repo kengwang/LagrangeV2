@@ -23,7 +23,7 @@ internal partial class ContentHead
     
     [ProtoMember(3)] public int C2CCommand { get; set; } // c2c_cmd
     
-    [ProtoMember(4)] public uint Random { get; set; }
+    [ProtoMember(4)] public ulong Random { get; set; }
     
     [ProtoMember(5)] public ulong Sequence { get; set; } // msg_seq
     

@@ -328,6 +328,8 @@ internal class DefaultBotSignProvider : BotSignProvider, IDisposable
         "OidbSvcTrpcTcp.0xaf6_0",
         "OidbSvcTrpcTcp.0xb77_57",
         "OidbSvcTrpcTcp.0xcd5",
+        "OidbSvcTrpcTcp.0xcde_1",
+        "OidbSvcTrpcTcp.0xcde_2",
         "OidbSvcTrpcTcp.0xdc2_34",
         "OidbSvcTrpcTcp.0xe37_1200",
         "OidbSvcTrpcTcp.0xe37_1700",

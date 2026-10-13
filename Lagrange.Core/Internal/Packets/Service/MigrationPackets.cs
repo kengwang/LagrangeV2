@@ -45,6 +45,7 @@ internal partial class Oidb0xcdeResp
 internal partial class Oidb0xcdeRespBodyInfo
 {
     [ProtoMember(1)] public string DbKey { get; set; } = string.Empty;
+    [ProtoMember(2)] public string KeyMeta { get; set; } = string.Empty;
 }
 
 [ProtoPackable]

@@ -14,4 +14,9 @@
     <Using Include="NUnit.Framework" />
     <ProjectReference Include="../Lagrange.Milky/Lagrange.Milky.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Lagrange.Core.Test/Protocol/MilkyLogFixture.cs" Link="Testing/MilkyLogFixture.cs" />
+    <Compile Include="../Lagrange.Core.Test/Protocol/MessageProtocolReplay.cs" Link="Testing/MessageProtocolReplay.cs" />
+    <None Include="../Lagrange.Core.Test/Fixtures/MilkyErrors20261012.json" Link="Fixtures/MilkyErrors20261012.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

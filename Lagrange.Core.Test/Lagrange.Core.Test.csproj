@@ -25,4 +25,8 @@
       <ProjectReference Include="..\Lagrange.Core\Lagrange.Core.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="Fixtures\MilkyErrors20261012.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

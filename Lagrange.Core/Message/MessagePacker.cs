@@ -15,13 +15,18 @@ internal class MessagePacker(BotContext context)
 {
     private readonly List<IMessageEntity> _factory = MessageEntityRegistry.Create();
 
-    public async Task<BotMessage> Parse(CommonMessage msg)
+    public Task<BotMessage> Parse(CommonMessage msg) => Parse(msg, false);
+
+    public Task<BotMessage> ParseForwarded(CommonMessage msg) => Parse(msg, true);
+
+    private async Task<BotMessage> Parse(CommonMessage msg, bool forwarded)
     {
         var contentHead = msg.ContentHead;
         var routingHead = msg.RoutingHead;
 
-        var contact = await ResolveContact(contentHead.Type, routingHead);
-        var receiver = await ResolveReceiver(contentHead.Type, routingHead);
+        var (contact, receiver) = forwarded && contentHead.Type == 9
+            ? ResolveForwardedContacts(routingHead)
+            : (await ResolveContact(contentHead.Type, routingHead), await ResolveReceiver(contentHead.Type, routingHead));
         var message = new BotMessage(contact, receiver, DateTimeOffset.Now.ToUnixTimeSeconds())
         {
             MessageId = contentHead.MsgUid, // MsgUid & 0xFFFFFFFF are the same to random
@@ -78,6 +83,27 @@ internal class MessagePacker(BotContext context)
         }
 
         return message;
+    }
+
+    private static (BotContact Contact, BotContact Receiver) ResolveForwardedContacts(RoutingHead routingHead)
+    {
+        // Forwarded nodes are historical snapshots. Their identities and display names
+        // must not depend on the current friend/member list or populate those caches.
+        string name = !string.IsNullOrEmpty(routingHead.CommonC2C?.Name)
+            ? routingHead.CommonC2C.Name
+            : routingHead.FromUin != 0 ? routingHead.FromUin.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+
+        if (routingHead.Group is { GroupCode: > 0 } groupHead)
+        {
+            var group = new BotGroup(groupHead.GroupCode, groupHead.GroupName, 0, 0, 0, null, null, null);
+            var sender = new BotGroupMember(group, routingHead.FromUin, routingHead.FromUid,
+                string.IsNullOrEmpty(groupHead.GroupCard) ? name : groupHead.GroupCard,
+                GroupMemberPermission.Member, 0, groupHead.GroupCard, null, 0, 0, 0);
+            return (sender, group);
+        }
+
+        return (new BotFriend(routingHead.FromUin, name, routingHead.FromUid, string.Empty, string.Empty, string.Empty, null!),
+            new BotFriend(routingHead.ToUin, string.Empty, routingHead.ToUid, string.Empty, string.Empty, string.Empty, null!));
     }
 
     private async Task<BotContact> ResolveContact(int type, RoutingHead routingHead)
@@ -190,7 +216,7 @@ internal class MessagePacker(BotContext context)
             },
             MessageBody = messageBody,
             ClientSequence = message.ClientSequence,
-            Random = message.Random,
+            Random = unchecked((uint)message.Random),
             Control = message.Type == MessageType.Temp ? new SendMessageControl { MessageFlag = checked((int)message.Time) } : null,
         };
         return ProtoHelper.Serialize(proto);

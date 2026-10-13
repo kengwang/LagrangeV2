@@ -2,7 +2,7 @@
 
 This console executable initializes FastEndpoints with the production binding configuration, then binds real Milky request DTOs from in-memory HTTP requests. It never starts a listener, creates a bot session, or calls QQ. Failure exits nonzero.
 
-The 17 scenarios cover group/private sends, polymorphic and string collections, strings, nullable numeric values, booleans, unsigned values, nullable dates, rejection of malformed numeric query values, raw SSO request defaults and explicit nulls, and raw packet response/event serialization. Query keys use the DTO's CLR property names; JSON uses its declared snake_case names.
+The 21 scenarios cover group/private sends, polymorphic and string collections, strings, nullable numeric values, booleans, unsigned values, nullable dates, rejection of malformed numeric query values, raw SSO request defaults and explicit nulls, raw packet response/event serialization, database key request binding and response serialization, and friends-status responses with nullable status and uninterpreted fields. Query keys use the DTO's CLR property names; JSON uses its declared snake_case names.
 
 Run locally with `dotnet run --project Lagrange.Milky.AotSmoke -c Release`. For actual AOT evidence, publish for the target RID and run the published executable directly with `--require-native`. The printed dynamic-code feature flag alone is not proof of native compilation: SDK runtime settings can disable dynamic code for a managed executable too.
 

@@ -113,7 +113,30 @@ try
     var packetResponse = Serializer.JsonSerialize(new Lagrange.Milky.Api.MilkyApiResponse<RawPacketData>(rawData));
     Check(packetResponse.Contains("\"ret_code\":7"), "raw packet response generated serialization");
 
-    Console.WriteLine($"PASS: 17 binding and serialization smoke scenarios; DynamicCodeSupported={RuntimeFeature.IsDynamicCodeSupported}");
+    var encryptKey = await new RequestBinder<RequestDecryptKeyHandler.Request>().BindAsync(Context("""{"mode":"encrypt"}"""), CancellationToken.None);
+    Check(encryptKey.Mode == "encrypt" && encryptKey.KeyMeta is null, "request_decrypt_key encrypt binding");
+    string keyMeta = new('a', 128);
+    var decryptKey = await new RequestBinder<RequestDecryptKeyHandler.Request>().BindAsync(Context("{\"mode\":\"decrypt\",\"key_meta\":\"" + keyMeta + "\"}"), CancellationToken.None);
+    Check(decryptKey.Mode == "decrypt" && decryptKey.KeyMeta == keyMeta, "request_decrypt_key decrypt binding");
+    var keyResponse = Serializer.JsonSerialize(new Lagrange.Milky.Api.MilkyApiResponse<RequestDecryptKeyHandler.Result>(
+        new RequestDecryptKeyHandler.Result { Key = "synthetic-key", KeyMeta = keyMeta }));
+    Check(keyResponse.Contains("\"key\":\"synthetic-key\"") && keyResponse.Contains("\"key_meta\":\"" + keyMeta + "\""), "request_decrypt_key generated response serialization");
+
+    var friendsStatusResponse = Serializer.JsonSerialize(new Lagrange.Milky.Api.MilkyApiResponse<GetFriendsStatusHandler.Result>(new()
+    {
+        SelfUid = "u_smoke_self",
+        Friends = [new() { Uid = "u_smoke_friend", Status = null, StatusText = "电脑在线", RawFields =
+            [new() { Field = 7, WireType = 0, Value = "18446744073709551615" }, new() { Field = 21, WireType = 2, Value = "0800" }] }]
+    }));
+    using var friendsStatusJson = JsonDocument.Parse(friendsStatusResponse);
+    var statusItem = friendsStatusJson.RootElement.GetProperty("data").GetProperty("friends")[0];
+    Check(statusItem.GetProperty("status").ValueKind == JsonValueKind.Null &&
+        statusItem.GetProperty("status_text").GetString() == "电脑在线" &&
+        statusItem.GetProperty("raw_fields")[0].GetProperty("value").GetString() == "18446744073709551615" &&
+        statusItem.GetProperty("raw_fields")[1].GetProperty("wire_type").GetByte() == 2,
+        "get_friends_status generated response, nullable status and raw fields");
+
+    Console.WriteLine($"PASS: 21 binding and serialization smoke scenarios; DynamicCodeSupported={RuntimeFeature.IsDynamicCodeSupported}");
 }
 finally
 {

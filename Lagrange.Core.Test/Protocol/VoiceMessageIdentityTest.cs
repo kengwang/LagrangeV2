@@ -10,7 +10,7 @@ namespace Lagrange.Core.Test.Protocol;
 
 public sealed class VoiceMessageIdentityTest
 {
-    private static BotMessage Message(uint random)
+    private static BotMessage Message(ulong random)
     {
         var group = new BotGroup(123, "test", 1, 100, 0, null, null, null);
         var sender = new BotGroupMember(group, 456, "sender", "test", GroupMemberPermission.Member, 0, null, null, 0, 0, 0);
@@ -31,10 +31,11 @@ public sealed class VoiceMessageIdentityTest
         return message;
     }
 
-    [Test]
-    public void ReceivedVoiceUsesFieldFourRandomRatherThanAbsentMsgUid()
+    [TestCase(0x80000007UL)]
+    [TestCase(0x1234567880000007UL)]
+    public void ReceivedVoiceUsesFieldFourRandomRatherThanAbsentMsgUid(ulong random)
     {
-        var input = VoiceExt.CreateTranscriptionInput(Message(0x80000007));
+        var input = VoiceExt.CreateTranscriptionInput(Message(random));
         Assert.That(input.MessageId, Is.EqualTo(7));
         Assert.That(input.PeerUin, Is.EqualTo(123));
         Assert.That(input.SenderUin, Is.EqualTo(456));
