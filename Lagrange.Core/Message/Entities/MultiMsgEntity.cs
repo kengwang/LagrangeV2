@@ -9,7 +9,6 @@ using Lagrange.Core.Internal.Packets.Service;
 using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Compression;
 
-using System.Collections.Generic;
 
 namespace Lagrange.Core.Message.Entities;
 
@@ -18,6 +17,17 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
     public List<BotMessage> Messages { get; } = [];
     
     public string? ResId { get; private set; } = resId;
+
+    internal string FileName { get; set; } = Guid.NewGuid().ToString();
+    internal bool MessagesLoaded { get; private set; }
+
+    internal void SetMessages(IEnumerable<BotMessage> messages)
+    {
+        var snapshot = messages.ToArray();
+        Messages.Clear();
+        Messages.AddRange(snapshot);
+        MessagesLoaded = true;
+    }
 
     /// <summary>Optional presentation metadata carried by forwarded-message payloads.</summary>
     public string? Title { get; set; }
@@ -28,6 +38,7 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
     public MultiMsgEntity(List<BotMessage> messages) : this(default(string))
     {
         Messages = messages;
+        MessagesLoaded = true;
     }
     
     public MultiMsgEntity() : this(default(string)) { }
@@ -46,31 +57,28 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
     {
         if (string.IsNullOrEmpty(ResId)) return;
 
-        bool isGroup = message.Contact is BotGroupMember;
-        var result = await context.EventContext.SendEvent<LongMsgRecvEventResp>(new LongMsgRecvEventReq(isGroup, ResId));
-        Messages.Clear();
-        Messages.AddRange(result.Messages);
+        if (MessagesLoaded) return;
+        SetMessages(await ForwardedMessageResolver.Load(context, message.Contact is BotGroupMember, ResId));
     }
     
     string IMessageEntity.ToPreviewString() => "[聊天记录]";
 
-    Elem[] IMessageEntity.Build()
+    Elem[] IMessageEntity.Build() => string.IsNullOrEmpty(ResId) ? [] : BuildCard(ResId, FileName, Messages.Count);
+
+    internal Elem[] BuildCard(string resId, string fileName, int messageCount)
     {
-        if (string.IsNullOrEmpty(ResId)) return [];
-        
         int count = Math.Clamp(Messages.Count, 0, 4);
-        string guid = Guid.NewGuid().ToString();
-        var extra = new JsonObject { { "filename", guid }, { "tsum", Messages.Count } };
+        var extra = new JsonObject { { "filename", fileName }, { "tsum", messageCount } };
         var preview = Preview ?? Messages[..count].Select(x => $"{x.Contact.Nickname}: {string.Join(' ', x.Entities.Select(e => e.ToPreviewString()))}").ToArray();
         var news = new JsonArray(preview.Select(x => (JsonNode)new JsonObject { ["text"] = x }).ToArray());
         var detail = new JsonObject
         {
             { "news", news },
-            { "resid", ResId },
+            { "resid", resId },
             { "source", Title ?? "聊天记录" },
             { "title", Title ?? "聊天记录" },
-            { "summary", Summary ?? $"查看{Messages.Count}条转发消息" },
-            { "uniseq", guid }
+            { "summary", Summary ?? $"查看{messageCount}条转发消息" },
+            { "uniseq", fileName }
         };
 
         var lightApp = new LightApp
@@ -113,8 +121,11 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
                 if (json?["app"]?.ToString() == "com.tencent.multimsg")
                 {
                     var detail = json["meta"]?["detail"];
+                    var extraText = json["extra"]?.ToString();
+                    var fileName = string.IsNullOrEmpty(extraText) ? null : JsonNode.Parse(extraText)?["filename"]?.ToString();
                     var result = new MultiMsgEntity(detail?["resid"]?.ToString() ?? string.Empty)
                     {
+                        FileName = fileName ?? detail?["uniseq"]?.ToString() ?? string.Empty,
                         Title = detail?["title"]?.ToString() ?? detail?["source"]?.ToString(),
                         Preview = (detail?["news"] as JsonArray)?.Select(x => x?["text"]?.ToString() ?? string.Empty).ToArray(),
                         Summary = detail?["summary"]?.ToString(),
@@ -142,20 +153,19 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
             
             var doc = new XmlDocument();
             doc.Load(xmlReader);
-            return new MultiMsgEntity(doc["msg"]?.Attributes["m_resid"]?.Value ?? string.Empty);
+            var root = doc["msg"];
+            var titles = root?.SelectNodes("item/title")?.Cast<XmlNode>().ToArray() ?? [];
+            return new MultiMsgEntity(root?.GetAttribute("m_resid") ?? string.Empty)
+            {
+                FileName = root?.GetAttribute("m_fileName") ?? string.Empty,
+                Title = titles.FirstOrDefault()?.InnerText,
+                Preview = titles.Skip(1).Select(x => x.InnerText).ToArray(),
+                Summary = root?.SelectSingleNode("item/summary")?.InnerText,
+                Prompt = root?.GetAttribute("brief")
+            };
         }
 
         return null;
     }
 
-    private static byte[] Adler32(ReadOnlySpan<byte> data)
-    {
-        uint a = 1, b = 0;
-        foreach (byte t in data)
-        {
-            a = (a + t) % 65521;
-            b = (b + a) % 65521;
-        }
-        return BitConverter.GetBytes((a << 16) | b);
-    }
 }

@@ -23,7 +23,7 @@ internal partial class PbMultiMsgItem
 [ProtoPackable]
 internal partial class PbMultiMsgNew
 {
-    [ProtoMember(1)] public List<CommonMessage> Msg { get; set; }
+    [ProtoMember(1)] public List<CommonMessage> Msg { get; set; } = [];
 }
 
 [ProtoPackable]

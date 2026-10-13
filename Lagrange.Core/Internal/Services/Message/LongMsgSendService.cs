@@ -2,11 +2,11 @@ using System.IO.Compression;
 using Lagrange.Core.Common;
 using Lagrange.Core.Common.Entity;
 using Lagrange.Core.Internal.Events.Message;
-using Lagrange.Core.Internal.Logic;
 using Lagrange.Core.Internal.Packets.Message;
 using Lagrange.Core.Services;
 using Lagrange.Core.Utility;
 using Lagrange.Core.Utility.Extension;
+using Lagrange.Core.Message;
 
 namespace Lagrange.Core.Internal.Services.Message;
 
@@ -16,18 +16,7 @@ internal class LongMsgSendService : BaseService<LongMsgSendEventReq, LongMsgSend
 {
     protected override async ValueTask<ReadOnlyMemory<byte>> Build(LongMsgSendEventReq input, BotContext context)
     {
-        var messages = new List<CommonMessage>(input.Messages.Count);
-
-        foreach (var msg in input.Messages)
-        {
-            var fakeMsg = await context.EventContext.GetLogic<MessagingLogic>().BuildFake(msg);
-            messages.Add(fakeMsg);
-        }
-
-        var content = new PbMultiMsgTransmit
-        {
-            Items = [new PbMultiMsgItem { FileName = "MultiMsg", Buffer = new PbMultiMsgNew { Msg = messages } }]
-        };
+        var content = input.PreparedContent ?? await new ForwardedMessageBuilder(context, input.Receiver).Build(input.Messages);
         
         await using var dest = new MemoryStream();
         await using var gzip = new GZipStream(dest, CompressionMode.Compress);

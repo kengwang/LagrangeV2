@@ -17,9 +17,9 @@ internal class MessagePacker(BotContext context)
 
     public Task<BotMessage> Parse(CommonMessage msg) => Parse(msg, false);
 
-    public Task<BotMessage> ParseForwarded(CommonMessage msg) => Parse(msg, true);
+    public Task<BotMessage> ParseForwarded(CommonMessage msg, Func<MultiMsgEntity, BotMessage, Task>? resolveForward = null) => Parse(msg, true, resolveForward);
 
-    private async Task<BotMessage> Parse(CommonMessage msg, bool forwarded)
+    private async Task<BotMessage> Parse(CommonMessage msg, bool forwarded, Func<MultiMsgEntity, BotMessage, Task>? resolveForward = null)
     {
         var contentHead = msg.ContentHead;
         var routingHead = msg.RoutingHead;
@@ -79,7 +79,10 @@ internal class MessagePacker(BotContext context)
 
         foreach (var entity in message.Entities)
         {
-            await entity.Postprocess(context, message);
+            if (entity is MultiMsgEntity forward && resolveForward is not null)
+                await resolveForward(forward, message);
+            else
+                await entity.Postprocess(context, message);
         }
 
         return message;
@@ -268,7 +271,7 @@ internal class MessagePacker(BotContext context)
         return ProtoHelper.Serialize(proto);
     }
 
-    public Task<CommonMessage> BuildFake(BotMessage msg)
+    public Task<CommonMessage> BuildFake(BotMessage msg, Func<MultiMsgEntity, Elem[]>? buildForward = null)
     {
         var proto = new CommonMessage
         {
@@ -289,13 +292,7 @@ internal class MessagePacker(BotContext context)
             },
             ContentHead = new ContentHead
             {
-                Type = msg.Contact switch
-                {
-                    BotGroupMember => 82,
-                    BotFriend => 166,
-                    BotStranger => 141,
-                    _ => throw new ArgumentOutOfRangeException(nameof(msg.Contact))
-                },
+                Type = 9,
                 Random = msg.Random,
                 Sequence = msg.Sequence,
                 Time = msg.Time,
@@ -306,16 +303,17 @@ internal class MessagePacker(BotContext context)
         };
 
         proto.RoutingHead.FromUin = msg.Contact.Uin;
-        proto.RoutingHead.FromUid = context.CacheContext.ResolveCachedUid(msg.Contact.Uin) ?? "";
+        proto.RoutingHead.FromUid = string.IsNullOrEmpty(msg.Contact.Uid) ? context.CacheContext.ResolveCachedUid(msg.Contact.Uin) ?? "" : msg.Contact.Uid;
         if (msg.Receiver is BotFriend f)
         {
             proto.RoutingHead.ToUin = f.Uin;
-            proto.RoutingHead.ToUid = context.CacheContext.ResolveCachedUid(f.Uin) ?? "";
+            proto.RoutingHead.ToUid = string.IsNullOrEmpty(f.Uid) ? context.CacheContext.ResolveCachedUid(f.Uin) ?? "" : f.Uid;
         }
 
         foreach (var entity in msg.Entities)
         {
-            if (entity.Build() is not { } elem) continue;
+            var elem = entity is MultiMsgEntity forward && buildForward is not null ? buildForward(forward) : entity.Build();
+            if (elem is null) continue;
             proto.MessageBody.RichText.Elems.AddRange(elem);
         }
 

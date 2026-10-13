@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using Lagrange.Core.Common;
 using Lagrange.Core.Internal.Events.Message;
-using Lagrange.Core.Internal.Logic;
 using Lagrange.Core.Internal.Packets.Message;
 using Lagrange.Core.Message;
 using Lagrange.Core.Services;
@@ -62,16 +61,8 @@ internal class LongMsgRecvService : BaseService<LongMsgRecvEventReq, LongMsgRecv
         await gzip.CopyToAsync(dest);
         var decompressedContent = dest.ToArray();
 
-        var logic = context.EventContext.GetLogic<MessagingLogic>();
         var content = ProtoHelper.Deserialize<PbMultiMsgTransmit>(decompressedContent.AsSpan());
-        var multiMsg = content.Items.First(x => x.FileName == "MultiMsg").Buffer.Msg;
-        
-        var messages = new List<BotMessage>(multiMsg.Count);
-        foreach (var msg in multiMsg)
-        {
-            var message = await logic.ParseForwarded(msg);
-            messages.Add(message);
-        }
+        var messages = await ForwardedMessageResolver.Parse(context, content);
 
         return new LongMsgRecvEventResp(messages);
     }
