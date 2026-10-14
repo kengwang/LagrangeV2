@@ -40,6 +40,9 @@ internal class MessagePacker(BotContext context)
         if (msg.MessageBody is null)
             return message;
 
+        foreach (var elem in msg.MessageBody.RichText.Elems)
+            ParseMessageStyle(message, elem);
+
         if (msg.MessageBody.RichText.NotOnlineFile is { } file)
         {
             message.Entities.Add(new GroupFileEntity
@@ -222,6 +225,7 @@ internal class MessagePacker(BotContext context)
             Random = unchecked((uint)message.Random),
             Control = message.Type == MessageType.Temp ? new SendMessageControl { MessageFlag = checked((int)message.Time) } : null,
         };
+        BuildMessageStyle(message.Style, messageBody.RichText.Elems);
         return ProtoHelper.Serialize(proto);
     }
 
@@ -317,7 +321,51 @@ internal class MessagePacker(BotContext context)
             proto.MessageBody.RichText.Elems.AddRange(elem);
         }
 
+        BuildMessageStyle(msg.Style, proto.MessageBody.RichText.Elems);
         return Task.FromResult(proto);
+    }
+
+    private static void BuildMessageStyle(MessageStyle? style, List<Elem> elems)
+    {
+        if (style is null) return;
+        ulong font = style.FontId == 0 ? 0x10000UL
+            : (ulong)((style.FontId >> 8) | ((style.FontId << 8) & 0xFFFF)) | 0x20000UL;
+        if (style.IsCsFontEffectEnabled) font |= 1UL << 24;
+        elems.Add(new Elem { ElemFlags2 = new ElemFlags2 { ColorTextId = style.BubbleId } });
+        elems.Add(new Elem { GeneralFlags = new GeneralFlags
+        {
+            BubbleDiyTextId = style.BubbleDiyTextId,
+            PendantId = style.PendantId,
+            PbReserve = ProtoHelper.Serialize(new MessageStyleExtra { Font = font, FontEffectId = style.FontEffectId })
+        } });
+    }
+
+    private static void ParseMessageStyle(BotMessage message, Elem elem)
+    {
+        if (elem.ElemFlags2?.ColorTextId is { } bubble)
+            (message.Style ??= new MessageStyle()).BubbleId = bubble;
+        if (elem.GeneralFlags is not { } flags) return;
+        if (flags.BubbleDiyTextId is { } diy)
+            (message.Style ??= new MessageStyle()).BubbleDiyTextId = diy;
+        if (flags.PendantId is { } pendant)
+            (message.Style ??= new MessageStyle()).PendantId = pendant;
+        if (flags.PbReserve.IsEmpty) return;
+        try
+        {
+            var extra = ProtoHelper.Deserialize<MessageStyleExtra>(flags.PbReserve.Span);
+            if (extra.Font is { } font)
+            {
+                var style = message.Style ??= new MessageStyle();
+                style.FontId = (ushort)(((font & 0xFF00) >> 8) | ((font & 0xFF) << 8));
+                style.IsCsFontEffectEnabled = (font & (1UL << 24)) != 0;
+            }
+            if (extra.FontEffectId is { } effect)
+                (message.Style ??= new MessageStyle()).FontEffectId = effect;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Malformed presentation metadata must not prevent receiving the message.
+        }
     }
 
     private RecordEntity? ParsePttRichText(RichText richText)

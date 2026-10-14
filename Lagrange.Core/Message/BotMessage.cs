@@ -37,6 +37,9 @@ public partial class BotMessage
 
     public MessageChain Entities { get; } = [];
 
+    /// <summary>Presentation parameters stored with the message chain.</summary>
+    public MessageStyle? Style { get => Entities.Style; set => Entities.Style = value; }
+
     internal ulong MessageId { get; set; }
 
     internal ulong Random { get; init; }

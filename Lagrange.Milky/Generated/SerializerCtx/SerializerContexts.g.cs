@@ -444,6 +444,7 @@ namespace Lagrange_Milky;
 [JsonSerializable(typeof(Lagrange.Milky.Models.Messages.IncomingForwardedMessage), TypeInfoPropertyName = "TI_IncomingForwardedMessage_6B572F50")]
 [JsonSerializable(typeof(Lagrange.Milky.Models.Messages.IncomingForwardedMessage[]), TypeInfoPropertyName = "TI_IncomingForwardedMessage__B3A0B7DD")]
 [JsonSerializable(typeof(Lagrange.Milky.Models.Messages.IncomingMessageBase), TypeInfoPropertyName = "TI_IncomingMessageBase_B830BD48")]
+[JsonSerializable(typeof(Lagrange.Milky.Models.Messages.MessageStyle), TypeInfoPropertyName = "TI_MessageStyle_5AB9CB56")]
 [JsonSerializable(typeof(Lagrange.Milky.Models.RawPacketData), TypeInfoPropertyName = "TI_RawPacketData_88B254C0")]
 [JsonSerializable(typeof(Lagrange.Milky.Models.Segments.IncomingSegmentBase), TypeInfoPropertyName = "TI_IncomingSegmentBase_CB96F561")]
 [JsonSerializable(typeof(Lagrange.Milky.Models.Segments.OutgoingSegmentBase), TypeInfoPropertyName = "TI_OutgoingSegmentBase_AE38B7B4")]

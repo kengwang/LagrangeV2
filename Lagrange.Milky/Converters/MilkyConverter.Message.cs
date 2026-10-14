@@ -17,6 +17,7 @@ public partial class MilkyConverter
         MessageType.Temp => new TempIncomingMessage
         {
             GroupId = message.TempGroupUin ?? 0,
+            MessageStyle = Models.Messages.MessageStyle.FromCore(message.Style),
             PeerId = message.Contact.Uin == _lagrange.BotUin ? message.Receiver.Uin : message.Contact.Uin,
             SenderId = message.Contact.Uin, MessageSeq = (long)message.ClientSequence, Time = message.Time,
             Segments = await ToIncomingSegmentsAsync(message.Entities, MessageType.Temp,
@@ -32,6 +33,7 @@ public partial class MilkyConverter
         return new FriendIncomingMessage()
         {
             PeerId = peerUin,
+            MessageStyle = Models.Messages.MessageStyle.FromCore(message.Style),
             MessageSeq = (long)message.ClientSequence,
             SenderId = message.Contact.Uin,
             Time = message.Time,
@@ -47,6 +49,7 @@ public partial class MilkyConverter
         return new()
         {
             PeerId = group.Uin,
+            MessageStyle = Models.Messages.MessageStyle.FromCore(message.Style),
             MessageSeq = (long)message.Sequence,
             SenderId = message.Contact.Uin,
             Time = message.Time,

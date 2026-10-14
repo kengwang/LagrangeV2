@@ -136,7 +136,44 @@ try
         statusItem.GetProperty("raw_fields")[1].GetProperty("wire_type").GetByte() == 2,
         "get_friends_status generated response, nullable status and raw fields");
 
-    Console.WriteLine($"PASS: 21 binding and serialization smoke scenarios; DynamicCodeSupported={RuntimeFeature.IsDynamicCodeSupported}");
+    const string styleJson = """{"bubble_id":18446744073709551615,"pendant_id":8,"font_id":65535,"font_effect_id":4294967295,"is_cs_font_effect_enabled":true,"bubble_diy_text_id":9}""";
+    string styledBody = "{\"group_id\":123,\"user_id\":456,\"message\":[],\"message_style\":" + styleJson + "}";
+    var styledGroup = await new RequestBinder<SendGroupMessageHandler.Request>().BindAsync(Context(styledBody), CancellationToken.None);
+    var styledFriend = await new RequestBinder<SendPrivateMessageHandler.Request>().BindAsync(Context(styledBody), CancellationToken.None);
+    var styledTemp = await new RequestBinder<SendTempMessageHandler.Request>().BindAsync(Context(styledBody), CancellationToken.None);
+    foreach (var style in new[] { styledGroup.MessageStyle, styledFriend.MessageStyle, styledTemp.MessageStyle })
+        Check(style is { BubbleId: ulong.MaxValue, PendantId: 8, FontId: ushort.MaxValue,
+            FontEffectId: uint.MaxValue, IsCsFontEffectEnabled: true, BubbleDiyTextId: 9 }, "message_style binding for group/private/temp");
+    Check(group.MessageStyle is null && friend.MessageStyle is null, "omitted message_style");
+    var emptyStyle = await new RequestBinder<SendGroupMessageHandler.Request>().BindAsync(
+        Context("""{"group_id":123,"message":[],"message_style":{}}"""), CancellationToken.None);
+    Check(emptyStyle.MessageStyle is { BubbleId: 0, PendantId: 0, FontId: 0, FontEffectId: 0,
+        IsCsFontEffectEnabled: false, BubbleDiyTextId: 0 }, "empty message_style defaults");
+    var nullStyle = await new RequestBinder<SendTempMessageHandler.Request>().BindAsync(
+        Context("""{"group_id":123,"user_id":456,"message":[],"message_style":null}"""), CancellationToken.None);
+    Check(nullStyle.MessageStyle is null, "explicit null message_style");
+    var forwardStyle = Serializer.JsonDeserialize<OutgoingSegmentBase>(
+        "{\"type\":\"forward\",\"data\":{\"messages\":[{\"user_id\":123,\"sender_name\":\"test\",\"segments\":[],\"message_style\":" + styleJson + "}]}}") as ForwardOutgoingSegment;
+    Check(forwardStyle!.Data.Messages.Single().MessageStyle!.BubbleId == ulong.MaxValue, "forward node style generated deserialization");
+    var styledNode = new Lagrange.Milky.Models.Messages.IncomingForwardedMessage
+    {
+        MessageSeq = 1, SenderName = "test", AvatarUrl = "", Time = 1, Segments = [], MessageStyle = styledGroup.MessageStyle
+    };
+    using var nodeJson = JsonDocument.Parse(Serializer.JsonSerialize(styledNode));
+    Check(nodeJson.RootElement.GetProperty("message_style").GetProperty("bubble_id").GetUInt64() == ulong.MaxValue,
+        "forward node style generated serialization");
+    var styledIncoming = new Lagrange.Milky.Models.Messages.TempIncomingMessage
+    {
+        GroupId = 123, PeerId = 456, SenderId = 456, MessageSeq = 1, Time = 1, Segments = [], MessageStyle = styledGroup.MessageStyle
+    };
+    Check(Serializer.JsonSerialize<Lagrange.Milky.Models.Messages.IncomingMessageBase>(styledIncoming).Contains("\"message_style\":"), "incoming style generated serialization");
+    var plainNode = new Lagrange.Milky.Models.Messages.IncomingForwardedMessage
+    {
+        MessageSeq = 1, SenderName = "test", AvatarUrl = "", Time = 1, Segments = []
+    };
+    Check(!Serializer.JsonSerialize(plainNode).Contains("message_style"), "absent style omitted on output");
+
+    Console.WriteLine($"PASS: binding and serialization smoke scenarios including message styles; DynamicCodeSupported={RuntimeFeature.IsDynamicCodeSupported}");
 }
 finally
 {

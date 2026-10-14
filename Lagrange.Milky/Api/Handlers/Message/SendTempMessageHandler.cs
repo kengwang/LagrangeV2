@@ -27,6 +27,7 @@ public sealed class SendTempMessageHandler(BotContext lagrange, MilkyConverter c
     public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var chain = await _converter.FromOutgoingSegmentsAsync(request.Message, MessageType.Temp, request.UserId, ct);
+        chain.Style = request.MessageStyle?.ToCore();
         var message = await _lagrange.SendTempMessage(request.GroupId, request.UserId, chain, ct);
         return new MilkyApiResponse<Result>(new Result
         {
@@ -37,6 +38,7 @@ public sealed class SendTempMessageHandler(BotContext lagrange, MilkyConverter c
 
     public sealed class Request(long groupId, long userId, IReadOnlyList<OutgoingSegmentBase> message)
     {
+        [JsonPropertyName("message_style")] public Models.Messages.MessageStyle? MessageStyle { get; init; }
         [JsonPropertyName("group_id")] public required long GroupId { get; init; } = groupId;
         [JsonPropertyName("user_id")] public required long UserId { get; init; } = userId;
         [JsonPropertyName("message")] public required IReadOnlyList<OutgoingSegmentBase> Message { get; init; } = message;

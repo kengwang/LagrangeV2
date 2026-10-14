@@ -27,6 +27,7 @@ public sealed class SendGroupMessageHandler(BotContext lagrange, MilkyConverter 
     public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var chain = await _converter.FromOutgoingSegmentsAsync(request.Message, MessageType.Group, request.GroupId, ct);
+        chain.Style = request.MessageStyle?.ToCore();
         var message = await _lagrange.SendGroupMessage(request.GroupId, chain).WaitAsync(ct);
         return new MilkyApiResponse<Result>(new Result
         {
@@ -37,6 +38,7 @@ public sealed class SendGroupMessageHandler(BotContext lagrange, MilkyConverter 
 
     public sealed class Request(long groupId, IReadOnlyList<OutgoingSegmentBase> message)
     {
+        [JsonPropertyName("message_style")] public Models.Messages.MessageStyle? MessageStyle { get; init; }
         [JsonPropertyName("group_id")] public required long GroupId { get; init; } = groupId;
         [JsonPropertyName("message")] public required IReadOnlyList<OutgoingSegmentBase> Message { get; init; } = message;
     }

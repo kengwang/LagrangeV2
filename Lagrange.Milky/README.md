@@ -22,6 +22,12 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 
 ## Feature List
 
+### Message styles
+
+Optional `message_style` parameters support bubbles, avatar pendants and font
+effects in sends, incoming messages, history and forwarded nodes. This is a
+Lagrange extension; see [parameters and examples](../docs/message-style.md).
+
 ### Logging
 
 Milky uses Serilog for text console logs and an optional JSON Lines file sink.

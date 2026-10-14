@@ -31,6 +31,7 @@ internal partial class Elem
     [ProtoMember(53)] public CommonElem? CommonElem { get; set; }
 
     [ProtoMember(37)] public GeneralFlags? GeneralFlags { get; set; }
+    [ProtoMember(9)] public ElemFlags2? ElemFlags2 { get; set; }
 }
 
 [ProtoPackable]
@@ -374,11 +375,25 @@ internal partial class CommonElem
 [ProtoPackable]
 internal partial class GeneralFlags
 {
-    [ProtoMember(1)] public int BubbleDiyTextId { get; set; }
+    [ProtoMember(1)] public uint? BubbleDiyTextId { get; set; }
     [ProtoMember(2)] public int GroupFlagNew { get; set; }
     [ProtoMember(3)] public ulong Uin { get; set; }
     [ProtoMember(6)] public int LongTextFlag { get; set; }
     [ProtoMember(7)] public string LongTextResId { get; set; }
     [ProtoMember(8)] public int GroupType { get; set; }
     [ProtoMember(19)] public ReadOnlyMemory<byte> PbReserve { get; set; }
+    [ProtoMember(17)] public ulong? PendantId { get; set; }
+}
+
+[ProtoPackable]
+internal partial class ElemFlags2
+{
+    [ProtoMember(1)] public ulong? ColorTextId { get; set; }
+}
+
+[ProtoPackable]
+internal partial class MessageStyleExtra
+{
+    [ProtoMember(15)] public ulong? Font { get; set; }
+    [ProtoMember(34)] public uint? FontEffectId { get; set; }
 }

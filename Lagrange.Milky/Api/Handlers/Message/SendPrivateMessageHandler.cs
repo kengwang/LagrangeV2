@@ -27,6 +27,7 @@ public sealed class SendPrivateMessageHandler(BotContext lagrange, MilkyConverte
     public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var chain = await _converter.FromOutgoingSegmentsAsync(request.Message, MessageType.Private, request.UserId, ct);
+        chain.Style = request.MessageStyle?.ToCore();
         var message = await _lagrange.SendFriendMessage(request.UserId, chain).WaitAsync(ct);
         return new MilkyApiResponse<Result>(new Result
         {
@@ -37,6 +38,7 @@ public sealed class SendPrivateMessageHandler(BotContext lagrange, MilkyConverte
 
     public sealed class Request(long userId, IReadOnlyList<OutgoingSegmentBase> message)
     {
+        [JsonPropertyName("message_style")] public Models.Messages.MessageStyle? MessageStyle { get; init; }
         [JsonPropertyName("user_id")] public required long UserId { get; init; } = userId;
         [JsonPropertyName("message")] public required IReadOnlyList<OutgoingSegmentBase> Message { get; init; } = message;
     }

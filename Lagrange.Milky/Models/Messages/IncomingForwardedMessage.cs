@@ -6,6 +6,8 @@ namespace Lagrange.Milky.Models.Messages;
 
 public sealed class IncomingForwardedMessage
 {
+    [JsonPropertyName("message_style"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MessageStyle? MessageStyle { get; init; }
     [JsonPropertyName("message_seq")] public required long MessageSeq { get; init; }
     [JsonPropertyName("sender_name")] public required string SenderName { get; init; }
     [JsonPropertyName("avatar_url")] public required string AvatarUrl { get; init; }
@@ -15,6 +17,8 @@ public sealed class IncomingForwardedMessage
 
 public sealed class OutgoingForwardedMessage
 {
+    [JsonPropertyName("message_style"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MessageStyle? MessageStyle { get; init; }
     [JsonPropertyName("user_id")] public required long UserId { get; init; }
     [JsonPropertyName("sender_name")] public required string SenderName { get; init; }
     [JsonPropertyName("segments")] public required IReadOnlyList<OutgoingSegmentBase> Segments { get; init; }

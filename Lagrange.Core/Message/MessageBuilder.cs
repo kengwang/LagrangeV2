@@ -5,8 +5,23 @@ namespace Lagrange.Core.Message;
 public class MessageBuilder
 {
     private readonly List<IMessageEntity> _entities = [];
+    private Lagrange.Core.Common.Entity.MessageStyle? _style;
 
-    public MessageChain Build() => [.._entities];
+    public MessageChain Build()
+    {
+        MessageChain chain = [.._entities];
+        chain.Style = _style;
+        return chain;
+    }
+
+    /// <summary>Sets optional message presentation parameters.</summary>
+    /// <param name="style">The style, or null to clear it.</param>
+    /// <returns>This builder.</returns>
+    public MessageBuilder Style(Lagrange.Core.Common.Entity.MessageStyle? style)
+    {
+        _style = style;
+        return this;
+    }
 
     public MessageBuilder Text(string text)
     {

@@ -30,6 +30,7 @@ public sealed class GetForwardedMessagesHandler(BotContext lagrange, MilkyConver
             long peer = message.Contact switch { BotGroupMember member => member.Group.GroupUin, BotFriend friend => friend.Uin, _ => message.Receiver.Uin };
             result.Add(new IncomingForwardedMessage
             {
+                MessageStyle = Models.Messages.MessageStyle.FromCore(message.Style),
                 MessageSeq = checked((long)message.Sequence),
                 SenderName = message.Contact.Nickname,
                 AvatarUrl = string.Empty,

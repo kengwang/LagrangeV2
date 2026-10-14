@@ -12,6 +12,10 @@ formatting and shutdown flushing. Temporary log files are removed after the chec
 
 ## Negative regression variant
 
+Message-style scenarios additionally cover group/private/temp request binding,
+unsigned boundaries, omitted/null/empty styles, forwarded-node input and
+generated serialization of incoming messages and nodes.
+
 `-p:ReproduceUncachedBinding=true` compiles a smoke-only branch that registers generated JSON metadata but omits production binder metadata and scalar parsers. Publish it into separate output and intermediate directories, then run that executable. A binding/type-initializer failure is the expected regression result. This switch does not modify production Milky code.
 
 Keep normal and negative publishes isolated (including intermediates), and do not interpret a managed run as a trimming regression check. The reproduction branch is excluded from normal builds.

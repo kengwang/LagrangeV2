@@ -177,6 +177,7 @@ public partial class MilkyConverter
             {
                 list.Add(new IncomingForwardedMessage
                 {
+                    MessageStyle = Models.Messages.MessageStyle.FromCore(message.Style),
                     MessageSeq = message.Type == MessageType.Private ? (long)message.ClientSequence : (long)message.Sequence,
                     SenderName = message.Contact.Nickname,
                     AvatarUrl = string.Empty,
@@ -341,13 +342,15 @@ public partial class MilkyConverter
         List<BotMessage> result = [];
         foreach (var message in messages)
         {
+            var chain = await FromForwardOutgoingSegmentsAsync(message.Segments, ct);
+            chain.Style = message.MessageStyle?.ToCore();
             result.Add(BotMessage.CreateCustomFriend(
                 message.UserId,
                 message.SenderName,
                 0,
                 string.Empty,
                 DateTimeOffset.Now.ToUnixTimeSeconds(),
-                await FromForwardOutgoingSegmentsAsync(message.Segments, ct)
+                chain
             ));
         }
         return result;

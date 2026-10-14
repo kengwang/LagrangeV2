@@ -94,6 +94,7 @@ public static partial class Serializer
     [JsonSerializable(typeof(QuitGroupNotification))]
     [JsonSerializable(typeof(InvitedJoinRequestGroupNotification))]
     [JsonSerializable(typeof(IncomingForwardedMessage))]
+    [JsonSerializable(typeof(Models.Messages.MessageStyle))]
     [JsonSerializable(typeof(FaceIncomingSegment))]
     [JsonSerializable(typeof(XmlIncomingSegment))]
     [JsonSerializable(typeof(PokeIncomingSegment))]
