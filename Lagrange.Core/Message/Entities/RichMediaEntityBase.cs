@@ -4,9 +4,57 @@ using Lagrange.Core.Internal.Packets.Service;
 
 namespace Lagrange.Core.Message.Entities;
 
-public abstract class RichMediaEntityBase : IMessageEntity
+public abstract class RichMediaEntityBase : IMessageEntity, IAsyncDisposable
 {
     private MsgInfo? _msgInfo;
+    private bool _uploadStarted, _uploadComplete;
+    private (Type Kind, long Uin, long? TempGroup)? _uploadTarget;
+    private readonly HashSet<Stream> _ownedStreams = new(ReferenceEqualityComparer.Instance);
+
+    protected Stream Own(Stream stream)
+    {
+        _ownedStreams.Add(stream);
+        return stream;
+    }
+
+    /// <summary>Releases only streams owned by this media entity.</summary>
+    public ValueTask DisposeAsync() => new(ReleaseOwnedResourcesAsync());
+
+    internal async Task ReleaseOwnedResourcesAsync()
+    {
+        var streams = _ownedStreams.ToArray();
+        _ownedStreams.Clear();
+        List<Exception>? failures = null;
+        foreach (var stream in streams)
+        {
+            try { await stream.DisposeAsync(); }
+            catch (Exception e) { (failures ??= []).Add(e); }
+        }
+        if (failures is not null) throw new AggregateException("Media cleanup failed.", failures);
+    }
+
+    protected bool BeginPreparation(BotMessage message)
+    {
+        if (Stream is null)
+        {
+            if (MsgInfo is null) throw new InvalidOperationException("Media has neither an upload stream nor a protocol reference.");
+            return false;
+        }
+        var target = (message.Receiver.GetType(), message.Receiver.Uin, message.TempGroupUin);
+        if (_uploadComplete && _uploadTarget == target) return false;
+        if (_uploadStarted) throw new InvalidOperationException("This media upload was already attempted; create a fresh media entity to retry or change recipients.");
+        _uploadStarted = true;
+        _uploadTarget = target;
+        return true;
+    }
+
+    protected void CompletePreparation() => _uploadComplete = true;
+
+    private void EnsureReady()
+    {
+        if (_uploadStarted && !_uploadComplete) throw new InvalidOperationException("Media upload did not complete.");
+    }
+
 
     protected byte[]? _compat;
 
@@ -55,7 +103,7 @@ public abstract class RichMediaEntityBase : IMessageEntity
 
     public abstract string ToPreviewString();
 
-    Elem[] IMessageEntity.Build() => Build();
+    Elem[] IMessageEntity.Build() { EnsureReady(); return Build(); }
 
     IMessageEntity? IMessageEntity.Parse(List<Elem> elements, Elem target) => Parse(elements, target);
 

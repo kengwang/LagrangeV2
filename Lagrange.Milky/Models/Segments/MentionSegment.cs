@@ -13,5 +13,6 @@ public class MentionIncomingSegmentData
 public sealed class MentionOutgoingSegment : OutgoingSegmentBase<MentionOutgoingSegmentData>;
 public sealed class MentionOutgoingSegmentData(long userId)
 {
+    [JsonPropertyName("name"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Name { get; init; }
     [JsonPropertyName("user_id")] public required long UserId { get; init; } = userId;
 }

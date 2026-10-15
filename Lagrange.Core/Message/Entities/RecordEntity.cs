@@ -16,14 +16,17 @@ public class RecordEntity : RichMediaEntityBase
     
     public RecordEntity(Stream stream, bool disposeOnCompletion = false)
     {
+        if (disposeOnCompletion) Own(stream);
         Stream = new Lazy<Stream>(() => stream, disposeOnCompletion);
         DisposeOnCompletion = disposeOnCompletion;
     }
     
     public override async Task Preprocess(BotContext context, BotMessage message)
     {
+        if (!BeginPreparation(message)) return;
         ArgumentNullException.ThrowIfNull(Stream);
 
+        Exception? failure = null;
         try
         {
             IsGroup = message.IsGroup();
@@ -38,10 +41,14 @@ public class RecordEntity : RichMediaEntityBase
             {
                 await context.HighwayContext.UploadFile(Stream.Value, message.IsGroup() ? 1008 : 1007, ProtoHelper.Serialize(result.Ext));
             }
+            CompletePreparation();
         }  
+        catch (Exception exception) { failure = exception; throw; }
         finally
         {
-            if (DisposeOnCompletion) await Stream.Value.DisposeAsync();
+            try { await ReleaseOwnedResourcesAsync(); }
+            catch (Exception exception) when (failure is not null)
+            { context.LogWarning(nameof(RecordEntity), "Media cleanup also failed: {0}", null, exception.Message); }
         }
     }
 
@@ -82,6 +89,7 @@ public class RecordEntity : RichMediaEntityBase
             return new RecordEntity
             {
                 MsgInfo = msgInfo,
+                IsGroup = commonElem.BusinessType == 22,
                 RecordLength = info.Time
             };
         }

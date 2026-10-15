@@ -47,7 +47,7 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
     {
         if (string.IsNullOrEmpty(ResId))
         {
-            var result = await context.EventContext.SendEvent<LongMsgSendEventResp>(new LongMsgSendEventReq(message.Receiver, Messages));
+            var result = await context.EventContext.SendEvent<LongMsgSendEventResp>(new LongMsgSendEventReq(message.Receiver, Messages) { TempGroupUin = message.TempGroupUin });
             ResId = result.ResId;
 
         }

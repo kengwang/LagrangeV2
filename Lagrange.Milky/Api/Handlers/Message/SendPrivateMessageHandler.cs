@@ -1,3 +1,4 @@
+using System;
 using FastEndpoints;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
@@ -26,14 +27,21 @@ public sealed class SendPrivateMessageHandler(BotContext lagrange, MilkyConverte
 
     public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
-        var chain = await _converter.FromOutgoingSegmentsAsync(request.Message, MessageType.Private, request.UserId, ct);
-        chain.Style = request.MessageStyle?.ToCore();
-        var message = await _lagrange.SendFriendMessage(request.UserId, chain).WaitAsync(ct);
-        return new MilkyApiResponse<Result>(new Result
+        try
         {
-            MessageSeq = (long)message.ClientSequence,
-            Time = message.Time,
-        });
+            var chain = await _converter.FromOutgoingSegmentsAsync(request.Message, MessageType.Private, request.UserId, ct);
+            chain.Style = request.MessageStyle?.ToCore();
+            var message = await _lagrange.SendFriendMessage(request.UserId, chain).WaitAsync(ct);
+            return new MilkyApiResponse<Result>(new Result
+            {
+                MessageSeq = (long)message.ClientSequence,
+                Time = message.Time,
+            });
+        }
+        catch (Exception exception) when (ForwardErrors.Find(exception) is not null)
+        {
+            return new MilkyApiResponse<Result>(ForwardErrors.Code(exception), ForwardErrors.Describe(exception));
+        }
     }
 
     public sealed class Request(long userId, IReadOnlyList<OutgoingSegmentBase> message)

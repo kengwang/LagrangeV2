@@ -16,7 +16,7 @@ internal class LongMsgSendService : BaseService<LongMsgSendEventReq, LongMsgSend
 {
     protected override async ValueTask<ReadOnlyMemory<byte>> Build(LongMsgSendEventReq input, BotContext context)
     {
-        var content = input.PreparedContent ?? await new ForwardedMessageBuilder(context, input.Receiver).Build(input.Messages);
+        var content = input.PreparedContent ?? await new ForwardedMessageBuilder(context, input.Receiver, input.TempGroupUin).Build(input.Messages);
         
         await using var dest = new MemoryStream();
         await using var gzip = new GZipStream(dest, CompressionMode.Compress);

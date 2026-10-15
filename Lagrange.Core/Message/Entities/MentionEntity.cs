@@ -17,6 +17,7 @@ public class MentionEntity(long uin, string? display) : IMessageEntity
 
     async Task IMessageEntity.Preprocess(BotContext context, BotMessage message)
     {
+        if (Uin == 0) { Display ??= "@全体成员"; return; }
         if (Uin != 0)
         {
             BotContact contact;
@@ -40,6 +41,25 @@ public class MentionEntity(long uin, string? display) : IMessageEntity
             Uid = contact.Uid;
         }
     }
+
+    internal async Task<IMessageEntity> PrepareForward(BotContext context, BotContact receiver)
+    {
+        if (Uin == 0) return new MentionEntity(0, "@全体成员");
+        if (!string.IsNullOrEmpty(Uid))
+            return new MentionEntity(Uin, Label(Display ?? Uin.ToString())) { Uid = Uid };
+        BotContact? contact = receiver switch
+        {
+            BotGroup group => (await context.CacheContext.ResolveMember(group.Uin, Uin))?.Item2,
+            BotFriend => await context.CacheContext.ResolveFriend(Uin),
+            BotStranger stranger when stranger.Uin == Uin => stranger,
+            _ => null
+        };
+        var text = Label(string.IsNullOrWhiteSpace(Display) ? contact?.Nickname ?? Uin.ToString() : Display);
+        if (string.IsNullOrEmpty(contact?.Uid)) return new TextEntity(text);
+        return new MentionEntity(Uin, text) { Uid = contact.Uid };
+    }
+
+    private static string Label(string text) => text.StartsWith('@') ? text : '@' + text;
 
     Task IMessageEntity.Postprocess(BotContext context, BotMessage message)
     {

@@ -66,7 +66,7 @@ internal static class NTV2RichMedia
             _ => throw new ArgumentOutOfRangeException(nameof(entity))
         };
 
-        var scene = BuildSceneInfo(@struct.Contact, request, business);
+        var scene = BuildSceneInfo(cmd == 100 ? @struct.Receiver : @struct.Contact, request, business);
         if (cmd == 100 && @struct.TempGroupUin is { } sourceGroup)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sourceGroup);
@@ -99,7 +99,12 @@ internal static class NTV2RichMedia
             BusinessType = businessType,
         };
         
-        if (contact is BotGroupMember member)
+        if (contact is BotGroup group)
+        {
+            sceneInfo.SceneType = 2;
+            sceneInfo.Group = new GroupInfo { GroupUin = group.Uin };
+        }
+        else if (contact is BotGroupMember member)
         {
             sceneInfo.SceneType = 2;
             sceneInfo.Group = new GroupInfo { GroupUin = member.Group.GroupUin, };
@@ -176,7 +181,7 @@ internal static class NTV2RichMedia
             }
             case VideoEntity:
             {
-                info.Type.Type = 2; // unable to determine video type, skip
+                info.Type = new FileType { Type = 2 }; // unable to determine video type, skip
                 info.FileName = $"{md5}.mp4"; // default to mp4
                 break;
             }

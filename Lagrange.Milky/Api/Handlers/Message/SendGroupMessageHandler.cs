@@ -1,3 +1,4 @@
+using System;
 using FastEndpoints;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
@@ -26,14 +27,21 @@ public sealed class SendGroupMessageHandler(BotContext lagrange, MilkyConverter 
 
     public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
-        var chain = await _converter.FromOutgoingSegmentsAsync(request.Message, MessageType.Group, request.GroupId, ct);
-        chain.Style = request.MessageStyle?.ToCore();
-        var message = await _lagrange.SendGroupMessage(request.GroupId, chain).WaitAsync(ct);
-        return new MilkyApiResponse<Result>(new Result
+        try
         {
-            MessageSeq = (long)message.Sequence,
-            Time = message.Time,
-        });
+            var chain = await _converter.FromOutgoingSegmentsAsync(request.Message, MessageType.Group, request.GroupId, ct);
+            chain.Style = request.MessageStyle?.ToCore();
+            var message = await _lagrange.SendGroupMessage(request.GroupId, chain).WaitAsync(ct);
+            return new MilkyApiResponse<Result>(new Result
+            {
+                MessageSeq = (long)message.Sequence,
+                Time = message.Time,
+            });
+        }
+        catch (Exception exception) when (ForwardErrors.Find(exception) is not null)
+        {
+            return new MilkyApiResponse<Result>(ForwardErrors.Code(exception), ForwardErrors.Describe(exception));
+        }
     }
 
     public sealed class Request(long groupId, IReadOnlyList<OutgoingSegmentBase> message)

@@ -26,18 +26,22 @@ public class VideoEntity : RichMediaEntityBase
 
     public VideoEntity(Stream stream, Stream? thumbnailStream = null, bool disposeOnCompletion = false)
     {
+        if (disposeOnCompletion) Own(stream);
         Stream = new Lazy<Stream>(() => stream);
-        ThumbnailStream = new Lazy<Stream>(() => thumbnailStream ?? new MemoryStream(DefaultThumbnail));
+        if (disposeOnCompletion && thumbnailStream is not null) Own(thumbnailStream);
+        ThumbnailStream = new Lazy<Stream>(() => thumbnailStream ?? Own(new MemoryStream(DefaultThumbnail)));
         DisposeOnCompletion = disposeOnCompletion;
     }
 
     public override async Task Preprocess(BotContext context, BotMessage message)
     {
+        if (!BeginPreparation(message)) return;
         ArgumentNullException.ThrowIfNull(Stream);
         ArgumentNullException.ThrowIfNull(ThumbnailStream);
 
         ThumbnailEntity = new ImageEntity(ThumbnailStream.Value);
 
+        Exception? failure = null;
         try
         {
             if (message.IsGroup())
@@ -76,14 +80,14 @@ public class VideoEntity : RichMediaEntityBase
                     await context.HighwayContext.UploadFile(ThumbnailStream.Value, 1006, ProtoHelper.Serialize(result.SubExt));
                 }
             }
+            CompletePreparation();
         }
+        catch (Exception exception) { failure = exception; throw; }
         finally
         {
-            if (DisposeOnCompletion)
-            {
-                await Stream.Value.DisposeAsync();
-                await ThumbnailStream.Value.DisposeAsync();
-            }
+            try { await ReleaseOwnedResourcesAsync(); }
+            catch (Exception exception) when (failure is not null)
+            { context.LogWarning(nameof(VideoEntity), "Media cleanup also failed: {0}", null, exception.Message); }
         }
     }
 
@@ -100,7 +104,7 @@ public class VideoEntity : RichMediaEntityBase
 
     internal override Elem[] Build()
     {
-        if (_compat == null)
+        if (_compat is not null)
         {
             return
             [
@@ -143,6 +147,7 @@ public class VideoEntity : RichMediaEntityBase
             return new VideoEntity
             {
                 MsgInfo = msgInfo,
+                IsGroup = commonElem.BusinessType == 21,
                 VideoSize = new Vector2(videoInfo.Width, videoInfo.Height),
                 VideoLength = videoInfo.Time
             };

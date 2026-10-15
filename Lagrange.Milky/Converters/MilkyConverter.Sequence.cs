@@ -248,9 +248,17 @@ public partial class MilkyConverter
     public async Task<MessageChain> FromOutgoingSegmentsAsync(IReadOnlyList<OutgoingSegmentBase> segments, MessageType type, long ownerPeerUin, CancellationToken ct = default)
     {
         MessageChain result = [];
-        foreach (var segment in segments)
+        try
         {
-            result.Add(await FromOutgoingSegmentAsync(segment, type, ownerPeerUin, ct));
+            foreach (var segment in segments)
+            {
+                result.Add(await FromOutgoingSegmentAsync(segment, type, ownerPeerUin, ct));
+            }
+        }
+        catch
+        {
+            await ReleaseMediaAsync(result, new(ReferenceEqualityComparer.Instance));
+            throw;
         }
         return result;
     }
@@ -259,7 +267,7 @@ public partial class MilkyConverter
     {
         FileOutgoingSegment => throw new NotSupportedException("File references are only supported inside forwarded messages; use the file upload API for live messages."),
         TextOutgoingSegment text => new TextEntity(text.Data.Text),
-        MentionOutgoingSegment mention => new MentionEntity(mention.Data.UserId, null),
+        MentionOutgoingSegment mention => new MentionEntity(mention.Data.UserId, mention.Data.Name),
         MentionAllOutgoingSegment => new MentionEntity(0, null),
         ReplyOutgoingSegment reply => await FromReplyOutgoingSegmentAsync(reply, type, ownerPeerUin, ct),
         ImageOutgoingSegment image => new ImageEntity(
@@ -276,11 +284,7 @@ public partial class MilkyConverter
             await _resourceConverter.UriToStreamAsync(record.Data.Uri, ct),
             disposeOnCompletion: true
         ),
-        VideoOutgoingSegment video => new VideoEntity(
-            await _resourceConverter.UriToStreamAsync(video.Data.Uri, ct),
-            video.Data.ThumbUri == null ? null : await _resourceConverter.UriToStreamAsync(video.Data.ThumbUri, ct),
-            disposeOnCompletion: true
-        ),
+        VideoOutgoingSegment video => await CreateVideoAsync(video, ct),
         ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
         FaceOutgoingSegment face => new FaceEntity { FaceId = uint.Parse(face.Data.FaceId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture), Large = face.Data.Large, ResultId = face.Data.ResultId, Raw = face.Data.Raw ?? string.Empty },
@@ -340,18 +344,26 @@ public partial class MilkyConverter
     private async Task<List<BotMessage>> FromOutgoingForwardedMessagesAsync(IReadOnlyList<OutgoingForwardedMessage> messages, CancellationToken ct)
     {
         List<BotMessage> result = [];
-        foreach (var message in messages)
+        try
         {
-            var chain = await FromForwardOutgoingSegmentsAsync(message.Segments, ct);
-            chain.Style = message.MessageStyle?.ToCore();
-            result.Add(BotMessage.CreateCustomFriend(
-                message.UserId,
-                message.SenderName,
-                0,
-                string.Empty,
-                DateTimeOffset.Now.ToUnixTimeSeconds(),
-                chain
-            ));
+            foreach (var message in messages)
+            {
+                var chain = await FromForwardOutgoingSegmentsAsync(message.Segments, ct);
+                chain.Style = message.MessageStyle?.ToCore();
+                result.Add(BotMessage.CreateCustomFriend(
+                    message.UserId,
+                    message.SenderName,
+                    0,
+                    string.Empty,
+                    DateTimeOffset.Now.ToUnixTimeSeconds(),
+                    chain
+                ));
+            }
+        }
+        catch
+        {
+            await ReleaseMediaAsync(result.SelectMany(message => message.Entities), new(ReferenceEqualityComparer.Instance));
+            throw;
         }
         return result;
     }
@@ -359,9 +371,17 @@ public partial class MilkyConverter
     private async Task<MessageChain> FromForwardOutgoingSegmentsAsync(IReadOnlyList<OutgoingSegmentBase> segments, CancellationToken ct)
     {
         MessageChain chain = [];
-        foreach (var segment in segments)
+        try
         {
-            chain.Add(await FromForwardOutgoingSegmentAsync(segment, ct));
+            foreach (var segment in segments)
+            {
+                chain.Add(await FromForwardOutgoingSegmentAsync(segment, ct));
+            }
+        }
+        catch
+        {
+            await ReleaseMediaAsync(chain, new(ReferenceEqualityComparer.Instance));
+            throw;
         }
         return chain;
     }
@@ -370,7 +390,7 @@ public partial class MilkyConverter
     {
         FileOutgoingSegment file => GroupFileEntity.CreateReference(file.Data.FileId, file.Data.FileName, file.Data.FileSize, file.Data.FileHash, file.Data.Url),
         TextOutgoingSegment text => new TextEntity(text.Data.Text),
-        MentionOutgoingSegment mention => new MentionEntity(mention.Data.UserId, null),
+        MentionOutgoingSegment mention => new MentionEntity(mention.Data.UserId, mention.Data.Name),
         MentionAllOutgoingSegment => new MentionEntity(0, null),
         ReplyOutgoingSegment => new ReplyEntity(), // No information
         ImageOutgoingSegment image => new ImageEntity(
@@ -382,16 +402,12 @@ public partial class MilkyConverter
                 _ => 0,
             },
             disposeOnCompletion: true
-        ), // TODO: Unable to upload due to a bug in the core.
+        ),
         RecordOutgoingSegment record => new RecordEntity(
             await _resourceConverter.UriToStreamAsync(record.Data.Uri, ct),
             disposeOnCompletion: true
-        ), // TODO: Unable to upload due to a bug in the core.
-        VideoOutgoingSegment video => new VideoEntity(
-            await _resourceConverter.UriToStreamAsync(video.Data.Uri, ct),
-            video.Data.ThumbUri == null ? null : await _resourceConverter.UriToStreamAsync(video.Data.ThumbUri, ct),
-            disposeOnCompletion: true
-        ), // TODO: Unable to upload due to a bug in the core.
+        ),
+        VideoOutgoingSegment video => await CreateVideoAsync(video, ct),
         ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
         FaceOutgoingSegment face => new FaceEntity { FaceId = uint.Parse(face.Data.FaceId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture), Large = face.Data.Large, ResultId = face.Data.ResultId, Raw = face.Data.Raw ?? string.Empty },
@@ -433,4 +449,30 @@ public partial class MilkyConverter
         };
         return entity;
     }
+    private async Task<VideoEntity> CreateVideoAsync(VideoOutgoingSegment video, CancellationToken ct)
+    {
+        var stream = await _resourceConverter.UriToStreamAsync(video.Data.Uri, ct);
+        try
+        {
+            var thumbnail = video.Data.ThumbUri is null ? null : await _resourceConverter.UriToStreamAsync(video.Data.ThumbUri, ct);
+            return new VideoEntity(stream, thumbnail, disposeOnCompletion: true);
+        }
+        catch { await stream.DisposeAsync(); throw; }
+    }
+
+    private static async Task ReleaseMediaAsync(IEnumerable<IMessageEntity> entities, HashSet<IMessageEntity> visited)
+    {
+        foreach (var entity in entities)
+        {
+            if (!visited.Add(entity)) continue;
+            try
+            {
+                if (entity is RichMediaEntityBase media) await media.DisposeAsync();
+                if (entity is MultiMsgEntity forward)
+                    await ReleaseMediaAsync(forward.Messages.SelectMany(message => message.Entities), visited);
+            }
+            catch (Exception exception) { Serilog.Log.Warning(exception, "Failed to clean converted media"); }
+        }
+    }
+
 }

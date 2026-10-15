@@ -27,6 +27,7 @@ public class ImageEntity : RichMediaEntityBase
     
     public ImageEntity(Stream stream, string? summary = "[图片]", int subType = 0, bool disposeOnCompletion = false)
     {
+        if (disposeOnCompletion) Own(stream);
         Stream = new Lazy<Stream>(() => stream);
         Summary = summary ?? "[图片]";
         SubType = subType;
@@ -36,8 +37,10 @@ public class ImageEntity : RichMediaEntityBase
     public override async Task Preprocess(BotContext context, BotMessage message)
     { 
         if (IsFlash) throw new NotSupportedException("Sending flash images is not supported by this protocol migration.");
+        if (!BeginPreparation(message)) return;
         ArgumentNullException.ThrowIfNull(Stream);
 
+        Exception? failure = null;
         try
         {
             IsGroup = message.IsGroup();
@@ -60,10 +63,14 @@ public class ImageEntity : RichMediaEntityBase
                     await context.FlashTransferContext.UploadFile(result.Ext.UKey, (uint)(IsGroup ? 1407 : 1406), Stream.Value);
                 }
             }
+            CompletePreparation();
         }
+        catch (Exception exception) { failure = exception; throw; }
         finally
         {
-            if (DisposeOnCompletion) await Stream.Value.DisposeAsync();
+            try { await ReleaseOwnedResourcesAsync(); }
+            catch (Exception exception) when (failure is not null)
+            { context.LogWarning(nameof(ImageEntity), "Media cleanup also failed: {0}", null, exception.Message); }
         }
     }
 
@@ -139,6 +146,7 @@ public class ImageEntity : RichMediaEntityBase
             return new ImageEntity
             {
                 MsgInfo = msgInfo,
+                IsGroup = commonElem.BusinessType == 20,
                 ImageSize = new Vector2(info.Width, info.Height),
                 SubType = (int)msgInfo.ExtBizInfo.Pic.BizType,
                 Summary = string.IsNullOrEmpty(msgInfo.ExtBizInfo.Pic.TextSummary) ? "[图片]" : msgInfo.ExtBizInfo.Pic.TextSummary,

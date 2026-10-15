@@ -11,6 +11,8 @@ internal class LongMsgSendEventReq(BotContact receiver, List<BotMessage> message
     
     public List<BotMessage> Messages { get; } = messages;
 
+    internal long? TempGroupUin { get; init; }
+
     internal PbMultiMsgTransmit? PreparedContent { get; init; }
 }
 

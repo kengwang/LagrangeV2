@@ -401,3 +401,10 @@ packet ordering field is introduced.
 - [x] light_app
 - [x] market_face
 - [x] xml
+
+
+### Forwarded message preparation
+
+Forward nodes retain their declared sender identity and `message_style`; media uploads use the actual destination conversation. Nested forwards are validated before uploads, prepared once per shared entity, and compiled from the deepest child outward. Failed media preparation prevents the final chat-record card from being sent.
+
+Outgoing `mention` segments accept an optional `name`, for example `{"type":"mention","data":{"user_id":123,"name":"Historical name"}}`. In forwarded nodes an unresolved mention is retained as plain `@name` text (or `@123` when unnamed). Live-message member validation is unchanged. Forward preparation failures return a failed Milky response with the node path and segment type; detailed inner exceptions are logged server-side.
