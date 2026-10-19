@@ -81,11 +81,8 @@ public sealed class FaceEntity : IMessageEntity
             catch { return null; }
         }
 
-        // Keep compatibility with legacy clients which still send CustomFace.
-        if (target.CustomFace is { BizType: 0 } legacy)
-        {
-            return new FaceEntity { FaceId = legacy.FileId, Raw = legacy.Shortcut ?? string.Empty };
-        }
+        // CustomFace is a legacy group-image element, including the compatibility
+        // copy accompanying a modern image. Its FileId is not a system face ID.
 
         return null;
     }
