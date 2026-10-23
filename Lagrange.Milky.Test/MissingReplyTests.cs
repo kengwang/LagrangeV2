@@ -33,6 +33,13 @@ public sealed class MissingReplyTests
     }
 
     [Test]
+    public async Task GroupHistoryCodeFourIsTreatedAsUnavailableReply()
+    {
+        var message = await Resolve(() => Task.FromException<List<BotMessage>>(new OperationException(4, string.Empty)), default);
+        Assert.That(message, Is.Null);
+    }
+
+    [Test]
     public void CancellationIsNotTreatedAsMissingReply()
     {
         using var cancellation = new CancellationTokenSource();
@@ -59,5 +66,21 @@ public sealed class MissingReplyTests
             Assert.That(data.Segments, Is.Empty);
             Assert.That(result[1], Is.TypeOf<TextIncomingSegment>());
         });
+    }
+
+    [Test]
+    public async Task ReplyCycleStopsAtMetadataInsteadOfRecursing()
+    {
+        var reply = new ReplyEntity();
+        typeof(ReplyEntity).GetProperty(nameof(ReplyEntity.SrcSequence))!.SetValue(reply, 77UL);
+        typeof(ReplyEntity).GetProperty(nameof(ReplyEntity.SourceUin))!.SetValue(reply, 123L);
+        typeof(ReplyEntity).GetProperty(nameof(ReplyEntity.SourceTime))!.SetValue(reply, 456L);
+        var converter = new MilkyConverter(null!, new MessageCache(null!, NullLoggerFactory.Instance), null!);
+        var method = typeof(MilkyConverter).GetMethod("ToReplyIncomingSegmentAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var task = (Task<ReplyIncomingSegment>)method.Invoke(converter,
+            [reply, MessageType.Group, 123L, CancellationToken.None, new HashSet<ulong> { 77 }, 1])!;
+        var data = (await task).Data;
+        Assert.That(data.MessageSeq, Is.EqualTo(77));
+        Assert.That(data.Segments, Is.Empty);
     }
 }

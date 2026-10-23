@@ -16,18 +16,27 @@ namespace Lagrange.Milky.Converters;
 
 public partial class MilkyConverter
 {
+    private const int MaxReplyExpansionDepth = 8;
+
     public async Task<IReadOnlyList<IncomingSegmentBase>> ToIncomingSegmentsAsync(MessageChain chain, MessageType type, long ownerPeerUin, CancellationToken ct = default)
+        => await ToIncomingSegmentsAsync(chain, type, ownerPeerUin, ct, new HashSet<ulong>(), 0);
+
+    private async Task<IReadOnlyList<IncomingSegmentBase>> ToIncomingSegmentsAsync(
+        MessageChain chain, MessageType type, long ownerPeerUin, CancellationToken ct,
+        HashSet<ulong> replyTrail, int replyDepth)
     {
         List<IncomingSegmentBase> result = new(chain.Count);
         foreach (var entity in chain)
         {
-            var segment = await ToIncomingSegmentAsync(entity, type, ownerPeerUin, ct);
+            var segment = await ToIncomingSegmentAsync(entity, type, ownerPeerUin, ct, replyTrail, replyDepth);
             if (segment != null) result.Add(segment);
         }
         return result;
     }
 
-    private async Task<IncomingSegmentBase?> ToIncomingSegmentAsync(IMessageEntity entity, MessageType type, long ownerPeerUin, CancellationToken ct = default) => entity switch
+    private async Task<IncomingSegmentBase?> ToIncomingSegmentAsync(
+        IMessageEntity entity, MessageType type, long ownerPeerUin, CancellationToken ct,
+        HashSet<ulong> replyTrail, int replyDepth) => entity switch
     {
         TextEntity text => new TextIncomingSegment { Data = new TextIncomingSegmentData { Text = text.Text } },
         MentionEntity mention => mention.Uin == 0
@@ -50,7 +59,7 @@ public partial class MilkyConverter
         {
             Data = new XmlIncomingSegmentData { Xml = xml.Xml }
         },
-        ReplyEntity reply => await ToReplyIncomingSegmentAsync(reply, type, ownerPeerUin, ct),
+        ReplyEntity reply => await ToReplyIncomingSegmentAsync(reply, type, ownerPeerUin, ct, replyTrail, replyDepth),
         ImageEntity image => new ImageIncomingSegment
         {
             Data = new ImageIncomingSegmentData
@@ -182,7 +191,7 @@ public partial class MilkyConverter
                     SenderName = message.Contact.Nickname,
                     AvatarUrl = string.Empty,
                     Time = message.Time,
-                    Segments = await ToIncomingSegmentsAsync(message.Entities, message.Type, ownerPeerUin, ct)
+                    Segments = await ToIncomingSegmentsAsync(message.Entities, message.Type, ownerPeerUin, ct, new HashSet<ulong>(), 0)
                 });
             }
             messages = list;
@@ -197,7 +206,7 @@ public partial class MilkyConverter
         {
             return (await lookup().WaitAsync(ct)).FirstOrDefault();
         }
-        catch (OperationException ex) when (ex.Result == 100000301)
+        catch (OperationException ex) when (ex.Result is 4 or 100000301)
         {
             // QQ explicitly reports that message storage has no matching message.
             // Keep the original reply metadata rather than discard the enclosing message.
@@ -206,8 +215,16 @@ public partial class MilkyConverter
         }
     }
 
-    private async Task<ReplyIncomingSegment> ToReplyIncomingSegmentAsync(ReplyEntity reply, MessageType type, long ownerPeerUin, CancellationToken ct = default)
+    private async Task<ReplyIncomingSegment> ToReplyIncomingSegmentAsync(
+        ReplyEntity reply, MessageType type, long ownerPeerUin, CancellationToken ct,
+        HashSet<ulong> replyTrail, int replyDepth)
     {
+        var sequence = reply.SrcSequence;
+        if (replyDepth >= MaxReplyExpansionDepth || !replyTrail.Add(sequence))
+            return MetadataOnlyReply(reply);
+
+        try
+        {
         var message = _cache.Get(type, ownerPeerUin, reply.SrcSequence)
             ?? await ResolveReplyTargetAsync(() => type switch
             {
@@ -240,10 +257,27 @@ public partial class MilkyConverter
                     _ => throw new NotSupportedException(),
                 },
                 Time = message.Time,
-                Segments = await ToIncomingSegmentsAsync(message.Entities, type, ownerPeerUin, ct),
+                Segments = await ToIncomingSegmentsAsync(message.Entities, type, ownerPeerUin, ct, replyTrail, replyDepth + 1),
             }
         };
+        }
+        finally
+        {
+            replyTrail.Remove(sequence);
+        }
     }
+
+    private static ReplyIncomingSegment MetadataOnlyReply(ReplyEntity reply) => new()
+    {
+        Data = new ReplyIncomingSegmentData
+        {
+            MessageSeq = (long)reply.SrcSequence,
+            SenderId = reply.Source?.Uin ?? reply.SourceUin,
+            SenderName = reply.Source?.Nickname,
+            Time = reply.SourceTime,
+            Segments = []
+        }
+    };
 
     public async Task<MessageChain> FromOutgoingSegmentsAsync(IReadOnlyList<OutgoingSegmentBase> segments, MessageType type, long ownerPeerUin, CancellationToken ct = default)
     {
