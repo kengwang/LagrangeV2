@@ -3,6 +3,7 @@
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
     <PublishAot>true</PublishAot>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <TargetFramework>net10.0</TargetFramework>
     <InvariantGlobalization>true</InvariantGlobalization>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
@@ -13,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <TrimmerRootAssembly Include="Lagrange.Core" />
+    <TrimmerRootDescriptor Include="Mcp/TrimmerRoots.xml" />
   </ItemGroup>
   <ItemGroup Condition="'$(PublishAot)' == 'true' Or '$(PublishTrimmed)' == 'true'">
     <!-- Match the Web SDK's trimmed-app default; this project uses the base SDK. -->
@@ -25,6 +27,7 @@
   <ItemGroup>
     <PackageReference Include="FastEndpoints" Version="8.3.0" />
     <PackageReference Include="FastEndpoints.Generator" Version="8.3.0" PrivateAssets="all" />
+    <PackageReference Include="FastEndpoints.Mcp" Version="1.0.0-beta.5" />
     <PackageReference Include="FastEndpoints.OpenApi" Version="8.3.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />

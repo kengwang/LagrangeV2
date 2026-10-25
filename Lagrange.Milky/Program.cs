@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Lagrange.Milky.Security;
+using Lagrange.Milky.Configurations;
 using Lagrange.Milky.Api;
 using Lagrange_Milky;
 using Lagrange.Milky.Serialization;
@@ -71,6 +72,8 @@ public static class Program
         host.UseFastEndpoints(c =>
         {
             c.ConfigureMilkyBinding();
+            if (host.Services.GetRequiredService<MilkyConfiguration>().Api.Mcp.Enabled)
+                c.ConfigureMilkyMcp();
             c.Errors.ResponseBuilder = (failures, context, _) =>
             {
                 context.Response.StatusCode = StatusCodes.Status200OK;
@@ -78,6 +81,7 @@ public static class Program
                 return new MilkyApiResponse(-400, failure?.ErrorMessage ?? "request validation failed");
             };
         });
+        host.UseMilkyMcp();
         host.MapOpenApi();
         host.MapScalarApiReference(options =>
         {

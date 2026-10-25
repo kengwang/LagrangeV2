@@ -88,6 +88,7 @@ public static class HostApplicationBuilderExtension
             ?? throw new Exception("Failed to load 'Milky' configuration");
         builder.Services.AddSingleton(configuration);
         builder.WebHost.UseUrls($"http://{configuration.HttpServer.Host}:{configuration.HttpServer.Port}");
+        builder.Services.AddMilkyMcp(configuration);
 
         builder.Services.AddSingleton<MessageCache>();
         builder.Services.AddHostedService<CacheService>();

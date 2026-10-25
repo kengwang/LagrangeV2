@@ -18,11 +18,24 @@ using Lagrange.Milky.Serialization;
 using Lagrange_Milky;
 using Microsoft.AspNetCore.Http.Features;
 
-// This executable does not start a listener, create a bot, or execute any QQ endpoint.
-// Every generic binder is statically instantiated so Native AOT compiles the real binding path.
 if (args.Contains("--require-native") && RuntimeFeature.IsDynamicCodeSupported)
     throw new InvalidOperationException("Run the published Native AOT executable for --require-native.");
 
+int mcpCase = Array.IndexOf(args, "--mcp-case");
+if (mcpCase >= 0)
+{
+    ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(mcpCase + 1, args.Length);
+    await McpSmoke.RunCaseAsync(args[mcpCase + 1]);
+    return;
+}
+
+if (args.Contains("--mcp"))
+{
+    await McpSmoke.RunAsync();
+    return;
+}
+
+// 默认模式直接验证实际绑定器，MCP 模式单独启动本机 HTTP 服务。
 await CheckLoggingAsync();
 
 var builder = WebApplication.CreateSlimBuilder();

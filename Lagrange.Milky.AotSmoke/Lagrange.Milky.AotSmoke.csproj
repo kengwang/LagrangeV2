@@ -6,12 +6,13 @@
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ReproduceUncachedBinding)' == 'true'">
     <DefineConstants>$(DefineConstants);REPRODUCE_UNCACHED_BINDING</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <TrimmerRootDescriptor Include="../Lagrange.Milky/Mcp/TrimmerRoots.xml" />
     <ProjectReference Include="../Lagrange.Milky/Lagrange.Milky.csproj" />
   </ItemGroup>
 </Project>

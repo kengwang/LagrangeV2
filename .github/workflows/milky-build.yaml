@@ -8,6 +8,8 @@ on:
     paths:
       - .github/workflows/milky-build.yaml
       - Lagrange.Milky/**
+      - Lagrange.Milky.AotSmoke/**
+      - Lagrange.Milky.Test/**
       - Lagrange.Core/**
       - Lagrange.Core.Generator/**
       - Lagrange.Proto.Generator/**
@@ -20,6 +22,8 @@ on:
     paths:
       - .github/workflows/milky-build.yaml
       - Lagrange.Milky/**
+      - Lagrange.Milky.AotSmoke/**
+      - Lagrange.Milky.Test/**
       - Lagrange.Core/**
       - Lagrange.Core.Generator/**
       - Lagrange.Proto.Generator/**
@@ -61,6 +65,18 @@ jobs:
 
       - name: Publish
         run: dotnet publish Lagrange.Milky -c Release -r ${{ matrix.rid }}
+
+      - name: Test Milky
+        if: matrix.rid == 'win-x64'
+        run: dotnet test Lagrange.Milky.Test -c Release
+
+      - name: Publish MCP smoke
+        if: matrix.rid == 'win-x64'
+        run: dotnet publish Lagrange.Milky.AotSmoke -c Release -r win-x64
+
+      - name: Run native MCP smoke
+        if: matrix.rid == 'win-x64'
+        run: ./Lagrange.Milky.AotSmoke/bin/Release/net10.0/win-x64/publish/Lagrange.Milky.AotSmoke.exe --mcp --require-native
 
       - if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4

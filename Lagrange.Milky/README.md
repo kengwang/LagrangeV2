@@ -22,6 +22,12 @@ Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\E
 
 ## Feature List
 
+### MCP
+
+Enable `Milky.Api.Mcp.Enabled` to expose Milky API endpoints as MCP tools at `/mcp`.
+MCP uses the existing access token and HTTP listener. See
+[configuration, client setup and verification](../docs/mcp.md).
+
 ### Message styles
 
 Optional `message_style` parameters support bubbles, avatar pendants and font

@@ -1,6 +1,6 @@
 # Milky request-binding smoke
 
-This console executable initializes FastEndpoints with the production binding configuration, then binds real Milky request DTOs from in-memory HTTP requests. It never starts a listener, creates a bot session, or calls QQ. Failure exits nonzero.
+By default, this console executable initializes FastEndpoints with the production binding configuration, then binds real Milky request DTOs from in-memory HTTP requests. This mode never starts a listener, creates a bot session, or calls QQ. Failure exits nonzero.
 
 The 21 scenarios cover group/private sends, polymorphic and string collections, strings, nullable numeric values, booleans, unsigned values, nullable dates, rejection of malformed numeric query values, raw SSO request defaults and explicit nulls, raw packet response/event serialization, database key request binding and response serialization, and friends-status responses with nullable status and uninterpreted fields. Query keys use the DTO's CLR property names; JSON uses its declared snake_case names.
 
@@ -19,3 +19,20 @@ generated serialization of incoming messages and nodes.
 `-p:ReproduceUncachedBinding=true` compiles a smoke-only branch that registers generated JSON metadata but omits production binder metadata and scalar parsers. Publish it into separate output and intermediate directories, then run that executable. A binding/type-initializer failure is the expected regression result. This switch does not modify production Milky code.
 
 Keep normal and negative publishes isolated (including intermediates), and do not interpret a managed run as a trimming regression check. The reproduction branch is excluded from normal builds.
+
+## MCP HTTP transport
+
+Run with `--mcp` to verify the production MCP integration using real Kestrel
+listeners and the official MCP HTTP client. Each startup configuration runs in a
+separate process because FastEndpoints initializes its serializer configuration
+once per process. The scenarios cover disabled MCP, bearer-token authentication,
+empty-token access, complete API tool coverage, schemas, local queries and errors.
+No QQ login or remote QQ operation is performed.
+
+```powershell
+dotnet run --project Lagrange.Milky.AotSmoke -- --mcp
+dotnet publish Lagrange.Milky.AotSmoke -c Release -r win-x64
+./Lagrange.Milky.AotSmoke/bin/Release/net10.0/win-x64/publish/Lagrange.Milky.AotSmoke.exe --mcp --require-native
+```
+
+See [MCP configuration and response semantics](../docs/mcp.md).

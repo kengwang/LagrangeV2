@@ -1,0 +1,4 @@
+<linker>
+  <!-- 官方 MCP 包使用反射构建工具并序列化匿名错误响应。 -->
+  <assembly fullname="FastEndpoints.Mcp" preserve="all" />
+</linker>

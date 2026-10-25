@@ -42,9 +42,15 @@ public class MilkyWebSocketEventConfiguration(bool enabled)
     public bool Enabled { get; } = enabled;
 }
 
-public class MilkyApiConfiguration(MilkyHttpApiConfiguration? http = null)
+public class MilkyApiConfiguration(MilkyHttpApiConfiguration? http = null, MilkyMcpConfiguration? mcp = null)
 {
     public MilkyHttpApiConfiguration? Http { get; } = http;
+    public MilkyMcpConfiguration Mcp { get; } = mcp ?? new();
+}
+
+public class MilkyMcpConfiguration(bool enabled = false)
+{
+    public bool Enabled { get; } = enabled;
 }
 
 public class MilkyHttpApiConfiguration(bool enabled, string? allowCorsOrigins = null)
