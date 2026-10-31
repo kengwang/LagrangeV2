@@ -1,4 +1,81 @@
-# LagrangeV2 能力补全验收
+# LagrangeV2 能力迁移与验收
+
+## Core 与 Milky 能力更新
+
+实施日期：2026-10-31。LagrangeV2 比较基线：`ec0b3ff4`。参考范围：`fb5f9b21558134db8803d216dfc19c6bce11f2c0..11d42b4e98d4b6ce32c78c04bb2ee3e92d2f34dd`，共 196 个非合并提交。
+
+Core 保持 net8.0/net9.0；Milky、Codec 与验证程序使用 net10.0。新增功能通过既有协议事件、Service、消息实体和 FastEndpoints 提供，并登记 OpenAPI 与 MCP 元数据。
+
+### 协议与行为
+
+| 能力 | 上游来源 | 当前行为 |
+|---|---|---|
+| 设备会话 | `dac3deb7` | 固定设备联系人加入好友列表，私聊文本通过 Trans0x211/7 发送；529/7 接收文本和文件通知，保留设备身份及方向 |
+| 群分类标签、分享链接 | `f0203823`、`f85b28d2` | 分类编号允许 0；标签保留编号、名称、类型；分享支持短链接及附加参数 |
+| 管理员权限 | `d30cd1ba`、`8b8a9df8` | 查询撤回、移除成员、每日移除上限及验证通知；未知值保留 null；更新仅发送指定权限并校验目标身份 |
+| Qzone 资料与回复 | `4d55608b`、`d95d3bf7` | 名称和描述支持部分修改及空字符串清空；详情返回评论与回复；回复关联原始评论并检查确认编号 |
+| 好友动态分页 | `9bf4b910` | 保留既有字段，新增正文、图片、完整性、互动数量与账号关联游标；按页码读取时逐页携带服务器状态 |
+| 首页、公开动态与分享 | `2f1aadff`、`eb119ecb` | 完整动态对象用于详情、互动、关注、转发和卡片生成；保留分享可见性提示 |
+| 发送确认及私聊序号 | `2c7d9b63`、`bd14b0a9` | 检查审核结果、业务结果和真实确认；私聊区分请求序号与服务器序号；图文卡片校验逐项投递结果 |
+| 文件回执、转发媒体 | `4379e483`、`075a27cc`、`9d8df593` | 下载回执不产生新文件事件；保留可用兼容图片；XML 转发从根元素读取资源标识，继续使用目标会话准备嵌套媒体 |
+| 系统表情、收藏表情 | `e05d3176`、`efb32ed0`、`93b5c1b4`、`0cc06b6b` | 保留全部目录分组；增加单个表情查询；保留动画参数与结果；图片上传携带真实子类型和摘要 |
+| 语音 | `0a6c5b7d`、`368becd0`、`a557bf72` | 从真实 PCM 计算 30 个幅度值；私聊上传省略通用标志；发送保留服务器原始播放兼容数据，接收避免重复语音实体 |
+| Highway 上传 | `44679beb`、`5c932820` | 保留完整上传地址，校验分片响应，执行有界并发，失败时取消同次上传并释放资源；不自动重试 |
+| 群相册评论 | `131a3093`、`c88c8e75`、`ceb8387e`、`20f48d11` | 先分页定位媒体，再查询动态详情；原样复制动态公共、所有者和媒体字段；支持视频封面及 64 位批次编号 |
+| 过滤好友申请、单向好友 | `41b92263`、`797a4d75`、`26639ffe` | 读取数字或 UID 形式的申请人，修正时间和群号字段；批准使用 0xd72_0；单向好友使用专用封装并检查 JSON 业务状态 |
+| 用户资料 | `3068d3ef`、`d8763c98` | 增加注册时间、会员信息及生日年月日，支持隐藏年份的二月二十九日；保留已有 Birthday 属性 |
+| 邀请及历史 | `bb4443b1`、`299fa85a`、`304f3e77` | 接收直接群邀请，按群及双方身份匹配唯一待处理申请并去重；私聊历史业务错误继续传播 |
+
+既有临时会话上传已经携带来源群；继续使用相关协议字段测试验证。既有 message_style、转发元数据、临时会话和媒体准备规则保留。
+
+### 新增接口
+
+全部接口位于 `/api/`，使用 POST 和既有 Milky 鉴权；启用 MCP 后使用相同路由名称提供工具。
+
+- 群：`get_group_tags`、`add_group_tag`、`delete_group_tag`、`get_group_share_link`、`get_group_admin_permissions`、`set_group_admin_permissions`、`set_group_admin_receive_verify`。
+- 表情：`get_system_face`。既有目录和搜索结果增加 `animation_type`、`animation_pack_id`、`animation_sticker_id`。
+- 空间资料与评论：`get_qzone_profile`、`set_qzone_profile`、`get_qzone_message_detail`、`reply_qzone_comment`。
+- 动态读取：`get_qzone_home_feeds`、`get_qzone_public_capabilities`、`get_qzone_public_feeds`、`get_qzone_public_feed_detail`、`get_qzone_public_comments`、`get_qzone_public_replies`。
+- 动态操作：`set_qzone_public_upvote`、`set_qzone_public_like`、`set_qzone_public_comment_like`、`comment_qzone_public_feed`、`reply_qzone_public_feed`、`delete_qzone_public_comment`、`delete_qzone_public_reply`、`set_qzone_public_follow`、`forward_qzone_public_feed`、`get_qzone_share_ark`。
+
+群分类接口接受 `group_class`；添加和删除另需 `name`。管理员接口接受 `group_id`、`user_id`；启用 `kick_member` 时必须提供 `kick_member_per_day`，取值为 0、5、10、20、50、100 或 200，0 表示不限制每日数量。查询返回的 null 表示服务器没有提供有效状态。
+
+设备编号为 `0x7E000001`（电脑）、`0x7E000002`（手机）、`0x7E000003`（Pad），通过 `get_friend_list`、`send_private_message` 和好友消息事件使用。设备发送要求非空文本；接收文件通知提供原始文件标识与元数据。
+
+Qzone 公开动态接口的 `feed`、`comment`、`reply` 接受读取接口返回的完整对象。`content` 接受文本或 QQ 富文本对象数组。主页游标关联当前账号及主页；推荐游标关联当前账号。普通好友动态继续支持 `page_num`、`position`、`count`，并接受 `cursor`；下一页使用 `next_cursor`。说说详情和回复沿用 `target_uin`、`message_id`；回复另需 `comment_id`、`comment_uin`，可选 `reply_uin`、`reply_name` 用于指定回复对象。
+
+`get_qzone_share_ark` 返回 `ark`、`requires_confirmation`、`notice`，由调用方阅读提示后使用已有消息接口发送卡片。
+
+### 配置与依赖
+
+普通 QQ 视频的 Highway 分片并发由 `Lagrange.Server.VideoUploadConcurrency` 控制，默认 1，范围 1–4；环境变量使用 `Lagrange__Server__VideoUploadConcurrency`。每次上传保存其并发设置、地址及票据，失败后阻止后续消息发送。
+
+Qzone HTML 使用 AngleSharp 1.9.0，JavaScript 字面量使用 Acornima 1.9.1，JSON 使用 System.Text.Json。JavaScript 仅接受数据节点，拒绝执行表达式；64 位整数保留精度。
+
+Milky 准备语音时通过既有 LagrangeCodec 转换音频并计算波形；发送已编码 SILK 时也需要该动态库用于解码波形。Core 调用方可以设置 `RecordEntity.Waveform` 的 30 个幅度值，或调用 Codec 的 `VoiceWaveform.FromPcm` / `FromAudioAsync` 生成。
+
+### 自动化验证
+
+Core：400 项通过，1 项因缺少本机 LagrangeCodec 动态库跳过。Milky：93 项通过，包含全部 28 个新增接口的鉴权覆盖。Proto：221 项通过。Core net8.0/net9.0 Release 构建均通过，零警告、零错误。
+
+win-x64 Native AOT 冒烟程序实际运行通过，覆盖生产配置绑定、请求默认值、开放 JSON 对象、Qzone JavaScript/HTML 解析、OpenAPI 全部 API 路由、MCP 鉴权、工具目录、Schema、真实本机调用及错误处理。Milky win-x64 Native AOT 发布通过，产物位于 `.artifacts/capability-update-milky-win-x64`。
+
+验证覆盖独立协议字段、脱敏好友申请报文、真实 PNG 输入、PCM 波形、生日日期、权限参数、序号、Qzone 数据解析和游标、动态原始字段、生成 JSON 元数据及真实本机 HTTP/MCP 传输。
+
+```powershell
+dotnet test Lagrange.Core.Test/Lagrange.Core.Test.csproj
+dotnet test Lagrange.Milky.Test/Lagrange.Milky.Test.csproj
+dotnet test Lagrange.Proto.Test/Lagrange.Proto.Test.csproj
+dotnet build Lagrange.Core/Lagrange.Core.csproj -c Release
+dotnet publish Lagrange.Milky.AotSmoke -c Release -r win-x64
+./Lagrange.Milky.AotSmoke/bin/Release/net10.0/win-x64/publish/Lagrange.Milky.AotSmoke.exe --require-native
+./Lagrange.Milky.AotSmoke/bin/Release/net10.0/win-x64/publish/Lagrange.Milky.AotSmoke.exe --require-native --mcp
+dotnet publish Lagrange.Milky -c Release -r win-x64 -o .artifacts/capability-update-milky-win-x64
+```
+
+按本次要求没有执行 QQ 实机操作；QQ 服务端接受情况及最终客户端显示没有实机验收。Native AOT 发布中的 FastEndpoints.Mcp、ASP.NET Core 既有反射与裁剪告警继续保留。
+
+## 2026-10-05 能力补全验收
 
 项目基线：LagrangeV2 `dcc3d11`。实施日期：2026-10-05。
 

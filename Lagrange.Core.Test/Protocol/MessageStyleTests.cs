@@ -116,7 +116,8 @@ public sealed class MessageStyleTests
         node.MessageBody!.RichText.Ptt = new Ptt { FileName = "voice", FileMd5 = [], FileUuid = [] };
         var parsed = await packer.ParseForwarded(node);
         Assert.That(parsed.Style!.BubbleId, Is.EqualTo(7));
-        Assert.That(parsed.Entities.Single(), Is.TypeOf<RecordEntity>());
+        Assert.That(parsed.Entities.OfType<RecordEntity>().Count(), Is.EqualTo(1));
+        Assert.That(parsed.Entities.OfType<TextEntity>().Single().Text, Is.EqualTo("body"));
     }
 
     [Test]

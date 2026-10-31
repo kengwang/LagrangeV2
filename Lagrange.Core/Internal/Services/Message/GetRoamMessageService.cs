@@ -29,6 +29,8 @@ internal class GetRoamMessageService : BaseService<GetRoamMessageEventReq, GetRo
     {
         if (input.IsEmpty) throw new OperationException(-1, "Private roam history returned an empty protocol response.");
         var packet = ProtoHelper.Deserialize<SsoGetRoamMsgRsp>(input.Span);
+        if (packet.Result == 100000301) return ValueTask.FromResult(new GetRoamMessageEventResp([], 0, 0, true, packet.PeerUid));
+        if (packet.Result != 0) throw new OperationException(packet.Result, packet.ErrorMessage);
         return ValueTask.FromResult(new GetRoamMessageEventResp(packet.Messages, packet.Timestamp, packet.Random, packet.IsComplete, packet.PeerUid));
     }
 }

@@ -18,6 +18,17 @@ public partial class MilkyConverter
 {
     private const int MaxReplyExpansionDepth = 8;
 
+    private async Task<RecordEntity> CreateRecordAsync(RecordOutgoingSegment record, CancellationToken ct)
+    {
+        await using var source = await _resourceConverter.UriToStreamAsync(record.Data.Uri, ct);
+        using var buffer = new System.IO.MemoryStream();
+        await source.CopyToAsync(buffer, ct);
+        var audio = buffer.ToArray();
+        var waveform = await Lagrange.Codec.VoiceWaveform.FromAudioAsync(audio, ct);
+        var silk = await Lagrange.Codec.AudioCodec.ConvertAsync(audio, Lagrange.Codec.AudioOutputFormat.Silk, ct);
+        return new RecordEntity(new System.IO.MemoryStream(silk, writable: false), disposeOnCompletion: true) { Waveform = waveform };
+    }
+
     public async Task<IReadOnlyList<IncomingSegmentBase>> ToIncomingSegmentsAsync(MessageChain chain, MessageType type, long ownerPeerUin, CancellationToken ct = default)
         => await ToIncomingSegmentsAsync(chain, type, ownerPeerUin, ct, new HashSet<ulong>(), 0);
 
@@ -314,10 +325,7 @@ public partial class MilkyConverter
             },
             disposeOnCompletion: true
         ),
-        RecordOutgoingSegment record => new RecordEntity(
-            await _resourceConverter.UriToStreamAsync(record.Data.Uri, ct),
-            disposeOnCompletion: true
-        ),
+        RecordOutgoingSegment record => await CreateRecordAsync(record, ct),
         VideoOutgoingSegment video => await CreateVideoAsync(video, ct),
         ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),
@@ -437,10 +445,7 @@ public partial class MilkyConverter
             },
             disposeOnCompletion: true
         ),
-        RecordOutgoingSegment record => new RecordEntity(
-            await _resourceConverter.UriToStreamAsync(record.Data.Uri, ct),
-            disposeOnCompletion: true
-        ),
+        RecordOutgoingSegment record => await CreateRecordAsync(record, ct),
         VideoOutgoingSegment video => await CreateVideoAsync(video, ct),
         ForwardOutgoingSegment forward => await FromForwardOutgoingSegmentAsync(forward, ct),
         LightAppOutgoingSegment lightApp => new LightAppEntity(lightApp.Data.JsonPayload),

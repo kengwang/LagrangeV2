@@ -20,6 +20,14 @@ public class BotStranger(long uin, string nickname, string uid, string personalS
 
     public long? Birthday { get; } = birthday;
 
+    public int? BirthdayYear { get; init; }
+    public int? BirthdayMonth { get; init; }
+    public int? BirthdayDay { get; init; }
+    public bool? Vip { get; init; }
+    public bool? YearVip { get; init; }
+    public bool? SuperVip { get; init; }
+    public uint? VipLevel { get; init; }
+
     public ulong Age { get; } = age;
 
     public string QID { get; } = qID;
@@ -48,5 +56,5 @@ public class BotStranger(long uin, string nickname, string uid, string personalS
         City,
         School
     )
-    { Source = source };
+    { Source = source, BirthdayYear = BirthdayYear, BirthdayMonth = BirthdayMonth, BirthdayDay = BirthdayDay, Vip = Vip, YearVip = YearVip, SuperVip = SuperVip, VipLevel = VipLevel };
 }

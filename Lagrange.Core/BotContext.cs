@@ -103,6 +103,7 @@ public class BotContext : IDisposable
         EventInvoker.Dispose();
         HttpSessionContext.Dispose();
         FlashTransferContext.Dispose();
+        HighwayContext.Dispose();
         VoiceContext.Disconnect();
         SocketContext.Dispose();
         EventContext.Dispose();

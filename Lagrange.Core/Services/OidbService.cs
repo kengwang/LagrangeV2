@@ -44,6 +44,7 @@ public abstract class OidbService<TEventRequest, TEventResponse, TRequest, TResp
 
     protected override async ValueTask<TEventResponse> Parse(ReadOnlyMemory<byte> input, BotContext context)
     {
+        if (input.IsEmpty) throw new InvalidDataException("OIDB response is empty.");
         var oidb = ProtoHelper.Deserialize<Oidb>(input.Span);
         if (oidb.Result != 0)
         {

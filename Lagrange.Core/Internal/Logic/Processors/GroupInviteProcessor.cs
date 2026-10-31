@@ -8,29 +8,43 @@ using Lagrange.Core.Utility;
 namespace Lagrange.Core.Internal.Logic.Processors;
 
 [MsgPushProcessor(MsgType.Event0x20D, true)]
+[MsgPushProcessor(MsgType.GroupInvitation, true)]
 internal class GroupInviteProcessor : MsgPushProcessorBase
 {
     // another in `RichTextMsgProcessor` for private send invitation card.
     internal override async ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType,
         PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)
     {
-        var @event = ProtoHelper.Deserialize<Event0x20D>(content!.Value.Span);
-        if (@event.SubType != 87) return false; // GroupInviteNotification
-
-        var body = ProtoHelper.Deserialize<GroupInvite>(@event.Body);
+        GroupInviteBody body;
+        if (msgType == MsgType.GroupInvitation)
+        {
+            var direct = ProtoHelper.Deserialize<DirectGroupInvite>(content!.Value.Span);
+            body = new GroupInviteBody { GroupUin = direct.GroupUin, InviterUid = direct.InviterUid, TargetUid = context.Keystore.Uid };
+        }
+        else
+        {
+            var @event = ProtoHelper.Deserialize<Event0x20D>(content!.Value.Span);
+            if (@event.SubType != 87) return false;
+            body = ProtoHelper.Deserialize<GroupInvite>(@event.Body).Body;
+        }
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(body.GroupUin);
+        ArgumentException.ThrowIfNullOrWhiteSpace(body.InviterUid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(body.TargetUid);
 
         var response = await context.EventContext.SendEvent<FetchGroupNotificationsEventResp>(
-            new FetchGroupNotificationsEventReq(20)
+            new FetchGroupNotificationsEventReq(100)
         );
         var inviteNotifications = response
             .GroupNotifications
             .OfType<BotGroupInviteNotification>();
-        var notification = inviteNotifications.FirstOrDefault(notification =>
-            body.Body.GroupUin == notification.GroupUin &&
-            body.Body.InviterUid == notification.InviterUid &&
-            body.Body.TargetUid == notification.TargetUid &&
+        var matches = inviteNotifications.Where(notification =>
+            body.GroupUin == notification.GroupUin &&
+            body.InviterUid == notification.InviterUid &&
+            body.TargetUid == notification.TargetUid &&
             notification.State == BotGroupNotificationState.Wait
-        );
+        ).DistinctBy(x => (x.GroupUin, x.Sequence, x.IsFiltered)).ToArray();
+        if (matches.Length > 1) throw new InvalidDataException("Multiple pending group invitations match this notice.");
+        var notification = matches.SingleOrDefault();
         if (notification == null)
         {
             context.LogWarning(nameof(PushLogic),
@@ -38,7 +52,7 @@ internal class GroupInviteProcessor : MsgPushProcessorBase
             return false;
         }
 
-        context.EventInvoker.PostEvent(new BotGroupInviteNotificationEvent(notification));
+        if (context.CacheContext.ObserveInvitation(notification)) context.EventInvoker.PostEvent(new BotGroupInviteNotificationEvent(notification));
         return true;
     }
 }

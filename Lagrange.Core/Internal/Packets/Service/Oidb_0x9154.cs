@@ -9,6 +9,8 @@ namespace Lagrange.Core.Internal.Packets.Service;
 [ProtoPackable] internal partial class D9154Emoji { [ProtoMember(1)] public string? Sid { get; set; } [ProtoMember(2)] public string? Description { get; set; } [ProtoMember(3)] public string? EmCode { get; set; } [ProtoMember(4)] public int CategoryId { get; set; } [ProtoMember(5)] public int? AniStickerType { get; set; } [ProtoMember(6)] public int? AniStickerPackId { get; set; } [ProtoMember(7)] public int? AniStickerId { get; set; } [ProtoMember(8)] public D9154Url? Url { get; set; } [ProtoMember(9)] public List<string>? Aliases { get; set; } }
 [ProtoPackable] internal partial class D9154List { [ProtoMember(1)] public string? PackName { get; set; } [ProtoMember(2)] public List<D9154Emoji>? Emojis { get; set; } }
 [ProtoPackable] internal partial class D9154Content { [ProtoMember(1)] public List<D9154List>? Lists { get; set; } }
-[ProtoPackable] internal partial class D9154MagicList { [ProtoMember(2)] public List<D9154Emoji>? Emojis { get; set; } }
-[ProtoPackable] internal partial class D9154Magic { [ProtoMember(1)] public D9154MagicList? List { get; set; } }
+[ProtoPackable] internal partial class D9154Magic { [ProtoMember(1)] public List<D9154List> Lists { get; set; } = []; }
 [ProtoPackable] internal partial class D9154Resp { [ProtoMember(2)] public D9154Content? Common { get; set; } [ProtoMember(3)] public D9154Content? SpecialBig { get; set; } [ProtoMember(4)] public D9154Magic? Magic { get; set; } }
+
+[ProtoPackable] internal partial class D9155Req { [ProtoMember(1)] public string Sid { get; set; } = string.Empty; }
+[ProtoPackable] internal partial class D9155Resp { [ProtoMember(1)] public D9154Emoji? Emoji { get; set; } }

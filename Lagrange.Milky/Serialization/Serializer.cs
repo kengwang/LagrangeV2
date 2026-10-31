@@ -73,6 +73,7 @@ public static partial class Serializer
     [JsonSerializable(typeof(RequestDecryptKeyHandler.Result), TypeInfoPropertyName = "RequestDecryptKeyResult")]
     [JsonSerializable(typeof(MilkyApiResponse<RequestDecryptKeyHandler.Result>), TypeInfoPropertyName = "RequestDecryptKeyApiResponse")]
     [JsonSerializable(typeof(MilkyApiResponse<RawPacketData>), TypeInfoPropertyName = "RawPacketApiResponse")]
+    [JsonSerializable(typeof(MilkyApiResponse<JsonElement>), TypeInfoPropertyName = "OpenJsonApiResponse")]
     [JsonSerializable(typeof(IncomingMessageBase))]
     [JsonSerializable(typeof(FriendIncomingMessage))]
     [JsonSerializable(typeof(GroupIncomingMessage))]

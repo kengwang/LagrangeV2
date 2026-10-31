@@ -11,6 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="1.9.0" />
+    <PackageReference Include="Acornima" Version="1.9.1" />
     <ProjectReference Include="..\Lagrange.Core.Generator\Lagrange.Core.Generator.csproj" PrivateAssets="all" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot" />
     <ProjectReference Include="..\Lagrange.Proto.Generator\Lagrange.Proto.Generator.csproj" PrivateAssets="all" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot" />
     <ProjectReference Include="..\Lagrange.Proto\Lagrange.Proto.csproj" />

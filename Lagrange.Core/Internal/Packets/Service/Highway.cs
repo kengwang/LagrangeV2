@@ -83,11 +83,11 @@ internal partial class SegHead
 {
     [ProtoMember(1)] public uint ServiceId { get; set; }
     
-    [ProtoMember(2)] public ulong Filesize { get; set; }
+    [ProtoMember(2)] public ulong? Filesize { get; set; }
     
-    [ProtoMember(3)] public ulong DataOffset { get; set; }
+    [ProtoMember(3)] public ulong? DataOffset { get; set; }
     
-    [ProtoMember(4)] public uint DataLength { get; set; }
+    [ProtoMember(4)] public uint? DataLength { get; set; }
     
     [ProtoMember(5)] public uint? RetCode { get; set; }
 

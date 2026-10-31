@@ -39,6 +39,9 @@ public sealed class GetUserProfileHandler(BotContext lagrange) : Endpoint<GetUse
             Country = stranger.Country,
             City = stranger.City,
             School = stranger.School ?? string.Empty,
+            RegistrationTime = stranger.RegistrationTime,
+            BirthdayYear = stranger.BirthdayYear, BirthdayMonth = stranger.BirthdayMonth, BirthdayDay = stranger.BirthdayDay,
+            Vip = stranger.Vip, YearVip = stranger.YearVip, SuperVip = stranger.SuperVip, VipLevel = stranger.VipLevel,
         });
     }
 
@@ -59,5 +62,13 @@ public sealed class GetUserProfileHandler(BotContext lagrange) : Endpoint<GetUse
         [JsonPropertyName("country")] public required string Country { get; init; }
         [JsonPropertyName("city")] public required string City { get; init; }
         [JsonPropertyName("school")] public required string School { get; init; }
+        [JsonPropertyName("registration_time")] public long RegistrationTime { get; init; }
+        [JsonPropertyName("birthday_year")] public int? BirthdayYear { get; init; }
+        [JsonPropertyName("birthday_month")] public int? BirthdayMonth { get; init; }
+        [JsonPropertyName("birthday_day")] public int? BirthdayDay { get; init; }
+        [JsonPropertyName("vip")] public bool? Vip { get; init; }
+        [JsonPropertyName("year_vip")] public bool? YearVip { get; init; }
+        [JsonPropertyName("super_vip")] public bool? SuperVip { get; init; }
+        [JsonPropertyName("vip_level")] public uint? VipLevel { get; init; }
     }
 }

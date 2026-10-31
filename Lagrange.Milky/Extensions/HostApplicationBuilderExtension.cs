@@ -51,6 +51,7 @@ public static class HostApplicationBuilderExtension
                 AutoReconnect = configuration.Server.AutoReconnect,
                 UseIPv6Network = configuration.Server.UseIPv6Network,
                 GetOptimumServer = configuration.Server.GetOptimumServer,
+                VideoUploadConcurrency = configuration.Server.VideoUploadConcurrency,
                 AutoReLogin = configuration.Login.AutoReLogin,
                 UseNTLogin = configuration.Login.UseNTLogin,
                 SignProvider = sp.GetRequiredService<BotSignProvider>(),

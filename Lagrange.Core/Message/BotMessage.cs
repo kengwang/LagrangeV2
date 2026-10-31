@@ -25,6 +25,8 @@ public partial class BotMessage
 
     public long? TempGroupUin { get; internal set; }
 
+    internal uint DeviceSourceTerminal { get; set; } = 1;
+
     public MessageType Type => TempGroupUin.HasValue ? MessageType.Temp : Contact switch
     {
         BotGroupMember _ => MessageType.Group,
@@ -46,5 +48,13 @@ public partial class BotMessage
 
     public ulong Sequence { get; set; }
 
-    public ulong ClientSequence { get; init; } = (ulong)new Random().NextInt64(10000, 99999);
+    private ulong _clientSequence = (ulong)System.Random.Shared.NextInt64(10000, 99999);
+    public ulong ClientSequence { get => _clientSequence; init => _clientSequence = value; }
+
+    internal void ConfirmPrivateSequence(ulong sequence)
+    {
+        if (sequence == 0) throw new InvalidDataException("Private message has no authoritative sequence.");
+        Sequence = _clientSequence;
+        _clientSequence = sequence;
+    }
 }

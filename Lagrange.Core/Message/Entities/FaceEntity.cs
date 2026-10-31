@@ -33,6 +33,7 @@ public sealed class FaceEntity : IMessageEntity
         {
             var catalog = await Lagrange.Core.Common.Interface.OperationExt.GetSystemFaces(context);
             var face = catalog.SelectMany(x => x.Faces).FirstOrDefault(x => x.Sid == FaceId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            face ??= await Lagrange.Core.Common.Interface.OperationExt.GetSystemFace(context, FaceId);
             if (face?.AnimationPackId is { } pack && face.AnimationStickerId is { } sticker && face.AnimationType is { } type)
             { PackId = pack.ToString(System.Globalization.CultureInfo.InvariantCulture); StickerId = sticker.ToString(System.Globalization.CultureInfo.InvariantCulture); StickerType = type; }
         }

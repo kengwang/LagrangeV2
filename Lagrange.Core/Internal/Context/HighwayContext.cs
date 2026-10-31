@@ -10,7 +10,7 @@ using Lagrange.Proto.Jce;
 
 namespace Lagrange.Core.Internal.Context;
 
-internal class HighwayContext
+internal class HighwayContext : IDisposable
 {
     private const string Tag = nameof(HighwayContext);
     
@@ -33,13 +33,14 @@ internal class HighwayContext
     {
         _context = context;
 
-        _client = new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true });
+        _client = new HttpClient();
         _client.DefaultRequestHeaders.Add("Accept-Encoding", "identity");
         _client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2)");
         
         _sequence = 0;
         _chunkSize = context.Config.HighwayChunkSize;
         _concurrent = (int)context.Config.HighwayConcurrent;
+        if (_chunkSize is 0 or > 1048576 || _concurrent < 1) throw new ArgumentOutOfRangeException(nameof(context.Config.HighwayChunkSize));
     }
 
     internal void ApplyPush(FileStoragePushFSSvcList storage)
@@ -58,7 +59,7 @@ internal class HighwayContext
                     _sessionKey = body.SessionKey.Length > 0 ? body.SessionKey : channel.KeySession;
                     var pushed = body.Addrs.FirstOrDefault(x => x.ServiceType == 10)?.Addrs.FirstOrDefault();
                     if (pushed is not null && pushed.Port > 0)
-                        _url = $"{ProtocolHelper.UInt32ToIPV4Addr(pushed.Ip)}:{pushed.Port}/cgi-bin/httpconn?htcmd=0x6FF0087&uin={_context.Keystore.Uin}";
+                        _url = NormalizeAddress($"{ProtocolHelper.UInt32ToIPV4Addr(pushed.Ip)}:{pushed.Port}", _context.BotUin);
                 }
             }
             catch (Exception e)
@@ -68,34 +69,53 @@ internal class HighwayContext
         }
         var address = channel.IPLists.FirstOrDefault(x => x.ServiceType == 10)?.IPList.FirstOrDefault();
         if (address is not null && !string.IsNullOrWhiteSpace(address.Server) && address.Port > 0)
-            _url = $"{address.Server}:{address.Port}";
+            _url = NormalizeAddress($"{address.Server}:{address.Port}", _context.BotUin);
     }
 
     public async Task<bool> UploadFile(Stream stream, int commandId, ReadOnlyMemory<byte> extendInfo, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!stream.CanRead || !stream.CanSeek || stream.Length == 0) throw new ArgumentException("Highway upload requires a nonempty seekable stream.", nameof(stream));
+        using var uploadCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cancellationToken = uploadCancellation.Token;
         if (_ticket == null || _url == null || DateTime.Now - _ticket.Value.Item2 > TimeSpan.FromDays(0.5))
         {
             var resp = await _context.EventContext.SendEvent<HighwaySessionEventResp>(new HighwaySessionEventReq(), cancellationToken);
             _ticket = (resp.SigSession, DateTime.Now);
-            _url = resp.HighwayUrls[1][0];
+            _url = NormalizeAddress(resp.HighwayUrls[1][0], _context.BotUin);
         }
 
         var tasks = new List<Task<bool>>();
-        bool result = true;
+        int concurrency = commandId is 1001 or 1005 ? _context.Config.VideoUploadConcurrency : _concurrent;
+        var sessionTicket = _ticket.Value.Item1;
+        var uploadUrl = _url;
 
         ulong fileSize = (ulong)stream.Length;
         ulong offset = 0;
-        var fileMd5 = stream.Md5();
+        stream.Position = 0;
+        var fileMd5 = await MD5.HashDataAsync(stream, cancellationToken);
+        stream.Position = 0;
         while (offset < fileSize)
         {
             var buffer = ArrayPool<byte>.Shared.Rent((int)_chunkSize);
-            ulong payload = (ulong)await stream.ReadAsync(buffer.AsMemory(0, (int)_chunkSize), cancellationToken);
+            ulong payload = Math.Min(_chunkSize, fileSize - offset);
+            try { await stream.ReadExactlyAsync(buffer.AsMemory(0, (int)payload), cancellationToken); }
+            catch
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+                uploadCancellation.Cancel();
+                try { await Task.WhenAll(tasks); }
+                catch (Exception error) { _context.LogDebug(Tag, "Pending upload also failed: {0}", error.Message); }
+                throw;
+            }
 
             ulong currentBlockOffset = offset;
             var task = Task.Run(async () => // closure
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                byte[]? upload = null;
+                HttpRequestMessage? request = null;
+                try
+                {
                 var bufferSpan = buffer.AsSpan(0, (int)payload);
                 int sequence = GetNewSequence();
 
@@ -114,7 +134,7 @@ internal class HighwayContext
                     Filesize = fileSize,
                     DataOffset = currentBlockOffset,
                     DataLength = (uint)payload,
-                    ServiceTicket = _ticket.Value.Item1,
+                    ServiceTicket = sessionTicket,
                     Md5 = MD5.HashData(bufferSpan),
                     FileMd5 = fileMd5,
                 };
@@ -135,7 +155,7 @@ internal class HighwayContext
                 var headProto = ProtoHelper.Serialize(highwayHead);
 
                 bool end = currentBlockOffset + payload >= fileSize;
-                var upload = ArrayPool<byte>.Shared.Rent(1 + 1 + 4 + 4 + headProto.Length + (int)payload);
+                upload = ArrayPool<byte>.Shared.Rent(1 + 1 + 4 + 4 + headProto.Length + (int)payload);
                 var memory = upload.AsMemory(0, 1 + 1 + 4 + 4 + headProto.Length + (int)payload);
 
                 memory.Span[0] = 0x28;
@@ -145,20 +165,21 @@ internal class HighwayContext
                 bufferSpan.CopyTo(memory.Span[(9 + headProto.Length)..]);
                 memory.Span[^1] = 0x29;
 
-                var request = new HttpRequestMessage(HttpMethod.Post, $"http://{_url}")
+                request = new HttpRequestMessage(HttpMethod.Post, uploadUrl)
                 {
                     Content = new ReadOnlyMemoryContent(memory), Headers = { { "Connection", end ? "close" : "keep-alive" } }
                 };
 
-                try
-                {
-                    var response = await _client.SendAsync(request, cancellationToken);
-                    var reader = new BinaryPacket((await response.Content.ReadAsByteArrayAsync(cancellationToken)).AsSpan());
+                    using var response = await _client.SendAsync(request, cancellationToken);
+                    response.EnsureSuccessStatusCode();
+                    var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                    var reader = new BinaryPacket(responseBytes.AsSpan());
 
                     if (reader.Read<byte>() == 0x28)
                     {
                         int headLen = reader.Read<int>();
                         int bodyLen = reader.Read<int>();
+                        if (headLen < 1 || bodyLen < 0 || (long)headLen + bodyLen + 10 != responseBytes.Length) throw new InvalidDataException("Highway response frame lengths do not match the payload.");
                         var respHead = reader.CreateSpan(headLen);
                         var body = GC.AllocateUninitializedArray<byte>(bodyLen);
                         reader.ReadBytes(body.AsSpan());
@@ -167,48 +188,53 @@ internal class HighwayContext
                         {
                             var obj = ProtoHelper.Deserialize<RespDataHighwayHead>(respHead);
                             _context.LogDebug(Tag, "Highway Block Result: {0} | {1} | {2}", obj.ErrorCode, obj.MsgSegHead?.RetCode, Convert.ToHexString(body));
-                            return obj.ErrorCode == 0;
+                            ValidateAcknowledgement(obj, fileSize, currentBlockOffset, checked((uint)payload), checked((uint)sequence));
+                            return true;
                         }
                     }
+                    throw new InvalidDataException("Invalid Highway response frame.");
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                catch
                 {
+                    uploadCancellation.Cancel();
                     throw;
-                }
-                catch (Exception e)
-                {
-                    _context.LogError(Tag, "Highway HTTP error: {0}", e, e.Message);
-                    if (e.StackTrace is { } stack) _context.LogDebug(Tag, stack);
                 }
                 finally
                 {
+                    request?.Dispose();
                     ArrayPool<byte>.Shared.Return(buffer);
-                    ArrayPool<byte>.Shared.Return(upload);
-                    request.Dispose();
-                    new ReadOnlyMemoryContent(memory).Dispose();
+                    if (upload is not null) ArrayPool<byte>.Shared.Return(upload);
                 }
 
-                return false;
             });
             offset += payload;
 
             tasks.Add(task);
-            if (tasks.Count == (_concurrent))
+            if (tasks.Count == concurrency)
             {
-                var successBlocks = await Task.WhenAll(tasks);
-                foreach (bool t in successBlocks) result &= t;
-                tasks.Clear();
-            }
-            
-            if (tasks.Count != 0)
-            {
-                var finalBlocks = await Task.WhenAll(tasks);
-                foreach (bool t in finalBlocks) result &= t;
+                await Task.WhenAll(tasks);
                 tasks.Clear();
             }
         }
+        await Task.WhenAll(tasks);
+        return true;
+    }
 
-        return result;
+    internal static string NormalizeAddress(string address, long uin)
+    {
+        var uri = new UriBuilder(address.Contains("://", StringComparison.Ordinal) ? address : "http://" + address);
+        if (uri.Scheme is not ("http" or "https")) throw new InvalidDataException("Invalid Highway address scheme.");
+        if (uri.Path is "" or "/") { uri.Path = "/cgi-bin/httpconn"; uri.Query = $"htcmd=0x6FF0087&uin={uin}"; }
+        return uri.Uri.AbsoluteUri;
+    }
+
+    internal static void ValidateAcknowledgement(RespDataHighwayHead response, ulong size, ulong offset, uint length, uint? sequence = null)
+    {
+        if (response.ErrorCode != 0 || response.MsgSegHead?.RetCode is > 0) throw new Lagrange.Core.Exceptions.OperationException(checked((int)(response.ErrorCode != 0 ? response.ErrorCode : response.MsgSegHead!.RetCode!.Value)), "Highway upload was rejected.");
+        if (response.MsgBaseHead is { Seq: > 0 } header && sequence is { } expected && header.Seq != expected)
+            throw new InvalidDataException("Highway acknowledgement has a mismatched sequence.");
+        if (response.MsgSegHead is { } head && (head.Filesize is { } actualSize && actualSize != size || head.DataOffset is { } actualOffset && actualOffset != offset || head.DataLength is { } actualLength && actualLength != length))
+            throw new InvalidDataException("Highway acknowledgement does not match the uploaded block.");
     }
 
     internal async Task<bool> UploadCustomFace(Stream stream, string emojiId, byte[] serviceTicket, CancellationToken cancellationToken = default)
@@ -218,7 +244,7 @@ internal class HighwayContext
         if (_url is null)
         {
             var session = await _context.EventContext.SendEvent<HighwaySessionEventResp>(new HighwaySessionEventReq(), cancellationToken);
-            _url = session.HighwayUrls[1][0];
+            _url = NormalizeAddress(session.HighwayUrls[1][0], _context.BotUin);
         }
         stream.Position = 0;
         var bytes = new byte[checked((int)stream.Length)];
@@ -236,7 +262,7 @@ internal class HighwayContext
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(1), (uint)headBytes.Length);
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(5), (uint)bytes.Length);
         headBytes.Span.CopyTo(payload.AsSpan(9)); bytes.CopyTo(payload.AsSpan(9 + headBytes.Length)); payload[^1] = 0x29;
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"http://{_url}") { Content = new ByteArrayContent(payload) };
+        using var request = new HttpRequestMessage(HttpMethod.Post, _url) { Content = new ByteArrayContent(payload) };
         using var response = await _client.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
@@ -253,4 +279,6 @@ internal class HighwayContext
         Interlocked.CompareExchange(ref _sequence, 0, 100000);
         return Interlocked.Increment(ref _sequence);
     }
+
+    public void Dispose() => _client.Dispose();
 }

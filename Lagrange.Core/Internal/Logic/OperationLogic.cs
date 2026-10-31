@@ -119,7 +119,29 @@ internal partial class OperationLogic(BotContext context) : ILogic
 
     public async Task<string> CommentGroupAlbumMedia(long groupUin, string albumId, string mediaId, string content, CancellationToken cancellationToken = default)
     {
-        var response = await context.EventContext.SendEvent<CommentGroupAlbumMediaEventResp>(new CommentGroupAlbumMediaEventReq(groupUin, albumId, mediaId, content), cancellationToken);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(groupUin);
+        ArgumentException.ThrowIfNullOrWhiteSpace(albumId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mediaId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(content);
+        var cursor = string.Empty;
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        Lagrange.Core.Internal.Packets.Web.AlbumMediaInfo? media = null;
+        do
+        {
+            if (!seen.Add(cursor)) throw new InvalidDataException("Group album media pagination repeated a cursor.");
+            var page = await context.EventContext.SendEvent<GetGroupAlbumMediaEventResp>(new GetGroupAlbumMediaEventReq(groupUin, albumId, cursor), cancellationToken);
+            media = page.RawMedia.FirstOrDefault(x => x.Image?.Lloc == mediaId || x.Video?.Id == mediaId || x.Video?.Cover?.Lloc == mediaId);
+            if (media is not null) break;
+            cursor = page.Result.NextCursor;
+        } while (cursor.Length > 0);
+        if (media is null) throw new InvalidDataException("Group album media was not found.");
+        var lloc = media.Video?.Cover?.Lloc ?? media.Image?.Lloc;
+        ArgumentException.ThrowIfNullOrWhiteSpace(lloc);
+        var detail = await context.EventContext.SendEvent<GetAlbumFeedDetailEventResp>(new GetAlbumFeedDetailEventReq(groupUin, albumId, media.BatchId, lloc), cancellationToken);
+        var feedMedia = ProtoHelper.Deserialize<Lagrange.Core.Internal.Packets.Web.AlbumCommentPhotoInfo>(detail.Cells.PhotoInfo);
+        if (feedMedia.AlbumId != albumId || feedMedia.BatchId != media.BatchId || !feedMedia.Media.Any(x => x.Image?.Lloc == lloc || x.Video?.Cover?.Lloc == lloc))
+            throw new InvalidDataException("Group album feed detail does not match the requested media.");
+        var response = await context.EventContext.SendEvent<CommentGroupAlbumMediaEventResp>(new CommentGroupAlbumMediaEventReq(groupUin, albumId, mediaId, content) { Cells = detail.Cells }, cancellationToken);
         return response.CommentId;
     }
 

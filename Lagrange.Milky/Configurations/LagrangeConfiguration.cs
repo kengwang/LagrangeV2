@@ -24,11 +24,12 @@ public class LagrangeLoginConfiguration(long uin, string? password = null, bool 
     public bool UseNTLogin { get; } = useNTLogin;
 }
 
-public class LagrangeServerConfiguration(bool autoReconnect = true, bool useIPv6Network = false, bool getOptimumServer = true)
+public class LagrangeServerConfiguration(bool autoReconnect = true, bool useIPv6Network = false, bool getOptimumServer = true, int videoUploadConcurrency = 1)
 {
     public bool AutoReconnect { get; } = autoReconnect;
     public bool UseIPv6Network { get; } = useIPv6Network;
     public bool GetOptimumServer { get; } = getOptimumServer;
+    public int VideoUploadConcurrency { get; } = videoUploadConcurrency is >= 1 and <= 4 ? videoUploadConcurrency : throw new ArgumentOutOfRangeException(nameof(videoUploadConcurrency));
 }
 
 public class LagrangeProtocolConfiguration(

@@ -36,6 +36,7 @@ internal partial class FetchStrangerResponse
 [ProtoPackable]
 internal partial class FetchStrangerResponseBody
 {
+    [ProtoMember(1)] public string Uid { get; set; } = string.Empty;
     [ProtoMember(2)] public FetchStrangerResponseProperties Properties { get; set; }
 
     [ProtoMember(3)] public uint Uin { get; set; }

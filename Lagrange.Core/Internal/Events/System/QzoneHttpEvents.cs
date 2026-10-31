@@ -3,11 +3,13 @@ using Lagrange.Core.Events;
 
 namespace Lagrange.Core.Internal.Events.System;
 
-internal sealed class GetQzoneFeedsEventReq(long userUin, int page, int count) : ProtocolEvent
+internal sealed class GetQzoneFeedsEventReq(long userUin, int page, int count, string? cursor = null) : ProtocolEvent
 {
     public long UserUin { get; } = userUin;
     public int Page { get; } = page;
     public int Count { get; } = count;
+    public string? Cursor { get; } = cursor;
+    internal global::System.Text.Json.Nodes.JsonObject? State { get; set; }
 }
 internal sealed class GetQzoneFeedsEventResp(BotQzoneFeedResult result) : ProtocolEvent { public BotQzoneFeedResult Result { get; } = result; }
 

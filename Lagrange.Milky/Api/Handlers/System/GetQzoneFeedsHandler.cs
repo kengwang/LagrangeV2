@@ -21,7 +21,7 @@ public sealed class GetQzoneFeedsHandler(BotContext lagrange) : Endpoint<GetQzon
     {
         // Feeds are read from the bot's own Qzone timeline. The legacy
         // user_id field is accepted for request compatibility but ignored.
-        var result = await lagrange.GetQzoneFeeds(null, request.EffectivePage, request.Count, ct).WaitAsync(ct);
+        var result = await lagrange.GetQzoneFeeds(null, request.EffectivePage, request.Count, request.Cursor, ct).WaitAsync(ct);
         return new(new Result(result));
     }
     public sealed class Request(int pageNum = 1, int count = 10, int? position = null, long? userId = null)
@@ -30,11 +30,13 @@ public sealed class GetQzoneFeedsHandler(BotContext lagrange) : Endpoint<GetQzon
         [JsonPropertyName("position")] public int? Position { get; init; } = position;
         [JsonPropertyName("user_id")] public long? UserId { get; init; } = userId;
         [JsonPropertyName("count")] public int Count { get; init; } = count;
+        [JsonPropertyName("cursor")] public string? Cursor { get; init; }
         public int EffectivePage => Position is { } offset ? offset + 1 : PageNum;
     }
     public sealed class Result(Lagrange.Core.Common.Response.BotQzoneFeedResult result)
     {
         [JsonPropertyName("has_more")] public bool HasMore { get; } = result.HasMore;
+        [JsonPropertyName("next_cursor")] public string? NextCursor { get; } = result.NextCursor;
         [JsonPropertyName("feeds")] public Feed[] Feeds { get; } = result.Feeds.Select(x => new Feed(x)).ToArray();
     }
     public sealed class Feed(Lagrange.Core.Common.Response.BotQzoneFeed feed)
@@ -45,5 +47,11 @@ public sealed class GetQzoneFeedsHandler(BotContext lagrange) : Endpoint<GetQzon
         [JsonPropertyName("app_id")] public int AppId { get; } = feed.AppId;
         [JsonPropertyName("key")] public string Key { get; } = feed.Key;
         [JsonPropertyName("html")] public string Html { get; } = feed.Html;
+        [JsonPropertyName("message_id")] public string? MessageId { get; } = feed.MessageId;
+        [JsonPropertyName("content")] public string? Content { get; } = feed.Content;
+        [JsonPropertyName("content_complete")] public bool? ContentComplete { get; } = feed.ContentComplete;
+        [JsonPropertyName("images")] public IReadOnlyList<string>? Images { get; } = feed.Images;
+        [JsonPropertyName("like_count")] public long? LikeCount { get; } = feed.LikeCount;
+        [JsonPropertyName("comment_count")] public long? CommentCount { get; } = feed.CommentCount;
     }
 }

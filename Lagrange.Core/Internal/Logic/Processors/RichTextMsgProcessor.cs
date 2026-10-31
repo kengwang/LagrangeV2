@@ -17,6 +17,7 @@ internal class RichTextMsgProcessor : MsgPushProcessorBase
     internal override async ValueTask<bool> Handle(BotContext context, MsgType msgType, int subType, PushMessageEvent msgEvt, ReadOnlyMemory<byte>? content)
     {
         var head = msgEvt.MsgPush.CommonMessage.RoutingHead;
+        if (MessagePacker.IsFileReceipt(msgEvt.MsgPush.CommonMessage)) return true;
         if (msgType == MsgType.GroupMessage && head.Group is { } group &&
             context.CacheContext.ObserveCard(group.GroupCode, head.FromUin, group.GroupCard) is { } changed)
             context.EventInvoker.PostEvent(changed);
@@ -73,18 +74,19 @@ internal class RichTextMsgProcessor : MsgPushProcessorBase
         if (!uint.TryParse(query["groupcode"], out var uin) ||
             !ulong.TryParse(query["msgseq"], out var sequence)) return false;
 
-        context.EventInvoker.PostEvent(new BotGroupInviteNotificationEvent(new BotGroupInviteNotification(
+        var invitation = new BotGroupInviteNotification(
             uin,
             sequence,
             context.BotUin,
-            context.CacheContext.ResolveCachedUid(context.BotUin) ?? string.Empty,
+            context.Keystore.Uid,
             BotGroupNotificationState.Wait,
             null,
             null,
             message.Contact.Uin,
             message.Contact.Uid,
             false
-        )));
+        );
+        if (context.CacheContext.ObserveInvitation(invitation)) context.EventInvoker.PostEvent(new BotGroupInviteNotificationEvent(invitation));
 
         return true;
     }

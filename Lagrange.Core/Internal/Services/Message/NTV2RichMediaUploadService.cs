@@ -67,8 +67,9 @@ internal class ImageUploadService : OidbService<ImageUploadEventReq, ImageUpload
         {
             Pic = new PicExtBizInfo
             {
+                BizType = checked((uint)((ImageEntity)request.Entity).SubType),
                 TextSummary = ((ImageEntity)request.Entity).Summary,
-                BytesPbReserveC2c = [0x08, 0x00, 0x18, 0x00, 0x20, 0x00, 0x42, 0x00, 0x50, 0x00, 0x62, 0x00, 0x92, 0x01, 0x00, 0x9A, 0x01, 0x00, 0xA2, 0x01, 0x0C, 0x08, 0x00, 0x12, 0x00, 0x18, 0x00, 0x20, 0x00, 0x28, 0x00, 0x3A, 0x00]
+                BytesPbReserveC2c = ProtoHelper.Serialize(new LegacyImageReserve { SubType = checked((uint)((ImageEntity)request.Entity).SubType), Summary = ((ImageEntity)request.Entity).Summary }).ToArray()
             },
             Video = new VideoExtBizInfo { BytesPbReserve = [] },
             Ptt = new PttExtBizInfo { BytesReserve = [], BytesPbReserve = [], BytesGeneralFlags = [] }
@@ -96,8 +97,9 @@ internal class ImageGroupUploadService : OidbService<ImageGroupUploadEventReq, I
         {
             Pic = new PicExtBizInfo
             {
+                BizType = checked((uint)((ImageEntity)request.Entity).SubType),
                 TextSummary = ((ImageEntity)request.Entity).Summary,
-                BytesPbReserveC2c = [0x08, 0x00, 0x18, 0x00, 0x20, 0x00, 0x4A, 0x00, 0x50, 0x00, 0x62, 0x00, 0x92, 0x01, 0x00, 0x9A, 0x01, 0x00, 0xAA, 0x01, 0x0C, 0x08, 0x00, 0x12, 0x00, 0x18, 0x00, 0x20, 0x00, 0x28, 0x00, 0x3A, 0x00]
+                BytesPbReserveTroop = ProtoHelper.Serialize(new GroupImageReserve { SubType = checked((uint)((ImageEntity)request.Entity).SubType), Summary = ((ImageEntity)request.Entity).Summary }).ToArray()
             },
             Video = new VideoExtBizInfo { BytesPbReserve = [] },
             Ptt = new PttExtBizInfo { BytesReserve = [], BytesPbReserve = [], BytesGeneralFlags = [] }
@@ -129,7 +131,8 @@ internal class RecordUploadService : OidbService<RecordUploadEventReq, RecordUpl
             {
                 BytesReserve = [0x08, 0x00, 0x38, 0x00],
                 BytesPbReserve = [],
-                BytesGeneralFlags = [0x9a, 0x01, 0x0b, 0xaa, 0x03, 0x08, 0x08, 0x04, 0x12, 0x04, 0x00, 0x00, 0x00, 0x00]
+                BytesGeneralFlags = [],
+                Waveform = ((Lagrange.Core.Message.Entities.RecordEntity)request.Entity).EncodeWaveform()
             }
         };
         return Task.FromResult(NTV2RichMedia.BuildUploadReq(request.Message, request.Entity, ext));
@@ -159,7 +162,8 @@ internal class RecordGroupUploadService : OidbService<RecordGroupUploadEventReq,
             {
                 BytesReserve = [],
                 BytesPbReserve = [0x08, 0x00, 0x38, 0x00],
-                BytesGeneralFlags = [0x9a, 0x01, 0x07, 0xaa, 0x03, 0x04, 0x08, 0x08, 0x12, 0x00]
+                BytesGeneralFlags = [0x9a, 0x01, 0x07, 0xaa, 0x03, 0x04, 0x08, 0x08, 0x12, 0x00],
+                Waveform = ((Lagrange.Core.Message.Entities.RecordEntity)request.Entity).EncodeWaveform()
             }
         };
         return Task.FromResult(NTV2RichMedia.BuildUploadReq(request.Message, request.Entity, ext));

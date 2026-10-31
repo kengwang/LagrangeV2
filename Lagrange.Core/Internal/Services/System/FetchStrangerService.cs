@@ -43,6 +43,9 @@ internal class FetchStrangerService : BaseService<FetchStrangerEventReqBase, Fet
         new() { Key = 20031 },    // Birthday; 
         new() { Key = 20037 },    // Age
         new() { Key = 27394 },    // QID
+        new() { Key = 41756 },
+        new() { Key = 41757 },
+        new() { Key = 42241 },
     ];
 
     protected override ValueTask<ReadOnlyMemory<byte>> Build(FetchStrangerEventReqBase input, BotContext context)
@@ -113,26 +116,42 @@ internal class FetchStrangerService : BaseService<FetchStrangerEventReqBase, Fet
         }
 
         // Birthday
-        byte[] birthday = bytes[20031];
-        int year = BinaryPrimitives.ReadUInt16BigEndian(birthday.AsSpan(0, 2));
-        int month = birthday[2];
-        int day = birthday[3];
+        var (year, month, day) = ReadBirthday(bytes.GetValueOrDefault(20031UL));
+        ulong? vipFlags = numbers.TryGetValue(41756, out var flags) ? flags : null;
+        uint? vipLevel = null;
+        if (numbers.TryGetValue(41757, out var level))
+        {
+            var mask = level & 0xfff;
+            if (mask > 0) vipLevel = (uint)global::System.Numerics.BitOperations.Log2(mask) + 2;
+            else if ((flags & 0x103) != 0 || numbers.GetValueOrDefault(42241UL) == 1) vipLevel = 1;
+            else if (vipFlags is not null && numbers.ContainsKey(42241)) vipLevel = 0;
+        }
 
         return new BotStranger(
             response.Body.Uin,
             Encoding.UTF8.GetString(nicknameBytes),
-            string.Empty, // Can't not get uid
-            Encoding.UTF8.GetString(bytes[102]),
-            Encoding.UTF8.GetString(bytes[103]),
-            numbers[105],
-            (BotGender)numbers[20009],
-            (long)numbers[20026],
-            month != 0 && day != 0 ? new DateTimeOffset(year != 0 ? year : 1, month, day, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds() : null,
-            numbers[20037],
-            Encoding.UTF8.GetString(bytes[27394]),
-            Encoding.UTF8.GetString(bytes[20003]),
-            Encoding.UTF8.GetString(bytes[20004]),
-            bytes.TryGetValue(200021, out byte[]? value) ? Encoding.UTF8.GetString(value) : null
-        );
+            response.Body.Uid,
+            Encoding.UTF8.GetString(bytes.GetValueOrDefault(102UL) ?? []),
+            Encoding.UTF8.GetString(bytes.GetValueOrDefault(103UL) ?? []),
+            numbers.GetValueOrDefault(105UL),
+            (BotGender)numbers.GetValueOrDefault(20009UL),
+            checked((long)numbers.GetValueOrDefault(20026UL)),
+            year is { } y && month is { } m && day is { } d ? new DateTimeOffset(y, m, d, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds() : null,
+            numbers.GetValueOrDefault(20037UL),
+            Encoding.UTF8.GetString(bytes.GetValueOrDefault(27394UL) ?? []),
+            Encoding.UTF8.GetString(bytes.GetValueOrDefault(20003UL) ?? []),
+            Encoding.UTF8.GetString(bytes.GetValueOrDefault(20004UL) ?? []),
+            bytes.TryGetValue(20021, out byte[]? value) ? Encoding.UTF8.GetString(value) : null
+        ) { BirthdayYear = year, BirthdayMonth = month, BirthdayDay = day,
+            Vip = vipFlags is { } f ? (f & 1) != 0 : null, YearVip = vipFlags is { } yf ? (yf & 2) != 0 : null,
+            SuperVip = vipFlags is { } sf ? (sf & 0x100) != 0 : null, VipLevel = vipLevel };
+    }
+
+    internal static (int? Year, int? Month, int? Day) ReadBirthday(byte[]? raw)
+    {
+        if (raw?.Length != 4) return (null, null, null);
+        int year = BinaryPrimitives.ReadUInt16BigEndian(raw), month = raw[2], day = raw[3];
+        if (year > 9999 || month is < 1 or > 12 || day < 1 || day > DateTime.DaysInMonth(year == 0 ? 2000 : year, month)) return (null, null, null);
+        return (year == 0 ? null : year, month, day);
     }
 }

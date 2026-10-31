@@ -1,4 +1,5 @@
 # VSCode
+/.artifacts/
 /.vscode
 
 # Dev Container

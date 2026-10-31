@@ -28,12 +28,24 @@ internal partial class PbSendMsgResp
     [ProtoMember(2)] public string? ErrMsg { get; set; }
 	
     [ProtoMember(3)] public long SendTime { get; set; }
+
+    [ProtoMember(6)] public int ReviewResult { get; set; }
+
+    [ProtoMember(7)] public SendMessageServerResult? ServerResult { get; set; }
     
     [ProtoMember(10)] public uint MsgInfoFlag { get; set; }
     
     [ProtoMember(11)] public ulong Sequence { get; set; }
     
     [ProtoMember(14)] public ulong ClientSequence { get; set; }
+}
+
+[ProtoPackable]
+internal partial class SendMessageServerResult
+{
+    [ProtoMember(1)] public int Type { get; set; }
+    [ProtoMember(2)] public int Code { get; set; }
+    [ProtoMember(3)] public string? Message { get; set; }
 }
 
 [ProtoPackable]

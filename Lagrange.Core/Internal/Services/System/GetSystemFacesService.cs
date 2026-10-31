@@ -19,7 +19,7 @@ internal sealed class GetSystemFacesService : OidbService<GetSystemFacesEventReq
         var packs = new List<BotSystemFacePack>();
         Add(packs, response.Common);
         Add(packs, response.SpecialBig);
-        if (response.Magic?.List?.Emojis is { Count: > 0 } magic) packs.Add(new BotSystemFacePack { PackName = "MagicFace", Faces = Convert(magic) });
+        foreach (var list in response.Magic?.Lists ?? []) packs.Add(new BotSystemFacePack { PackName = list.PackName ?? string.Empty, Faces = Convert(list.Emojis ?? []) });
         return Task.FromResult(new GetSystemFacesEventResp(packs));
     }
 
@@ -28,7 +28,7 @@ internal sealed class GetSystemFacesService : OidbService<GetSystemFacesEventReq
         foreach (var list in content?.Lists ?? []) packs.Add(new BotSystemFacePack { PackName = list.PackName ?? string.Empty, Faces = Convert(list.Emojis ?? []) });
     }
 
-    private static IReadOnlyList<BotSystemFace> Convert(IEnumerable<D9154Emoji> emojis) => [.. emojis.Where(face => !string.IsNullOrWhiteSpace(face.Sid)).Select(face => new BotSystemFace
+    internal static IReadOnlyList<BotSystemFace> Convert(IEnumerable<D9154Emoji> emojis) => [.. emojis.Where(face => !string.IsNullOrWhiteSpace(face.Sid)).Select(face => new BotSystemFace
     {
         Sid = face.Sid!, Description = face.Description ?? string.Empty, EmCode = face.EmCode ?? string.Empty,
         AnimationType = face.AniStickerType, AnimationPackId = face.AniStickerPackId, AnimationStickerId = face.AniStickerId,

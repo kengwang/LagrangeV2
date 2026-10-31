@@ -9,6 +9,25 @@ namespace Lagrange.Milky.Test;
 
 public sealed class McpConfigurationTests
 {
+    [TestCase(null, 1)]
+    [TestCase("1", 1)]
+    [TestCase("4", 4)]
+    public void ProductionConfigurationBindsVideoConcurrency(string? value, int expected)
+    {
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.Configuration.Sources.Clear();
+        var values = new Dictionary<string, string?>
+        {
+            ["Lagrange:Protocol:Platform"] = "Linux",
+            ["Lagrange:Login:Uin"] = "0"
+        };
+        if (value is not null) values["Lagrange:Server:VideoUploadConcurrency"] = value;
+        builder.Configuration.AddInMemoryCollection(values);
+        builder.ConfigureLagrange();
+        using var provider = builder.Services.BuildServiceProvider();
+        Assert.That(provider.GetRequiredService<LagrangeConfiguration>().Server.VideoUploadConcurrency, Is.EqualTo(expected));
+    }
+
     [TestCase(null, false)]
     [TestCase("false", false)]
     [TestCase("true", true)]

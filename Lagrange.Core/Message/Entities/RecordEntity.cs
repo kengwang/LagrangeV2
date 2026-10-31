@@ -11,6 +11,16 @@ public class RecordEntity : RichMediaEntityBase
     internal override Lazy<Stream>? Stream { get; }
     
     public uint RecordLength { get; set; }
+
+    public byte[]? Waveform { get; init; }
+    internal ReadOnlyMemory<byte> VoiceCompatibility => _compat ?? [];
+
+    internal byte[] EncodeWaveform()
+    {
+        if (Waveform is null) return [];
+        if (Waveform.Length != 30) throw new ArgumentException("Voice waveforms require 30 amplitude values.", nameof(Waveform));
+        return ProtoHelper.Serialize(new RecordWaveform { Size = (uint)Waveform.Length, Amplitudes = Waveform }).ToArray();
+    }
     
     public RecordEntity() { }
     
@@ -35,6 +45,14 @@ public class RecordEntity : RichMediaEntityBase
                 : await context.EventContext.SendEvent<RecordUploadEventResp>(new RecordUploadEventReq(message, this));
 
             _compat = result.Compat;
+            if (message.Type == MessageType.Private && message.Entities.Count == 1 && !VoiceCompatibility.IsEmpty && ProtoHelper.Deserialize<RawPttCompatibility>(VoiceCompatibility.Span).Ptt.Length == 0)
+                throw new InvalidDataException("Private voice upload response lacks playback information.");
+            if (Waveform is not null)
+            {
+                result.Info.ExtBizInfo ??= new ExtBizInfo();
+                result.Info.ExtBizInfo.Ptt ??= new PttExtBizInfo();
+                result.Info.ExtBizInfo.Ptt.Waveform = EncodeWaveform();
+            }
             MsgInfo = result.Info;
 
             if (result.Ext != null)
@@ -96,4 +114,11 @@ public class RecordEntity : RichMediaEntityBase
         
         return null;
     }
+}
+
+[Lagrange.Proto.ProtoPackable]
+internal partial class RecordWaveform
+{
+    [Lagrange.Proto.ProtoMember(1)] public uint Size { get; set; }
+    [Lagrange.Proto.ProtoMember(2)] public byte[] Amplitudes { get; set; } = [];
 }

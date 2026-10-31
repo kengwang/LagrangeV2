@@ -35,6 +35,16 @@ if (args.Contains("--mcp"))
     return;
 }
 
+var uploadSettings230 = WebApplication.CreateSlimBuilder();
+uploadSettings230.Configuration.Sources.Clear();
+uploadSettings230.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["Lagrange:Protocol:Platform"] = "Linux", ["Lagrange:Login:Uin"] = "0", ["Lagrange:Server:VideoUploadConcurrency"] = "3"
+});
+uploadSettings230.ConfigureLagrange();
+await using (var settings230 = uploadSettings230.Build())
+    Check(settings230.Services.GetRequiredService<Lagrange.Milky.Configurations.LagrangeConfiguration>().Server.VideoUploadConcurrency == 3, "video upload concurrency production configuration binding");
+
 // 默认模式直接验证实际绑定器，MCP 模式单独启动本机 HTTP 服务。
 await CheckLoggingAsync();
 
@@ -58,6 +68,24 @@ using var scope = app.Services.CreateScope();
 var bodies = new List<Stream>();
 try
 {
+    var literal230 = Lagrange.Core.Utility.QzoneJsLiteralParser.ParseJsonResponse("callback({code:0,data:{id:18446744073709551615}});");
+    Check(literal230["code"]!.GetValue<int>() == 0 && literal230["data"]!["id"]!.GetValue<ulong>() == ulong.MaxValue, "Qzone literal parser and lossless integers");
+    var content230 = new Lagrange.Core.Common.Response.BotQzoneFeed { Key = "k", Html = "<div class='f-item' data-key='k'><div class='f-info'>正文<br>下一行</div></div>" };
+    Lagrange.Core.Internal.Http.QzoneFeedContent.Populate(content230);
+    Check(content230.Content == "正文\n下一行", "Qzone HTML content extraction");
+    Check(Lagrange.Codec.VoiceWaveform.FromPcm(new byte[60]).All(x => x == 25), "voice waveform PCM calculation");
+    var tags230 = await new RequestBinder<GetGroupTagsHandler.Request>().BindAsync(Context("""{"group_class":0}"""), CancellationToken.None);
+    Check(tags230.GroupClass == 0, "group category zero request binding");
+    var admin230 = await new RequestBinder<SetGroupAdminPermissionsHandler.Request>().BindAsync(Context("""{"group_id":123,"user_id":456,"kick_member":false}"""), CancellationToken.None);
+    Check(admin230.KickMember == false && admin230.KickMemberPerDay is null && admin230.RecallMemberMessage is null, "partial administrator permissions request binding");
+    var public230 = await new RequestBinder<ReplyQzonePublicFeedHandler.Request>().BindAsync(Context("""{"feed":{"cell_common":{"union_id":{"uin":"123"}}},"comment":{"id":"comment"},"content":"回复"}"""), CancellationToken.None);
+    Check(public230.Content.GetString() == "回复" && public230.Reply is null && public230.Feed.GetProperty("cell_common").GetProperty("union_id").GetProperty("uin").GetString() == "123", "open Qzone objects and inherited request binding");
+    var share230 = await new RequestBinder<GetGroupShareLinkHandler.Request>().BindAsync(Context("""{"group_id":123}"""), CancellationToken.None);
+    Check(share230.NeedShortUrl && share230.AdditionalParam == "", "group share request defaults");
+    var page230 = await new RequestBinder<GetQzonePublicRepliesHandler.Request>().BindAsync(Context("""{"feed":{},"comment":{}}"""), CancellationToken.None);
+    Check(page230.PageSize == 20 && page230.Cursor == "", "Qzone replies defaults");
+    var open230 = Serializer.JsonSerialize(new Lagrange.Milky.Api.MilkyApiResponse<JsonElement>(public230.Feed));
+    Check(open230.Contains("\"union_id\""), "open Qzone response generated serialization");
     var groupContext = Context("""{"group_id":123,"message":[{"type":"text","data":{"text":"group smoke"}}]}""");
     var group = await new RequestBinder<SendGroupMessageHandler.Request>().BindAsync(groupContext, CancellationToken.None);
     Check(group.GroupId == 123 && group.Message.Single() is TextOutgoingSegment { Data.Text: "group smoke" }, "send_group_message JSON and polymorphic collection");

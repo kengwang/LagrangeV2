@@ -7,7 +7,7 @@ namespace Lagrange.Core.Internal.Services.System;
 
 [EventSubscribe<SendTuwenArkEventReq>(Protocols.All)]
 [Service("OidbSvcTrpcTcp.0xdc2_34")]
-internal sealed class SendTuwenArkService : OidbService<SendTuwenArkEventReq, SendTuwenArkEventResp, DDC2Req, DEmptyResp>
+internal sealed class SendTuwenArkService : OidbService<SendTuwenArkEventReq, SendTuwenArkEventResp, DDC2Req, DDC2Resp>
 {
     protected override uint Command => 0xdc2;
     protected override uint Service => 34;
@@ -21,5 +21,11 @@ internal sealed class SendTuwenArkService : OidbService<SendTuwenArkEventReq, Se
             Meta = new DDC2Meta { PeerType = request.Group ? 1u : 0u, TargetId = checked((uint)request.TargetId) }
         });
     }
-    protected override Task<SendTuwenArkEventResp> ProcessResponse(DEmptyResp response, BotContext context) => Task.FromResult(SendTuwenArkEventResp.Instance);
+    protected override Task<SendTuwenArkEventResp> ProcessResponse(DDC2Resp response, BotContext context)
+    {
+        if (response.Results.Count == 0) throw new InvalidDataException("Card response has no delivery confirmation.");
+        foreach (var result in response.Results)
+            if (result.ErrorCode != 0) throw new Lagrange.Core.Exceptions.OperationException(checked((int)result.ErrorCode), result.ErrorMessage);
+        return Task.FromResult(SendTuwenArkEventResp.Instance);
+    }
 }

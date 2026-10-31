@@ -19,3 +19,10 @@ internal partial class GroupInviteBody
 
     [ProtoMember(6)] public string InviterUid { get; set; }
 }
+
+[ProtoPackable]
+internal partial class DirectGroupInvite
+{
+    [ProtoMember(1)] public long GroupUin { get; set; }
+    [ProtoMember(5)] public string InviterUid { get; set; } = string.Empty;
+}

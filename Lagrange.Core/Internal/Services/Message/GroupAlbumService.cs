@@ -36,7 +36,7 @@ internal sealed class GetGroupAlbumMediaService : BaseService<GetGroupAlbumMedia
                 Type = "image", Id = item.Image?.Lloc, Url = ImageUrl(item.Image)?.Url,
                 Width = ImageUrl(item.Image)?.Width ?? 0, Height = ImageUrl(item.Image)?.Height ?? 0, UploadTime = item.UploadTime
             }).ToList();
-        return ValueTask.FromResult(new GetGroupAlbumMediaEventResp(new BotGroupAlbumMediaResult { Media = media, PreviousCursor = response.Data?.PrevAttachInfo ?? string.Empty, NextCursor = response.Data?.NextAttachInfo ?? string.Empty }));
+        return ValueTask.FromResult(new GetGroupAlbumMediaEventResp(new BotGroupAlbumMediaResult { Media = media, PreviousCursor = response.Data?.PrevAttachInfo ?? string.Empty, NextCursor = response.Data?.NextAttachInfo ?? string.Empty }) { RawMedia = response.Data?.MediaList ?? [] });
     }
 
     private static AlbumUrlInfo? ImageUrl(AlbumImageInfo? image) => !string.IsNullOrEmpty(image?.DefaultUrl?.Url)
@@ -72,8 +72,19 @@ internal sealed class CommentGroupAlbumMediaService : BaseService<CommentGroupAl
     protected override ValueTask<ReadOnlyMemory<byte>> Build(CommentGroupAlbumMediaEventReq input, BotContext context)
     {
         var uin = context.BotUin.ToString();
-        var request = new DoQunCommentRequest { Field1 = 8527, Body = new DoQunCommentBody { GroupId = input.GroupUin.ToString(), Field3 = 2, ReqBody = new AlbumCommentReqBody { Header = new AlbumCommentHeader(), UserWrap = new AlbumCommentUserWrap { User = new AlbumCommentUser { Uin = uin } }, PhotoInfo = new AlbumCommentPhotoInfo { AlbumId = input.AlbumId, Wrap = new AlbumCommentPhotoWrap { Meta = new AlbumCommentPhotoMeta { Lloc = input.MediaId } } } }, Content = new AlbumCommentContent { User = new AlbumCommentUser { Uin = uin }, Meta = new AlbumCommentContentMeta { Content = input.Content }, ClientKey = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() } }, TraceId = $"_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", ExtMap = [new AlbumExtMapEntry { Key = "fc-appid", Value = "100" }] };
+        ArgumentException.ThrowIfNullOrWhiteSpace(input.Content);
+        var cells = input.Cells ?? throw new InvalidOperationException("Group album comments require the resolved feed cells.");
+        var request = new DoQunCommentRequest { Field1 = 8527, Body = new DoQunCommentBody { GroupId = input.GroupUin.ToString(), Field3 = 2, ReqBody = cells,
+            Content = new AlbumCommentContent { User = new AlbumCommentUser { Uin = uin, UinNumber = checked((ulong)context.BotUin) }, Contents = [new AlbumCommentText { Content = input.Content }], ClientKey = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() } },
+            TraceId = $"_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", ExtMap = [new AlbumExtMapEntry { Key = "fc-appid", Value = "100" }] };
         return ValueTask.FromResult(ProtoHelper.Serialize(request));
     }
-    protected override ValueTask<CommentGroupAlbumMediaEventResp> Parse(ReadOnlyMemory<byte> input, BotContext context) { var response = ProtoHelper.Deserialize<DoQunCommentResponse>(input.Span); if (response.Field1 != 0 && response.Field1 != 8527 && response.Comment is null) throw new OperationException(response.Field1, "Group album comment failed."); return ValueTask.FromResult(new CommentGroupAlbumMediaEventResp(response.Comment?.Data?.Id ?? string.Empty)); }
+    protected override ValueTask<CommentGroupAlbumMediaEventResp> Parse(ReadOnlyMemory<byte> input, BotContext context)
+    {
+        var response = ProtoHelper.Deserialize<DoQunCommentResponse>(input.Span);
+        if (response.Result != 0) throw new OperationException(response.Result, response.ErrorText);
+        var id = !string.IsNullOrWhiteSpace(response.Comment?.Data?.Id) ? response.Comment.Data.Id : response.Comment?.Id;
+        if (string.IsNullOrWhiteSpace(id)) throw new InvalidDataException("Group album comment response has no confirmation identifier.");
+        return ValueTask.FromResult(new CommentGroupAlbumMediaEventResp(id));
+    }
 }

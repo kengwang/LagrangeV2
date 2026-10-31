@@ -14,13 +14,21 @@ https://lagrangedev.github.io/Lagrange.Milky.Document
 
 ### api
 
-Write an implementation of `IApiHandler<TRequest, TResult>`/`INoRequestApiHandler<TResult>`/`INoResultApiHandler<TRequest>` in the folder corresponding to the `Lagrange.Milky\Api\Handlers` category, and add `TRequest` and `TResult` to the collection of `[JsonSerializable]` attributes above `JsonContext` in `Lagrange.Milky\Serialization\Serializer.cs`.
+Implement a typed FastEndpoints `Endpoint<TRequest, MilkyApiResponse<TResult>>` with `ExecuteAsync()` under the appropriate `Api/Handlers` category. Configure its `/api/` POST route and `Milky` authentication, and register its tool description and behavior annotations in `Mcp/MilkyMcpTools.cs`. FastEndpoints generates request binding and JSON metadata. Types also used through the standalone `Serializer` need registration in its `JsonContext`.
 
 ### event
 
 Write an implementation of `IEventConverter<TEvent, TData>` in `Lagrange.Milky\Events\Converters`, and add `TData` to the `[JsonSerializable]` attributes above `JsonContext` in `Lagrange.Milky\Serialization\Serializer.cs`.
 
 ## Feature List
+
+### Core 与 Milky 能力更新
+
+新增设备会话、群分类标签、群分享链接、管理员权限、Qzone 资料、结构化动态分页、公开动态交互和分享卡片。设备联系人使用保留编号 `0x7E000001..0x7E000003`，通过好友接口发送文本。
+
+新增接口沿用现有鉴权，并提供 OpenAPI 和 MCP 元数据。视频分片并发通过 `Lagrange.Server.VideoUploadConcurrency` 配置，默认 1，范围 1–4；上传失败立即中止。
+
+接口参数、上游来源和验证记录见 [能力迁移记录](../docs/capability-migration.md)。
 
 ### MCP
 

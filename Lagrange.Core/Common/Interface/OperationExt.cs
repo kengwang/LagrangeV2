@@ -8,6 +8,12 @@ namespace Lagrange.Core.Common.Interface;
 
 public static class OperationExt
 {
+    public static async Task<BotSystemFace?> GetSystemFace(this BotContext context, uint faceId, CancellationToken cancellationToken = default)
+    {
+        var result = (await context.EventContext.SendEvent<GetSystemFaceEventResp>(new GetSystemFaceEventReq(faceId), cancellationToken)).Face;
+        if (result is not null && result.Sid != faceId.ToString(System.Globalization.CultureInfo.InvariantCulture)) throw new InvalidDataException("System face lookup returned a different identity.");
+        return result;
+    }
     public static Task<BotQrCodeInfo?> FetchQrCodeInfo(this BotContext context, byte[] k) =>
         context.EventContext.GetLogic<WtExchangeLogic>().FetchQrCodeInfo(k);
 
@@ -44,6 +50,9 @@ public static class OperationExt
 
     public static async Task<BotQzoneFeedResult> GetQzoneFeeds(this BotContext context, long? targetUin = null, int page = 1, int count = 10, CancellationToken cancellationToken = default) =>
         (await context.EventContext.SendEvent<GetQzoneFeedsEventResp>(new GetQzoneFeedsEventReq(targetUin.GetValueOrDefault(context.BotUin), page, count), cancellationToken)).Result;
+
+    public static async Task<BotQzoneFeedResult> GetQzoneFeeds(this BotContext context, long? targetUin, int page, int count, string? cursor, CancellationToken cancellationToken = default) =>
+        (await context.EventContext.SendEvent<GetQzoneFeedsEventResp>(new GetQzoneFeedsEventReq(targetUin.GetValueOrDefault(context.BotUin), page, count, cursor), cancellationToken)).Result;
 
     public static async Task<BotQzoneUploadResult> UploadQzoneImage(this BotContext context, Stream image, CancellationToken cancellationToken = default) =>
         (await context.EventContext.SendEvent<UploadQzoneImageEventResp>(new UploadQzoneImageEventReq(image), cancellationToken)).Result;

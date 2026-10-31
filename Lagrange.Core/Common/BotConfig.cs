@@ -47,6 +47,17 @@ public class BotConfig
     /// Highway Uploading Concurrency, if the image failed to send, set this to 1
     /// </summary>
     public uint HighwayConcurrent { get; set; } = 4;
+
+    private int _videoUploadConcurrency = 1;
+    public int VideoUploadConcurrency
+    {
+        get => _videoUploadConcurrency;
+        set
+        {
+            if (value is < 1 or > 4) throw new ArgumentOutOfRangeException(nameof(value), "Video upload concurrency must be from 1 to 4.");
+            _videoUploadConcurrency = value;
+        }
+    }
     
 
     /// <summary>

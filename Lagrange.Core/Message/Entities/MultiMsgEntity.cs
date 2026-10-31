@@ -139,29 +139,27 @@ public class MultiMsgEntity(string? resId) : IMessageEntity
 
         if (target.RichMsg is { ServiceId: 35 } richMsg)
         {
-            using var source = new MemoryStream();
-            using var dest = new MemoryStream();
-            using var inflate = new DeflateStream(source, CompressionMode.Decompress);
-            source.Write(richMsg.BytesTemplate1.Span[3..^4]);
-            source.Seek(0, SeekOrigin.Begin);
-            
-            inflate.CopyTo(dest);
-            dest.Seek(0, SeekOrigin.Begin);
-            
-            using var xmlReader = XmlReader.Create(dest);
-            xmlReader.Read();
-            
-            var doc = new XmlDocument();
+            if (richMsg.BytesTemplate1.IsEmpty) return null;
+            var bytes = richMsg.BytesTemplate1.ToArray();
+            using var source = new MemoryStream(bytes, 1, bytes.Length - 1, writable: false);
+            using var decompressed = bytes[0] == 1 ? new ZLibStream(source, CompressionMode.Decompress) : null;
+            if (bytes[0] is not (0 or 1)) throw new InvalidDataException("Unsupported XML card compression.");
+            using var xmlReader = XmlReader.Create((Stream?)decompressed ?? source, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            var doc = new XmlDocument { XmlResolver = null };
             doc.Load(xmlReader);
             var root = doc["msg"];
-            var titles = root?.SelectNodes("item/title")?.Cast<XmlNode>().ToArray() ?? [];
-            return new MultiMsgEntity(root?.GetAttribute("m_resid") ?? string.Empty)
+            if (root is null) return null;
+            var titles = root.SelectNodes("item/title")?.Cast<XmlNode>().ToArray() ?? [];
+            var resource = root.GetAttribute("m_resid");
+            if (string.IsNullOrEmpty(resource)) resource = root.GetAttribute("resid");
+            if (string.IsNullOrEmpty(resource)) return null;
+            return new MultiMsgEntity(resource)
             {
-                FileName = root?.GetAttribute("m_fileName") ?? string.Empty,
+                FileName = root.GetAttribute("m_fileName"),
                 Title = titles.FirstOrDefault()?.InnerText,
                 Preview = titles.Skip(1).Select(x => x.InnerText).ToArray(),
-                Summary = root?.SelectSingleNode("item/summary")?.InnerText,
-                Prompt = root?.GetAttribute("brief")
+                Summary = root.SelectSingleNode("item/summary")?.InnerText,
+                Prompt = root.GetAttribute("brief")
             };
         }
 

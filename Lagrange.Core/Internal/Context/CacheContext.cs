@@ -55,6 +55,7 @@ internal partial class CacheContext(BotContext context)
 
     public async Task<BotFriend?> ResolveFriend(long uin)
     {
+        if (BotDeviceContact.Find(uin) is { } device) return device.AsFriend();
         if (_friends == null) Interlocked.Exchange(ref _friends, await FetchFriends());
         var friend = _friends?.FirstOrDefault(f => f.Uin == uin);
 
@@ -125,11 +126,12 @@ internal partial class CacheContext(BotContext context)
         finally { _strangersLock.Release(); }
     }
 
-    public string? ResolveCachedUid(long uin) => _uinToUid.GetValueOrDefault(uin);
-    internal long ResolveCachedUin(string uid) => _uidToUin.TryGetValue(uid, out long uin) ? uin : _uinToUid.FirstOrDefault(x => x.Value == uid).Key;
+    public string? ResolveCachedUid(long uin) => BotDeviceContact.Find(uin)?.Uid ?? _uinToUid.GetValueOrDefault(uin);
+    internal long ResolveCachedUin(string uid) => BotDeviceContact.Devices.FirstOrDefault(x => x.Uid == uid)?.Uin ?? (_uidToUin.TryGetValue(uid, out long uin) ? uin : _uinToUid.FirstOrDefault(x => x.Value == uid).Key);
 
     public long ResolveUin(string uid)
     {
+        if (BotDeviceContact.Devices.FirstOrDefault(x => x.Uid == uid) is { } device) return device.Uin;
         if (_uidToUin.TryGetValue(uid, out long value)) return value;
 
         long uin = _uinToUid.FirstOrDefault(kvp => kvp.Value == uid).Key;
@@ -156,6 +158,9 @@ internal partial class CacheContext(BotContext context)
             foreach (var friend in friends) _uinToUid[friend.Uin] = friend.Uid;
         } while (cookie != null);
 
+        friends.RemoveAll(x => BotDeviceContact.Find(x.Uin) is not null);
+        friends.AddRange(BotDeviceContact.Devices.Select(x => x.AsFriend()));
+        _categories[-1] = new BotFriendCategory(-1, "我的设备", 3, int.MaxValue);
         return friends;
     }
 

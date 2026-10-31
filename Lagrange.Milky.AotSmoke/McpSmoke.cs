@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using FastEndpoints;
+using FastEndpoints.OpenApi;
 using Lagrange.Core.Common;
 using Lagrange.Core.Common.Interface;
 using Lagrange.Milky;
@@ -116,6 +117,13 @@ internal static class McpSmoke
                 .OfType<RouteEndpoint>().Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/", StringComparison.Ordinal) == true).ToArray();
             Check(registered.Length > 0 && registered.All(endpoint => endpoint.Metadata.GetMetadata<FastEndpoints.Mcp.McpToolInfo>() is not null),
                 "every API endpoint has MCP metadata");
+
+            using var openApi = JsonDocument.Parse(await http.GetStringAsync("/openapi/v1.json", ct));
+            var paths = openApi.RootElement.GetProperty("paths");
+            Check(registered.All(endpoint => paths.TryGetProperty(endpoint.RoutePattern.RawText!, out _)), "OpenAPI covers every API route");
+            Check(paths.GetProperty("/api/get_group_admin_permissions").TryGetProperty("post", out _) &&
+                paths.GetProperty("/api/get_qzone_public_feed_detail").TryGetProperty("post", out _) &&
+                paths.GetProperty("/api/reply_qzone_public_feed").TryGetProperty("post", out _), "OpenAPI includes typed group permissions and Qzone operations");
 
             await using var transport = new HttpClientTransport(new()
             {
@@ -231,7 +239,15 @@ internal static class McpSmoke
         builder.Services.AddAuthentication("Milky")
             .AddScheme<AuthenticationSchemeOptions, MilkyAuthenticationHandler>("Milky", _ => { });
         builder.Services.AddAuthorization();
-        builder.Services.AddFastEndpoints(DiscoveredTypes.All);
+        builder.Services.AddFastEndpoints(DiscoveredTypes.All).OpenApiDocument(options =>
+        {
+            options.DocumentName = "v1";
+            options.Title = "Lagrange.Milky API";
+            options.Version = "v1";
+            options.ExcludeNonFastEndpoints = true;
+            options.ShortSchemaNames = true;
+            options.EnableJWTBearerAuth = false;
+        });
         builder.Services.AddMilkyMcp(settings);
         var app = builder.Build();
         app.UseAuthentication();
@@ -247,6 +263,7 @@ internal static class McpSmoke
             };
         });
         app.UseMilkyMcp();
+        app.MapOpenApi();
         return app;
     }
 

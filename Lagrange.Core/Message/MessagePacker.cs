@@ -21,6 +21,7 @@ internal class MessagePacker(BotContext context)
 
     private async Task<BotMessage> Parse(CommonMessage msg, bool forwarded, Func<MultiMsgEntity, BotMessage, Task>? resolveForward = null)
     {
+        if (msg.ContentHead is { Type: 529, SubType: 7 }) return DatalineMessages.Parse(msg, context);
         var contentHead = msg.ContentHead;
         var routingHead = msg.RoutingHead;
 
@@ -43,7 +44,10 @@ internal class MessagePacker(BotContext context)
         foreach (var elem in msg.MessageBody.RichText.Elems)
             ParseMessageStyle(message, elem);
 
-        if (msg.MessageBody.RichText.NotOnlineFile is { } file)
+        var file = msg.MessageBody.RichText.NotOnlineFile;
+        if (file is null && contentHead.Type == 529 && msg.MessageBody.MsgContent is { IsEmpty: false } fileBytes)
+            file = ProtoHelper.Deserialize<FileExtra>(fileBytes.Span).File;
+        if (file is { FileUuid.Length: > 0 } && !IsFileReceipt(file))
         {
             message.Entities.Add(new GroupFileEntity
             {
@@ -55,11 +59,10 @@ internal class MessagePacker(BotContext context)
             });
         }
 
-        if (ParsePttRichText(msg.MessageBody.RichText) is { } record)
+        if (!msg.MessageBody.RichText.Elems.Any(x => x.CommonElem is { ServiceType: 48, BusinessType: 12 or 22 }) && ParsePttRichText(msg.MessageBody.RichText) is { } record)
         {
             message.Entities.Add(record);
         }
-        else
         {
             var elems = msg.MessageBody.RichText.Elems;
             foreach (var elem in elems)
@@ -89,6 +92,16 @@ internal class MessagePacker(BotContext context)
         }
 
         return message;
+    }
+
+    internal static bool IsFileReceipt(NotOnlineFile file) => file.DownloadFlag == 2 || file is { FileType: 1, SubCmd: 2 };
+
+    internal static bool IsFileReceipt(CommonMessage message)
+    {
+        if (message.ContentHead is { Type: 529, SubType: 7 }) return false;
+        if (message.MessageBody?.RichText.NotOnlineFile is { } file && IsFileReceipt(file)) return true;
+        return message.ContentHead.Type == 529 && message.MessageBody?.MsgContent is { IsEmpty: false } bytes
+            && ProtoHelper.Deserialize<FileExtra>(bytes.Span).File is { } extra && IsFileReceipt(extra);
     }
 
     private static (BotContact Contact, BotContact Receiver) ResolveForwardedContacts(RoutingHead routingHead)
@@ -180,6 +193,8 @@ internal class MessagePacker(BotContext context)
 
     public static ReadOnlyMemory<byte> Build(BotMessage message)
     {
+        if (BotDeviceContact.Find(message.Receiver.Uin) is not null)
+            return DatalineMessages.Build(message, message.Contact.Uin, message.DeviceSourceTerminal);
         var routingHead = new SendRoutingHead();
 
         if (message.TempGroupUin is { } sourceGroup)
@@ -226,6 +241,12 @@ internal class MessagePacker(BotContext context)
             Control = message.Type == MessageType.Temp ? new SendMessageControl { MessageFlag = checked((int)message.Time) } : null,
         };
         BuildMessageStyle(message.Style, messageBody.RichText.Elems);
+        if (message.Type == MessageType.Private && message.Entities.Count == 1 && message.Entities[0] is RecordEntity voice && !voice.VoiceCompatibility.IsEmpty)
+        {
+            if (ProtoHelper.Deserialize<RawPttCompatibility>(voice.VoiceCompatibility.Span).Ptt.Length == 0) throw new InvalidDataException("Private voice upload response lacks playback information.");
+            return ProtoHelper.Serialize(new RawRichTextSend { RoutingHead = proto.RoutingHead, ContentHead = proto.ContentHead, ClientSequence = proto.ClientSequence, Random = proto.Random, Control = proto.Control,
+                MessageBody = new RawRichTextBody { RichText = ProtoHelper.Serialize(messageBody.RichText).ToArray().Concat(voice.VoiceCompatibility.ToArray()).ToArray() } });
+        }
         return ProtoHelper.Serialize(proto);
     }
 

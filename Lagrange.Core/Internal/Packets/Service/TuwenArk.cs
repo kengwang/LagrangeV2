@@ -42,3 +42,13 @@ internal partial class DDC2Meta
     [ProtoMember(1)] public uint PeerType { get; set; }
     [ProtoMember(2)] public uint TargetId { get; set; }
 }
+
+[ProtoPackable] internal partial class DDC2Resp
+{
+    [ProtoMember(1)] public List<DDC2DeliveryResult> Results { get; set; } = [];
+}
+[ProtoPackable] internal partial class DDC2DeliveryResult
+{
+    [ProtoMember(4)] public uint ErrorCode { get; set; }
+    [ProtoMember(5)] public string ErrorMessage { get; set; } = string.Empty;
+}

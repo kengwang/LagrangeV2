@@ -45,6 +45,7 @@ internal enum MsgType
     GroupMemberDecreaseNotice = 34,
     GroupAdminChangedNotice = 44,
     GroupMessage = 82,
+    GroupInvitation = 87,
     GroupJoinNotification = 84,
     GroupSelfJoinedNotice = 85,
     TempMessage = 141,

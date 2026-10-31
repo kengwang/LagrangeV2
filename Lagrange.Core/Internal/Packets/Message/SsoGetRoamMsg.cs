@@ -22,6 +22,8 @@ internal partial class SsoGetRoamMsgReq
 [ProtoPackable]
 internal partial class SsoGetRoamMsgRsp
 {
+    [ProtoMember(1)] public int Result { get; set; }
+    [ProtoMember(2)] public string? ErrorMessage { get; set; }
     [ProtoMember(3)] public string? PeerUid { get; set; }
     
     [ProtoMember(4)] public bool IsComplete { get; set; }

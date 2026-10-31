@@ -25,11 +25,11 @@ public class ImageEntity : RichMediaEntityBase
 
     public ImageEntity() { }
     
-    public ImageEntity(Stream stream, string? summary = "[图片]", int subType = 0, bool disposeOnCompletion = false)
+    public ImageEntity(Stream stream, string? summary = null, int subType = 0, bool disposeOnCompletion = false)
     {
         if (disposeOnCompletion) Own(stream);
         Stream = new Lazy<Stream>(() => stream);
-        Summary = summary ?? "[图片]";
+        Summary = string.IsNullOrEmpty(summary) ? subType == 1 ? "[动画表情]" : "[图片]" : summary;
         SubType = subType;
         DisposeOnCompletion = disposeOnCompletion;
     }
@@ -60,7 +60,8 @@ public class ImageEntity : RichMediaEntityBase
                 }
                 else
                 {
-                    await context.FlashTransferContext.UploadFile(result.Ext.UKey, (uint)(IsGroup ? 1407 : 1406), Stream.Value);
+                    if (!await context.FlashTransferContext.UploadFile(result.Ext.UKey, (uint)(IsGroup ? 1407 : 1406), Stream.Value))
+                        throw new InvalidDataException("Image upload was not confirmed.");
                 }
             }
             CompletePreparation();
@@ -76,7 +77,7 @@ public class ImageEntity : RichMediaEntityBase
 
     public override async Task Postprocess(BotContext context, BotMessage message)
     {
-        if (IsFlash) return;
+        if (IsFlash || !string.IsNullOrEmpty(FileUrl)) return;
         NTV2RichMediaDownloadEventResp result = message.IsGroup()
             ? await context.EventContext.SendEvent<ImageGroupDownloadEventResp>(new ImageGroupDownloadEventReq(message, this))
             : await context.EventContext.SendEvent<ImageDownloadEventResp>(new ImageDownloadEventReq(message, this));
@@ -93,6 +94,7 @@ public class ImageEntity : RichMediaEntityBase
             var compatElem = IsGroup
                 ? new Elem { CustomFace = ProtoHelper.Deserialize<CustomFace>(_compat) }
                 : new Elem { NotOnlineImage = ProtoHelper.Deserialize<NotOnlineImage>(_compat) };
+            if (MsgInfo is null) return [compatElem];
             
             return
             [
@@ -141,19 +143,38 @@ public class ImageEntity : RichMediaEntityBase
         if (target.CommonElem is { ServiceType: 48, BusinessType: 10 or 20 } commonElem)
         {
             var msgInfo = ProtoHelper.Deserialize<MsgInfo>(commonElem.PbElem.Span);
+            if (msgInfo.MsgInfoBody is not { Count: > 0 }) return null;
             var info = msgInfo.MsgInfoBody[0].Index.Info;
+            if (string.IsNullOrEmpty(msgInfo.MsgInfoBody[0].Index.FileUuid) && (info.FileHash?.Length != 32 || !info.FileHash.All(Uri.IsHexDigit))) return null;
             
             return new ImageEntity
             {
                 MsgInfo = msgInfo,
                 IsGroup = commonElem.BusinessType == 20,
                 ImageSize = new Vector2(info.Width, info.Height),
-                SubType = (int)msgInfo.ExtBizInfo.Pic.BizType,
-                Summary = string.IsNullOrEmpty(msgInfo.ExtBizInfo.Pic.TextSummary) ? "[图片]" : msgInfo.ExtBizInfo.Pic.TextSummary,
+                SubType = (int)(msgInfo.ExtBizInfo?.Pic?.BizType ?? 0),
+                Summary = string.IsNullOrEmpty(msgInfo.ExtBizInfo?.Pic?.TextSummary) ? "[图片]" : msgInfo.ExtBizInfo.Pic.TextSummary,
             };
         }
         
-        return null;
+        byte[]? legacyMd5 = target.CustomFace?.Md5 ?? target.NotOnlineImage?.PicMd5;
+        if (legacyMd5 is not { Length: 16 }) return null;
+        string hash = Convert.ToHexString(legacyMd5);
+        foreach (var sibling in elements)
+        {
+            if (sibling.CommonElem is not { ServiceType: 48, BusinessType: 10 or 20 } modern) continue;
+            var info = ProtoHelper.Deserialize<MsgInfo>(modern.PbElem.Span);
+            if (info.MsgInfoBody is { Count: > 0 } && string.Equals(info.MsgInfoBody[0].Index.Info.FileHash, hash, StringComparison.OrdinalIgnoreCase)) return null;
+        }
+        var legacy = target.CustomFace;
+        var privateImage = target.NotOnlineImage;
+        var privateReserve = privateImage?.PbReserve is { Length: > 0 } reserveBytes ? ProtoHelper.Deserialize<LegacyImageReserve>(reserveBytes) : null;
+        string? url = legacy?.OrigUrl ?? privateImage?.OrigUrl;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) url = $"https://gchat.qpic.cn/gchatpic_new/0/0-0-{hash}/0";
+        return new ImageEntity { IsGroup = legacy is not null, _compat = legacy is not null ? ProtoHelper.Serialize(legacy).ToArray() : ProtoHelper.Serialize(privateImage!).ToArray(),
+            FileMd5 = hash, FileSize = legacy?.Size ?? privateImage!.FileLen, FileUrl = url,
+            ImageSize = new Vector2(legacy?.Width ?? (int)privateImage!.PicWidth, legacy?.Height ?? (int)privateImage!.PicHeight),
+            SubType = legacy?.PbReserve?.SubType ?? checked((int)(privateReserve?.SubType ?? 0)), Summary = legacy?.PbReserve?.Summary ?? privateReserve?.Summary ?? "[图片]" };
     }
 }
 [ProtoPackable]
@@ -167,4 +188,18 @@ internal partial class FlashImageExtra
 internal partial class FlashImageReserve
 {
     [ProtoMember(1)] public uint SubType { get; set; }
+}
+
+[ProtoPackable]
+internal partial class LegacyImageReserve
+{
+    [ProtoMember(1)] public uint SubType { get; set; }
+    [ProtoMember(8)] public string Summary { get; set; } = string.Empty;
+}
+
+[ProtoPackable]
+internal partial class GroupImageReserve
+{
+    [ProtoMember(1)] public uint SubType { get; set; }
+    [ProtoMember(9)] public string Summary { get; set; } = string.Empty;
 }

@@ -28,12 +28,22 @@ public sealed class MigrationHttpContractTests
             "SetQzoneMessageVisibilityHandler", "ClickInlineKeyboardButtonHandler", "GetGroupTodoListHandler", "GetDownloadRKeysHandler",
             "SendTempMessageHandler", "GetAiVoiceListHandler", "SynthesizeAiVoiceHandler", "SendAiVoiceHandler", "TranscribeVoiceHandler",
             "UploadFlashFilesHandler", "GetFlashDownloadHandler", "GetFlashShareLinkHandler", "ResolveFlashShareCodeHandler", "ConvertRecordHandler",
-            "UploadGroupAlbumVideoHandler", "ProbeHistorySyncStateHandler", "GetHistorySyncPageHandler", "GetPrivateHistoryRoamPageHandler"];
+            "UploadGroupAlbumVideoHandler", "ProbeHistorySyncStateHandler", "GetHistorySyncPageHandler", "GetPrivateHistoryRoamPageHandler",
+            "GetGroupTagsHandler", "AddGroupTagHandler", "DeleteGroupTagHandler", "GetGroupShareLinkHandler", "GetGroupAdminPermissionsHandler", "SetGroupAdminPermissionsHandler", "SetGroupAdminReceiveVerifyHandler",
+            "GetSystemFaceHandler", "GetQzoneProfileHandler", "SetQzoneProfileHandler", "GetQzoneMessageDetailHandler", "ReplyQzoneCommentHandler",
+            "GetQzoneHomeFeedsHandler", "GetQzonePublicFeedsHandler", "GetQzonePublicCapabilitiesHandler", "GetQzonePublicFeedDetailHandler", "GetQzonePublicCommentsHandler", "GetQzonePublicRepliesHandler",
+            "SetQzonePublicUpvoteHandler", "SetQzonePublicLikeHandler", "SetQzonePublicCommentLikeHandler", "CommentQzonePublicFeedHandler", "ReplyQzonePublicFeedHandler", "DeleteQzonePublicCommentHandler",
+            "DeleteQzonePublicReplyHandler", "SetQzonePublicFollowHandler", "ForwardQzonePublicFeedHandler", "GetQzoneShareArkHandler"];
         string[] routes = ["get_online_devices", "request_database_key", "get_user_status", "get_mini_app_ark",
             "set_qzone_message_visibility", "click_inline_keyboard_button", "get_group_todo_list", "get_download_rkeys",
             "send_temp_message", "get_ai_voice_list", "synthesize_ai_voice", "send_ai_voice", "transcribe_voice",
             "upload_flash_files", "get_flash_download", "get_flash_share_link", "resolve_flash_share_code", "convert_record",
-            "upload_group_album_video", "probe_history_sync_state", "get_history_sync_page", "get_private_history_roam_page"];
+            "upload_group_album_video", "probe_history_sync_state", "get_history_sync_page", "get_private_history_roam_page",
+            "get_group_tags", "add_group_tag", "delete_group_tag", "get_group_share_link", "get_group_admin_permissions", "set_group_admin_permissions", "set_group_admin_receive_verify",
+            "get_system_face", "get_qzone_profile", "set_qzone_profile", "get_qzone_message_detail", "reply_qzone_comment",
+            "get_qzone_home_feeds", "get_qzone_public_feeds", "get_qzone_public_capabilities", "get_qzone_public_feed_detail", "get_qzone_public_comments", "get_qzone_public_replies",
+            "set_qzone_public_upvote", "set_qzone_public_like", "set_qzone_public_comment_like", "comment_qzone_public_feed", "reply_qzone_public_feed", "delete_qzone_public_comment",
+            "delete_qzone_public_reply", "set_qzone_public_follow", "forward_qzone_public_feed", "get_qzone_share_ark"];
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();

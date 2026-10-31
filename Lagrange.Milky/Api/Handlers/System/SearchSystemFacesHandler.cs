@@ -22,10 +22,10 @@ public sealed class SearchSystemFacesHandler(BotContext lagrange) : Endpoint<Sea
     public override async Task<MilkyApiResponse<Result>> ExecuteAsync(Request request, CancellationToken ct)
     {
         var packs = await _lagrange.GetSystemFaces(request.Refresh, ct);
-        var faces = packs.SelectMany(pack => pack.Faces).Where(face => face.Sid.Contains(request.Query, StringComparison.OrdinalIgnoreCase) || face.Description.Contains(request.Query, StringComparison.OrdinalIgnoreCase) || face.Aliases.Any(alias => alias.Contains(request.Query, StringComparison.OrdinalIgnoreCase))).Select(face => new SearchFace { Sid = face.Sid, Description = face.Description, EmCode = face.EmCode, Url = face.Url }).ToList();
+        var faces = packs.SelectMany(pack => pack.Faces).Where(face => face.Sid.Contains(request.Query, StringComparison.OrdinalIgnoreCase) || face.Description.Contains(request.Query, StringComparison.OrdinalIgnoreCase) || face.Aliases.Any(alias => alias.Contains(request.Query, StringComparison.OrdinalIgnoreCase))).Select(GetSystemFacesHandler.SystemFace.FromCore).ToList();
         return new MilkyApiResponse<Result>(new Result { Faces = faces });
     }
     public sealed class Request(string query, bool refresh = false) { [JsonPropertyName("query")] public required string Query { get; init; } = query; [JsonPropertyName("refresh")] public bool Refresh { get; init; } = refresh; }
-    public sealed class Result { [JsonPropertyName("faces")] public required IReadOnlyList<SearchFace> Faces { get; init; } }
+    public sealed class Result { [JsonPropertyName("faces")] public required IReadOnlyList<GetSystemFacesHandler.SystemFace> Faces { get; init; } }
     public sealed class SearchFace { [JsonPropertyName("sid")] public required string Sid { get; init; } [JsonPropertyName("description")] public required string Description { get; init; } [JsonPropertyName("em_code")] public required string EmCode { get; init; } [JsonPropertyName("url")] public string? Url { get; init; } }
 }

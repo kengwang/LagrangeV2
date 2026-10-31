@@ -45,16 +45,19 @@ internal class MessagingLogic(BotContext context) : ILogic
 
     public async Task<BotMessage> SendFriendMessage(long friendUin, MessageChain chain)
     {
+        if (BotDeviceContact.Find(friendUin) is not null && (chain.Count == 0 || chain.Any(x => x is not Lagrange.Core.Message.Entities.TextEntity)))
+            throw new ArgumentException("Device chats require text-only messages.", nameof(chain));
         ValidatePoke(chain, false);
         var friend = await context.CacheContext.ResolveFriend(friendUin) ?? throw new InvalidTargetException(friendUin);
         var self = await context.CacheContext.ResolveFriend(context.BotUin) ?? throw new InvalidTargetException(context.BotUin);
         var message = await BuildMessage(chain, self, friend);
+        if (BotDeviceContact.Find(friendUin) is not null) message.DeviceSourceTerminal = BotDeviceContact.SourceTerminal(context.Config.Protocol);
         var result = await context.EventContext.SendEvent<SendMessageEventResp>(new SendMessageEventReq(message));
 
         if (result == null) throw new InvalidOperationException();
-        if (result.Result != 0) throw new OperationException(result.Result);
+        if (result.Result != 0) throw new OperationException(result.Result, result.ErrorMessage);
 
-        message.Sequence = result.Sequence;
+        message.ConfirmPrivateSequence(result.Sequence);
         message.Time = result.SendTime;
 
         return message;
@@ -68,7 +71,7 @@ internal class MessagingLogic(BotContext context) : ILogic
         var result = await context.EventContext.SendEvent<SendMessageEventResp>(new SendMessageEventReq(message));
 
         if (result == null) throw new InvalidOperationException();
-        if (result.Result != 0) throw new OperationException(result.Result);
+        if (result.Result != 0) throw new OperationException(result.Result, result.ErrorMessage);
 
         message.Sequence = result.Sequence;
         message.Time = result.SendTime;
@@ -132,7 +135,7 @@ internal class MessagingLogic(BotContext context) : ILogic
         foreach (var entity in chain) { ct.ThrowIfCancellationRequested(); await entity.Preprocess(context, message).WaitAsync(ct); }
         var result = await context.EventContext.SendEvent<SendMessageEventResp>(new SendMessageEventReq(message), ct);
         if (result.Result != 0) throw new OperationException(result.Result, result.ErrorMessage);
-        message.Sequence = result.Sequence;
+        message.ConfirmPrivateSequence(result.Sequence);
         message.Time = result.SendTime;
         return message;
     }

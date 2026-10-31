@@ -98,9 +98,10 @@ public class MentionEntity(long uin, string? display) : IMessageEntity
     
     IMessageEntity? IMessageEntity.Parse(List<Elem> elements, Elem target)
     {
-        if (target.Text is { Attr6Buf.Length: > 0, PbReserve: { Length: > 0 } reserve })
+        if (target.Text is { PbReserve: { Length: > 0 } reserve })
         {
             var attr = ProtoHelper.Deserialize<TextResvAttr>(reserve.Span);
+            if (attr.AtType is not (1 or 2)) return null;
             var entity = new MentionEntity((long)attr.AtMemberUin, target.Text.TextMsg);
             if (attr.AtType == 2) // AtType: 1 = mention_all, 2 = mention specific user
             {
