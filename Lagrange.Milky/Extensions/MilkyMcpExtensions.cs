@@ -67,10 +67,12 @@ public static class MilkyMcpExtensions
         // 仅复用 SDK 生成的协议元数据，保留 API DTO 的生成式序列化绑定。
         configuration.Serializer.Options.TypeInfoResolverChain.Insert(0,
             McpJsonUtilities.DefaultOptions.TypeInfoResolverChain[0]);
+        // Supplying the instance avoids reflection-based construction in Native AOT.
+        var exceptionCapture = new MilkyMcpExceptionCapture();
         configuration.Endpoints.Configurator = definition =>
         {
             MilkyMcpTools.Configure(definition, configuration.Serializer.Options);
-            definition.PostProcessor<MilkyMcpExceptionCapture>(Order.After);
+            definition.PostProcessors(Order.After, exceptionCapture);
         };
     }
 
