@@ -5,4 +5,5 @@ public sealed class HttpServiceException(string service, string message, int? st
     public string Service { get; } = service;
     public int? StatusCode { get; } = statusCode;
     public int? BusinessCode { get; } = businessCode;
+    public string? ResponseBody { get; init; }
 }

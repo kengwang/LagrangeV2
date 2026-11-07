@@ -32,13 +32,14 @@ public abstract class HttpService<TRequest, TResponse> : IHttpService
     {
         var metadata = Metadata;
         var domains = metadata.CookieDomains;
-        await context.HttpSessionContext.PrepareRequestAsync(message, domains, ct);
         string? pskey = null;
         string? skey = null;
-        if (metadata.RequiresPSkey)
-            pskey = await context.HttpSessionContext.GetPSkeyAsync(domains[0], ct);
+        // A skey login jump can rotate p_skey, so finish it before preparing cookies and g_tk.
         if (metadata.RequiresSkey)
             skey = await context.HttpSessionContext.GetSkeyAsync(ct);
+        await context.HttpSessionContext.PrepareRequestAsync(message, domains, ct);
+        if (metadata.RequiresPSkey)
+            pskey = await context.HttpSessionContext.GetPSkeyAsync(domains[0], ct);
         await HttpRequestAuthentication.ApplyAsync(message, metadata, pskey, skey, ct);
         message.Options.Set(AuthPrepared, true);
     }

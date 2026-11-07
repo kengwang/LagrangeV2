@@ -86,9 +86,16 @@ therefore retain `isError=false` in the official bridge, with `status=failed` an
 a nonzero `retcode` inside the response.
 
 Binding and validation failures return `isError=true` with `validationErrors`.
-Unhandled endpoint exceptions return `isError=true` with a generic error message;
-exception details are logged on the server. Requests are not automatically retried
-by Milky's MCP integration.
+Unhandled endpoint exceptions return `isError=true` with a generic error message
+by default; exception details are logged on the server. Set
+`Milky.Api.Mcp.IncludeExceptionDetails=true` (or the environment variable
+`Milky__Api__Mcp__IncludeExceptionDetails=true`) and restart Milky to also return
+the exception message, type, stack trace, tool name and trace ID to MCP clients.
+HTTP service errors additionally include the service URL without its query,
+HTTP status, business code and up to 4096 bytes of the upstream error response.
+Enable this only for MCP clients allowed to read diagnostic details. Existing
+binding and validation errors keep their original format. Requests are not
+automatically retried by Milky's MCP integration.
 
 ## Native AOT verification
 

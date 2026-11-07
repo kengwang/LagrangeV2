@@ -48,9 +48,10 @@ public class MilkyApiConfiguration(MilkyHttpApiConfiguration? http = null, Milky
     public MilkyMcpConfiguration Mcp { get; } = mcp ?? new();
 }
 
-public class MilkyMcpConfiguration(bool enabled = false)
+public class MilkyMcpConfiguration(bool enabled = false, bool includeExceptionDetails = false)
 {
     public bool Enabled { get; } = enabled;
+    public bool IncludeExceptionDetails { get; } = includeExceptionDetails;
 }
 
 public class MilkyHttpApiConfiguration(bool enabled, string? allowCorsOrigins = null)

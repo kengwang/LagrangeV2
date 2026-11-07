@@ -56,7 +56,7 @@ internal sealed class HttpSessionContext : IDisposable
         {
             if (_cookies.GetCookies(new Uri($"https://{domain}/"))["p_skey"] is null)
                 SetCookie(domain, "p_skey", pSkeys[Array.IndexOf(sourceDomains, domain)]);
-            if (_cookies.GetCookies(new Uri($"https://{destination}/"))["p_skey"] is null)
+            if (_cookies.GetCookies(new Uri($"https://{destination}/"))["p_skey"]?.Value != pSkeys[Array.IndexOf(sourceDomains, domain)])
                 SetCookie(destination, "p_skey", pSkeys[Array.IndexOf(sourceDomains, domain)]);
             // ptlogin2 may set auxiliary cookies on ssl.ptlogin2.qq.com or
             // .qq.com. Forward the complete jump result to the destination,
@@ -84,12 +84,20 @@ internal sealed class HttpSessionContext : IDisposable
 
     internal async Task<string> GetPSkeyAsync(string domain, CancellationToken cancellationToken)
     {
+        // The cookie jar owns expiry and rotation; tasks only coalesce concurrent logins.
+        if (_cookies.GetCookies(new Uri($"https://{domain}/"))["p_skey"] is { Value.Length: > 0 } existing)
+            return existing.Value;
         var entry = _pSkeyCache.GetOrAdd(domain, key => new Lazy<Task<string>>(() => FetchPSkeyAsync(key, cancellationToken), LazyThreadSafetyMode.ExecutionAndPublication));
-        try { return await entry.Value.WaitAsync(cancellationToken); }
-        catch
+        try
+        {
+            var value = await entry.Value.WaitAsync(cancellationToken);
+            // Other ptlogin jumps can rotate this cookie after the cached task completes.
+            return _cookies.GetCookies(new Uri($"https://{domain}/"))["p_skey"] is { Value.Length: > 0 } current
+                ? current.Value : value;
+        }
+        finally
         {
             _pSkeyCache.TryRemove(new KeyValuePair<string, Lazy<Task<string>>>(domain, entry));
-            throw;
         }
     }
 
@@ -107,9 +115,20 @@ internal sealed class HttpSessionContext : IDisposable
 
     internal async Task<string> GetSkeyAsync(CancellationToken cancellationToken)
     {
+        if (FindSkey() is { } existing) return existing;
         var entry = _skeyCache.GetOrAdd("skey", _ => new Lazy<Task<string>>(() => FetchSkeyAsync(cancellationToken), LazyThreadSafetyMode.ExecutionAndPublication));
-        try { return await entry.Value.WaitAsync(cancellationToken); }
-        catch { _skeyCache.TryRemove(new KeyValuePair<string, Lazy<Task<string>>>("skey", entry)); throw; }
+        try { return FindSkey() ?? await entry.Value.WaitAsync(cancellationToken); }
+        finally { _skeyCache.TryRemove(new KeyValuePair<string, Lazy<Task<string>>>("skey", entry)); }
+    }
+
+    private string? FindSkey()
+    {
+        foreach (var domain in new[] { "ssl.ptlogin2.qq.com", "qq.com", "qzone.qq.com", "qun.qq.com" })
+        {
+            var cookie = _cookies.GetCookies(new Uri($"https://{domain}/"))["skey"];
+            if (cookie is not null && !string.IsNullOrWhiteSpace(cookie.Value)) return cookie.Value;
+        }
+        return null;
     }
 
     private async Task<string> FetchSkeyAsync(CancellationToken cancellationToken)
@@ -122,12 +141,7 @@ internal sealed class HttpSessionContext : IDisposable
         // ptlogin2 may answer with a redirect or a non-success status while
         // still setting the cookie jar. The cookie, not the body status, is
         // the result of this exchange.
-        foreach (var domain in new[] { "ssl.ptlogin2.qq.com", "qq.com", "qzone.qq.com", "qun.qq.com" })
-        {
-            var cookie = _cookies.GetCookies(new Uri($"https://{domain}/"))["skey"];
-            if (cookie is not null && !string.IsNullOrWhiteSpace(cookie.Value)) return cookie.Value;
-        }
-        return string.Empty;
+        return FindSkey() ?? string.Empty;
     }
 
     private static string CookieSourceDomain(string domain) => domain switch
@@ -142,7 +156,18 @@ internal sealed class HttpSessionContext : IDisposable
         _ => domain,
     };
 
-    internal void InvalidateCookies(string domain) => _pSkeyCache.TryRemove(domain, out _);
+    internal void InvalidateCookies(string domain)
+    {
+        _pSkeyCache.TryRemove(domain, out _);
+        foreach (Cookie cookie in _cookies.GetAllCookies())
+        {
+            var host = cookie.Domain.TrimStart('.');
+            if (cookie.Name == "p_skey" && (host.Equals(domain, StringComparison.OrdinalIgnoreCase)
+                || host.EndsWith($".{domain}", StringComparison.OrdinalIgnoreCase)
+                || CookieSourceDomain(host).Equals(domain, StringComparison.OrdinalIgnoreCase)))
+                cookie.Expired = true;
+        }
+    }
 
     private async Task<string> FetchPSkeyAsync(string domain, CancellationToken cancellationToken)
     {
@@ -174,7 +199,12 @@ internal sealed class HttpSessionContext : IDisposable
     {
         if (!response.IsSuccessStatusCode)
         {
-            throw new Lagrange.Core.Exceptions.HttpServiceException(response.RequestMessage?.RequestUri?.Host ?? "http", $"HTTP request failed with status {(int)response.StatusCode}.", (int)response.StatusCode);
+            await using var errorStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var preview = new byte[4096];
+            int length = await errorStream.ReadAtLeastAsync(preview, preview.Length, throwOnEndOfStream: false, cancellationToken);
+            string body = System.Text.Encoding.UTF8.GetString(preview, 0, length);
+            var uri = response.RequestMessage?.RequestUri;
+            throw new Lagrange.Core.Exceptions.HttpServiceException(uri?.GetLeftPart(UriPartial.Path) ?? "http", $"HTTP request failed with status {(int)response.StatusCode}.", (int)response.StatusCode) { ResponseBody = body };
         }
         if (response.Content.Headers.ContentLength is > MaxResponseBytes) throw new Lagrange.Core.Exceptions.HttpServiceException(response.RequestMessage?.RequestUri?.Host ?? "http", "HTTP response exceeds the configured size limit.", (int)response.StatusCode);
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);

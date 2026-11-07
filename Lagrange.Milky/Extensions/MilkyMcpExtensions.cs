@@ -18,13 +18,28 @@ public static class MilkyMcpExtensions
         if (configuration.Api.Mcp.Enabled)
         {
             services.AddMcp();
-            services.AddMcpServer().WithRequestFilters(filters => filters.AddCallToolFilter(next => (context, ct) =>
+            services.AddMcpServer().WithRequestFilters(filters => filters.AddCallToolFilter(next => async (context, ct) =>
             {
                 ct.ThrowIfCancellationRequested();
                 // 空参数不会触发桥接器的 JSON 反序列化，需要检查生成元数据中的必填字段。
                 var required = MilkyMcpTools.GetRequiredArguments(context.Params.Name);
                 if (context.Params.Arguments is { Count: > 0 } || required.Length == 0)
-                    return next(context, ct);
+                {
+                    if (!configuration.Api.Mcp.IncludeExceptionDetails)
+                        return await next(context, ct);
+
+                    var previous = MilkyMcpExceptionCapture.Current.Value;
+                    var capture = new MilkyMcpExceptionCapture();
+                    MilkyMcpExceptionCapture.Current.Value = capture;
+                    try
+                    {
+                        return capture.WithDetails(await next(context, ct), context.Params.Name);
+                    }
+                    finally
+                    {
+                        MilkyMcpExceptionCapture.Current.Value = previous;
+                    }
+                }
 
                 var errors = new JsonObject
                 {
@@ -35,11 +50,11 @@ public static class MilkyMcpExtensions
                         ["code"] = "Required"
                     }).ToArray())
                 };
-                return ValueTask.FromResult(new CallToolResult
+                return new CallToolResult
                 {
                     IsError = true,
                     Content = [new TextContentBlock { Text = errors.ToJsonString() }]
-                });
+                };
             }));
         }
         return services;
@@ -53,7 +68,10 @@ public static class MilkyMcpExtensions
         configuration.Serializer.Options.TypeInfoResolverChain.Insert(0,
             McpJsonUtilities.DefaultOptions.TypeInfoResolverChain[0]);
         configuration.Endpoints.Configurator = definition =>
+        {
             MilkyMcpTools.Configure(definition, configuration.Serializer.Options);
+            definition.PostProcessor<MilkyMcpExceptionCapture>(Order.After);
+        };
     }
 
     public static void UseMilkyMcp(this WebApplication app)
