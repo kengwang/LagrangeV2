@@ -159,10 +159,12 @@ internal sealed class HttpSessionContext : IDisposable
     internal void InvalidateCookies(string domain)
     {
         _pSkeyCache.TryRemove(domain, out _);
+        bool clearSkey = domain.Equals("qzone.qq.com", StringComparison.OrdinalIgnoreCase);
+        if (clearSkey) _skeyCache.TryRemove("skey", out _);
         foreach (Cookie cookie in _cookies.GetAllCookies())
         {
             var host = cookie.Domain.TrimStart('.');
-            if (cookie.Name == "p_skey" && (host.Equals(domain, StringComparison.OrdinalIgnoreCase)
+            if (clearSkey && cookie.Name == "skey" || cookie.Name == "p_skey" && (host.Equals(domain, StringComparison.OrdinalIgnoreCase)
                 || host.EndsWith($".{domain}", StringComparison.OrdinalIgnoreCase)
                 || CookieSourceDomain(host).Equals(domain, StringComparison.OrdinalIgnoreCase)))
                 cookie.Expired = true;

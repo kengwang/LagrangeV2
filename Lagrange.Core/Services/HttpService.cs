@@ -20,6 +20,12 @@ public abstract class HttpService<TRequest, TResponse> : IHttpService
     {
         ArgumentNullException.ThrowIfNull(context);
         var session = context.HttpSessionContext;
+        if (Metadata.CookieDomains.Contains("qzone.qq.com"))
+        {
+            // QQ can reject a stored session ticket before its cookie expires locally.
+            session.InvalidateCookies("qzone.qq.com");
+            await session.GetPSkeyAsync("qzone.qq.com", cancellationToken);
+        }
         using var httpRequest = await BuildRequestAsync(context, request, cancellationToken);
         if (!httpRequest.Options.TryGetValue(AuthPrepared, out var prepared) || !prepared)
             await PrepareRequestAsync(context, httpRequest, cancellationToken);

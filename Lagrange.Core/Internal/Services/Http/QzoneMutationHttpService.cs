@@ -1,4 +1,5 @@
 using Lagrange.Core.Common;
+using System.Globalization;
 using System.Text;
 using Lagrange.Core.Common.Response;
 using Lagrange.Core.Exceptions;
@@ -50,7 +51,14 @@ internal sealed class QzoneMutationHttpService : HttpService<QzoneMutationEventR
         var subcode = root.TryGetProperty("subcode", out var s) && s.TryGetInt32(out var sv) ? sv : 0;
         if (code != 0 || subcode != 0) throw new HttpServiceException("qzone.mutation", root.TryGetProperty("message", out var m) ? m.ToString() : "QZone mutation failed.", businessCode: code != 0 ? code : subcode);
         if (request.Kind == QzoneMutationKind.Comment) { var id = root.TryGetProperty("commentid", out var cid) ? cid.ToString() : root.TryGetProperty("commentId", out cid) ? cid.ToString() : string.Empty; return Task.FromResult(new QzoneMutationEventResp(new BotQzoneCommentResult { CommentId = id }, null)); }
-        if (request.Kind == QzoneMutationKind.Publish) { var id = root.TryGetProperty("t1_tid", out var tid) ? tid.ToString() : root.TryGetProperty("tid", out tid) ? tid.ToString() : string.Empty; if (string.IsNullOrWhiteSpace(id)) throw new HttpServiceException("qzone.mutation", "QZone publish response is missing tid."); var time = root.TryGetProperty("t1_time", out var timeValue) && timeValue.TryGetInt64(out var parsed) ? parsed : 0; return Task.FromResult(new QzoneMutationEventResp(null, new BotQzonePublishResult { MessageId = id, Time = time })); }
+        if (request.Kind == QzoneMutationKind.Publish)
+        {
+            var id = root.TryGetProperty("t1_tid", out var tid) ? tid.ToString() : root.TryGetProperty("tid", out tid) ? tid.ToString() : string.Empty;
+            if (string.IsNullOrWhiteSpace(id)) throw new HttpServiceException("qzone.mutation", "QZone publish response is missing tid.");
+            var time = (root.TryGetProperty("t1_time", out var timeValue) || root.TryGetProperty("now", out timeValue))
+                && long.TryParse(timeValue.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
+            return Task.FromResult(new QzoneMutationEventResp(null, new BotQzonePublishResult { MessageId = id, Time = time }));
+        }
         return Task.FromResult(new QzoneMutationEventResp(null, null));
     }
 }
