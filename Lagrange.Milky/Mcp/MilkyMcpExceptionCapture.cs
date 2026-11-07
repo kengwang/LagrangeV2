@@ -23,10 +23,11 @@ internal sealed class MilkyMcpExceptionCapture : IGlobalPostProcessor
     {
         if (_exception is null || result.IsError != true) return result;
 
+        var cause = _exception.GetBaseException();
         var error = new JsonObject
         {
-            ["error"] = _exception.Message,
-            ["exceptionType"] = _exception.GetType().FullName,
+            ["error"] = cause.Message,
+            ["exceptionType"] = cause.GetType().FullName,
             ["details"] = _exception.ToString(),
             ["tool"] = toolName,
             ["traceId"] = Activity.Current?.TraceId.ToString()

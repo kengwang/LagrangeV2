@@ -72,7 +72,7 @@ internal sealed class QzoneFeedsHttpService : HttpService<GetQzoneFeedsEventReq,
         var main = data is JsonObject obj ? obj["main"]?.AsObject() : null;
         if (main?["error"] is { } error && error.ToString().Length > 0) throw new InvalidDataException("Qzone feed server reported a paging error.");
         bool more = ReadMore(main is null ? data is JsonObject d ? d["hasmore"] : root["hasmore"] : main["hasMoreFeeds"]);
-        var feeds = items.Select(node =>
+        var feeds = items.Where(node => node is not null).Select(node =>
         {
             var item = node?.AsObject() ?? throw new InvalidDataException("Qzone feed entry is invalid.");
             var feed = new BotQzoneFeed { UserId = Number(item["uin"]), Nickname = item["nickname"]?.GetValue<string>() ?? "", Time = Number(item["abstime"]),
@@ -94,7 +94,7 @@ internal sealed class QzoneFeedsHttpService : HttpService<GetQzoneFeedsEventReq,
 
     private static bool ReadMore(JsonNode? value) => value?.ToString() switch { "true" or "1" => true, "false" or "0" => false, _ => throw new InvalidDataException("Qzone pagination status is invalid.") };
     private static long Number(JsonNode? node) => node is not null && long.TryParse(node.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number : throw new InvalidDataException("Qzone numeric field is invalid.");
-    private static long? OptionalCount(JsonNode? node) => node is null ? null : Number(node);
+    private static long? OptionalCount(JsonNode? node) => node is null || node.ToString().Length == 0 ? null : Number(node);
     private static string Position(JsonObject state) => new JsonArray(NumericFields.Where(x => x != "icServerTime").Concat(StringFields).Select(x => (JsonNode?)JsonValue.Create(state[x]?.ToString())).ToArray()).ToJsonString();
 
     internal static JsonObject NextState(JsonObject main, JsonObject previous)

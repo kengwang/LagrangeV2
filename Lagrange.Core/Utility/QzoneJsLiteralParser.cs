@@ -61,6 +61,8 @@ internal static class QzoneJsLiteralParser
             case StringLiteral text: return text.Value;
             case BooleanLiteral boolean: return boolean.Value;
             case NullLiteral: return null;
+            // Qzone JSONP uses undefined for empty fields and array placeholders.
+            case Identifier { Name: "undefined" }: return null;
             case NumericLiteral number:
                 if (long.TryParse(number.Raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var integer)) return integer;
                 if (ulong.TryParse(number.Raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var unsigned)) return unsigned;
